@@ -146,27 +146,27 @@ const CourseContent = ({ course, isPurchased }: CourseContentProps) => {
 
                                     {/* Section Header */}
                                     <div
-                                        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition"
+                                        className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition gap-4"
                                         onClick={() => toggleSection(section.sectionID)}
                                     >
-                                        <div>
+                                        <div className="flex-1 min-w-0">
                                             <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                                                 {isExpanded ? (
-                                                    <ChevronDown className="w-5 h-5" />
+                                                    <ChevronDown className="w-5 h-5 flex-shrink-0" />
                                                 ) : (
-                                                    <ChevronRight className="w-5 h-5" />
+                                                    <ChevronRight className="w-5 h-5 flex-shrink-0" />
                                                 )}
-                                                {section.orderIndex}. {section.title}
+                                                <span className="truncate">{section.orderIndex}. {section.title}</span>
                                             </h3>
 
                                             {section.description && (
-                                                <p className="text-sm text-gray-500 mt-1">
+                                                <p className="text-sm text-gray-500 mt-1 line-clamp-2">
                                                     {section.description}
                                                 </p>
                                             )}
                                         </div>
 
-                                        <span className="text-sm text-gray-500">
+                                        <span className="text-sm text-gray-500 whitespace-nowrap flex-shrink-0">
                                             {section.lessons.length} lessons
                                         </span>
                                     </div>

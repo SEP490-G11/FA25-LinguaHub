@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Clock, Star, Heart } from "lucide-react";
 import api from "@/config/axiosConfig";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { ROUTES } from "@/constants/routes.ts";
 import { getUserId } from "@/lib/getUserId.ts";
@@ -47,7 +47,6 @@ interface CourseHeroSectionProps {
 
 const CourseHeroSection = ({ course, wishlisted, setWishlisted }: CourseHeroSectionProps) => {
   const navigate = useNavigate();
-  const [isOwner, setIsOwner] = useState(false);
   const { toast } = useToast();
 
 
@@ -96,23 +95,12 @@ const CourseHeroSection = ({ course, wishlisted, setWishlisted }: CourseHeroSect
     });
   };
 
-  /* ------------------- Check khóa học thuộc tutor ------------------- */
+  /* ------------------- Auto remove wishlist if purchased ------------------- */
   useEffect(() => {
-    const checkTutorCourse = async () => {
-      try {
-        const res = await api.get("/tutor/courses/me");
-        const mine = res.data.result || [];
-        const found = mine.some((c: { id: number }) => c.id === course.id);
-        if (found) setIsOwner(true);
-      } catch {}
-    };
-
-    checkTutorCourse();
-
     if (course.isPurchased) {
       setWishlisted(false);
     }
-  }, [course.id, course.isPurchased]);
+  }, [course.isPurchased]);
 
   /* ------------------- Wishlist toggle ------------------- */
   const toggleWishlist = async () => {
@@ -281,8 +269,8 @@ const CourseHeroSection = ({ course, wishlisted, setWishlisted }: CourseHeroSect
             </span>
 
               <div className="flex gap-4 mt-4">
-                {/* Wishlist */}
-                {!isOwner && !normalizedCourse.isPurchased && (
+                {/* Wishlist - Only show if not purchased */}
+                {!normalizedCourse.isPurchased && (
                     <button
                         onClick={toggleWishlist}
                         className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all border border-white ${
@@ -302,8 +290,8 @@ const CourseHeroSection = ({ course, wishlisted, setWishlisted }: CourseHeroSect
                     </button>
                 )}
 
-                {/* BUTTON: Go to Course */}
-                {isOwner || normalizedCourse.isPurchased ? (
+                {/* BUTTON: Go to Course or Buy Now */}
+                {normalizedCourse.isPurchased ? (
                     <button
                         onClick={goToFirstLesson}
                         className="px-6 py-3 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition"

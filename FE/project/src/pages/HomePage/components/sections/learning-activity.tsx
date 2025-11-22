@@ -33,12 +33,36 @@ const LearningActivity = () => {
 
                 if (userId) {
                     const slotsRes = await api.get('/booking-slots/my-slots');
-                    const userSlots = slotsRes.data.result
-                        .filter((b: BookingSlot) => b.userID === userId)
-                        .sort((a: BookingSlot, b: BookingSlot) => 
-                            new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
-                        )
-                        .slice(0, 6);
+                    const allSlots = slotsRes.data.result || [];
+                    
+                    // Filter slots that belong to current user and have status "Paid"
+                    const userSlots = allSlots
+                        .filter((b: any) => {
+                            // Check if user_id matches (API returns user_id, not userID)
+                            const slotUserId = b.user_id || b.userID;
+                            return slotUserId === userId && b.status === 'Paid';
+                        })
+                        .sort((a: any, b: any) => {
+                            // Sort by start time, newest first
+                            const timeA = new Date(a.start_time || a.startTime).getTime();
+                            const timeB = new Date(b.start_time || b.startTime).getTime();
+                            return timeB - timeA;
+                        })
+                        .slice(0, 6)
+                        .map((slot: any) => ({
+                            slotID: slot.slotid || slot.slotID,
+                            bookingPlanID: slot.booking_planid || slot.bookingPlanID,
+                            tutorID: slot.tutor_id || slot.tutorID,
+                            userID: slot.user_id || slot.userID,
+                            startTime: slot.start_time || slot.startTime,
+                            endTime: slot.end_time || slot.endTime,
+                            paymentID: slot.payment_id || slot.paymentID,
+                            status: slot.status,
+                            lockedAt: slot.locked_at || slot.lockedAt,
+                            expiresAt: slot.expires_at || slot.expiresAt,
+                            userPackage: slot.user_package || slot.userPackage || null,
+                        }));
+                    
                     setBookings(userSlots);
                 }
             } catch (error) {
@@ -141,7 +165,7 @@ const LearningActivity = () => {
                                                                         ? 'bg-gray-300 text-gray-700' 
                                                                         : 'bg-blue-600 text-white'
                                                                 }`}>
-                                                                    {isExpired ? 'Completed' : 'Upcoming'}
+                                                                    {isExpired ? 'Past Session' : 'Upcoming'}
                                                                 </span>
                                                             </div>
                                                             <h3 className="font-bold text-gray-900 mb-2 text-lg">

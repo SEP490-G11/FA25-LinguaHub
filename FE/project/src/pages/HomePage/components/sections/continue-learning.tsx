@@ -170,7 +170,7 @@ export default function ContinueLearning() {
                                     <img src={course.thumbnailURL} className="w-full h-full object-cover" />
 
                                     <div className="absolute top-4 right-4 bg-white/90 px-3 py-1 rounded-full text-sm font-bold">
-                                        {course.progressPercent.toFixed(2)}% Complete
+                                        {Math.round(course.progressPercent)}% Complete
                                     </div>
 
                                     <div className="absolute bottom-4 left-4 right-4">

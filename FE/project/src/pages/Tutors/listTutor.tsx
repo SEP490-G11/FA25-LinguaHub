@@ -39,24 +39,54 @@ const Tutors = () => {
         const res = await api.get("/tutors/approved");
         const data = Array.isArray(res.data.result) ? res.data.result : res.data;
 
-        const formatted: Tutor[] = data.map((tutor: any) => ({
-          id: tutor.tutorId,
-          name: tutor.userName,
-          language: (tutor.teachingLanguage ?? "Unknown").trim(),
-          country: tutor.country ?? "Unknown",
-          rating: tutor.rating ?? 5.0,
-          reviews: tutor.reviews ?? 0,
-          price: tutor.pricePerHour ?? 0,
-          specialties: tutor.specialization ? tutor.specialization.split(",") : [],
-          image:
-              tutor.avatarUrl ||
-              tutor.avatarURL ||
-              "https://placehold.co/300x200?text=No+Image",
-          description: tutor.specialization || "No description available.",
-          availability: tutor.availability ?? "Available",
-        }));
+        // Fetch detailed info for each tutor to get bio
+        const detailedTutors = await Promise.all(
+          data.map(async (tutor: any) => {
+            try {
+              const detailRes = await api.get(`/tutors/${tutor.tutorId}`);
+              const detail = detailRes.data;
+              
+              return {
+                id: tutor.tutorId,
+                name: tutor.userName,
+                language: (tutor.teachingLanguage ?? "Unknown").trim(),
+                country: tutor.country ?? "Unknown",
+                rating: tutor.rating ?? 5.0,
+                reviews: tutor.reviews ?? 0,
+                price: tutor.pricePerHour ?? 0,
+                specialties: tutor.specialization ? tutor.specialization.split(",").map((s: string) => s.trim()) : [],
+                image:
+                    tutor.avatarUrl ||
+                    tutor.avatarURL ||
+                    "https://placehold.co/300x200?text=No+Image",
+                description: detail.bio || "No bio available.",
+                availability: tutor.availability ?? "Available",
+              };
+            } catch (err) {
+              // Fallback if detail fetch fails
+              return {
+                id: tutor.tutorId,
+                name: tutor.userName,
+                language: (tutor.teachingLanguage ?? "Unknown").trim(),
+                country: tutor.country ?? "Unknown",
+                rating: tutor.rating ?? 5.0,
+                reviews: tutor.reviews ?? 0,
+                price: tutor.pricePerHour ?? 0,
+                specialties: tutor.specialization ? tutor.specialization.split(",").map((s: string) => s.trim()) : [],
+                image:
+                    tutor.avatarUrl ||
+                    tutor.avatarURL ||
+                    "https://placehold.co/300x200?text=No+Image",
+                description: "No bio available.",
+                availability: tutor.availability ?? "Available",
+              };
+            }
+          })
+        );
 
-        setTutors(formatted);
+        setTutors(detailedTutors);
+
+
       } catch (error) {
         console.error(" Failed to fetch tutors:", error);
       } finally {

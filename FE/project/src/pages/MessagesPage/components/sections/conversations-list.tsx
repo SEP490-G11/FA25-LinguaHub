@@ -20,7 +20,7 @@ interface MyInfo {
 interface ChatRoomMessage {
   messageID: number;
   content: string;
-  messageType: string; // "Text", "Link", etc.
+  messageType: string;
   createdAt: string;
 }
 
@@ -106,7 +106,7 @@ const ConversationsList = ({
       };
     }
 
-    // fallback
+
     return {
       name: room.userName,
       avatar: room.userAvatarURL,
@@ -134,23 +134,29 @@ const ConversationsList = ({
         }
       }
     } catch {
+      // Not JSON, continue
+    }
 
+    // Check if content is base64 image
+    if (content.startsWith("data:image/")) {
+      return "📷 Image";
+    }
+
+    // Check if content is base64 file/document
+    if (content.startsWith("data:application/") || content.startsWith("data:")) {
+      return "📎 File";
     }
 
     if (type === "Link") {
-      return (
-          <a
-              href={content}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 underline break-words"
-          >
-            {content}
-          </a>
-      );
+      return "🔗 Link";
     }
 
-    return <p className="whitespace-pre-wrap break-words text-sm">{content}</p>;
+    // Regular text - truncate if too long
+    if (content.length > 50) {
+      return content.substring(0, 50) + "...";
+    }
+
+    return content;
   };
 
 
@@ -191,7 +197,9 @@ const ConversationsList = ({
                     getRoomDisplay(room);
 
                 const lastMessage = room.messages[room.messages.length - 1];
-                const lastMsgText = renderMessageContent(lastMessage || { content: "No messages yet", messageType: "Text", createdAt: "" });
+                const lastMsgText = lastMessage 
+                    ? renderMessageContent(lastMessage)
+                    : "No messages yet";
                 const lastMsgTime = lastMessage
                     ? new Date(lastMessage.createdAt).toLocaleString()
                     : "—";

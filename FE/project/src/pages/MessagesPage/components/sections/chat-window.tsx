@@ -9,6 +9,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/components/ui/use-toast";
 import api from "@/config/axiosConfig";
 import { useUserInfo } from "@/hooks/useUserInfo";
 
@@ -101,6 +102,7 @@ function isGoogleMeetLink(content: string): boolean {
 }
 
 const ChatWindow = ({ conversationId }: ChatWindowProps) => {
+  const { toast } = useToast();
   const [message, setMessage] = useState<string>(""); // Text input for message
   const [room, setRoom] = useState<ChatRoom | null>(null); // Chat room data
   const [loading, setLoading] = useState<boolean>(true); // Loading state
@@ -212,6 +214,18 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Validate image type
+    if (type === "Image" && !file.type.startsWith("image/")) {
+      toast({
+        variant: "destructive",
+        title: "Invalid file type",
+        description: "Please select an image file (PNG, JPG, GIF, etc.)",
+      });
+      // Clear input
+      if (imageInputRef.current) imageInputRef.current.value = "";
+      return;
+    }
+
     setSelectedFile(file);
 
     // Create preview for images
@@ -265,7 +279,11 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
           handleClearFile();
         } catch (err) {
           console.error("Send file failed:", err);
-          alert("Failed to send file. Please try again.");
+          toast({
+            variant: "destructive",
+            title: "Failed to send file",
+            description: "Please try again later.",
+          });
         } finally {
           setUploading(false);
         }
@@ -532,12 +550,12 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
                       className="hidden"
                       onChange={(e) => handleFileSelect(e, "Image")}
                   />
-                  <input
+                  {/* <input
                       ref={fileInputRef}
                       type="file"
                       className="hidden"
                       onChange={(e) => handleFileSelect(e, "File")}
-                  />
+                  /> */}
                   <Button
                       variant="ghost"
                       size="sm"
@@ -547,7 +565,7 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
                   >
                     <ImageIcon className="w-5 h-5 text-blue-600" />
                   </Button>
-                  <Button
+                  {/* <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => fileInputRef.current?.click()}
@@ -555,7 +573,7 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
                       className="rounded-full hover:bg-blue-50"
                   >
                     <Paperclip className="w-5 h-5 text-blue-600" />
-                  </Button>
+                  </Button> */}
                 </>
             )}
 

@@ -6,7 +6,7 @@ import { ROUTES } from '@/constants/routes.ts';
 const HeroBanner = () => {
   const images = [
     "https://images.pexels.com/photos/3184287/pexels-photo-3184287.jpeg?auto=compress&cs=tinysrgb&w=1600",
-    "https://images.pexels.com/photos/4143790/pexels-photo-4143790.jpeg?auto=compress&cs=tinysrgb&w=1600",
+    "https://848603edf5.vws.vegacdn.vn/UploadImages%2Fhaiphong%2Fttgdtxhaiphong%2F2023_2%2Fday-hoc-tich-cuc-1_212202310.jpg?w=900",
     "https://images.pexels.com/photos/1181342/pexels-photo-1181342.jpeg?auto=compress&cs=tinysrgb&w=1600",
     "https://images.pexels.com/photos/545068/pexels-photo-545068.jpeg?auto=compress&cs=tinysrgb&w=1600",
   ];

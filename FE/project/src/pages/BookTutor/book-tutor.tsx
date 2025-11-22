@@ -6,6 +6,7 @@ import CalendarSlots, { SelectedSlot, PackageItem } from "./components/sections/
 import BenefitsCommitment from "./components/sections/benefits-commitment";
 import BookingSummary from "./components/sections/booking-summary";
 import { useUserInfo } from "@/hooks/useUserInfo";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Tutor {
   tutorId: number;
@@ -38,6 +39,7 @@ interface RawPackage {
 const BookTutor = () => {
   const { tutorId } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { user, loading: userLoading } = useUserInfo();
   const [tutor, setTutor] = useState<Tutor | null>(null);
   const [packages, setPackages] = useState<PackageItem[]>([]);
@@ -109,11 +111,19 @@ const BookTutor = () => {
   /** ===================== BOOKING ===================== */
   const handleBooking = async () => {
     if (selectedSlots.length === 0) {
-      alert("You must select at least 1 session.");
+      toast({
+        variant: "destructive",
+        title: "No sessions selected",
+        description: "You must select at least 1 session.",
+      });
       return;
     }
     if (selectedPackage && selectedSlots.length !== selectedPackage.maxSlot) {
-      alert(`You must select exactly ${selectedPackage.maxSlot} sessions.`);
+      toast({
+        variant: "destructive",
+        title: "Incomplete package selection",
+        description: `You must select exactly ${selectedPackage.maxSlot} sessions for this package.`,
+      });
       return;
     }
     if (!user) {
@@ -123,14 +133,15 @@ const BookTutor = () => {
     try {
       const formattedSlots = selectedSlots.map((slot) => {
         const [hour, minute] = slot.time.split(":");
-        const startTime = `${slot.date}T${hour.padStart(2, "0")}:${minute.padStart(
-            2,
-            "0"
-        )}`;
-        const endTime = `${slot.date}T${String(Number(hour) + 1).padStart(
-            2,
-            "0"
-        )}:${minute.padStart(2, "0")}`;
+        const startTime = `${slot.date}T${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+        
+        // Calculate end time: add 30 minutes
+        const startMinutes = Number(hour) * 60 + Number(minute);
+        const endMinutes = startMinutes + 30;
+        const endHour = Math.floor(endMinutes / 60);
+        const endMinute = endMinutes % 60;
+        
+        const endTime = `${slot.date}T${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`;
         return { startTime, endTime };
       });
       const body = {
@@ -143,17 +154,26 @@ const BookTutor = () => {
       if (res.data?.checkoutUrl) {
         window.location.href = res.data.checkoutUrl;
       } else {
-        alert("Cannot create payment.");
+        toast({
+          variant: "destructive",
+          title: "Payment creation failed",
+          description: "Cannot create payment. Please try again.",
+        });
       }
     } catch (error) {
       console.error("Payment error:", error);
-      alert("Failed to create payment.");
+      toast({
+        variant: "destructive",
+        title: "Payment failed",
+        description: "Failed to create payment. Please try again later.",
+      });
     }
   };
 
   if (loading || userLoading) return <div className="text-center py-10">Loading...</div>;
 
   /** ===================== PRICE ===================== */
+  // Each slot has the full tutor price (not divided)
   const totalPrice = tutor
       ? selectedPackage
           ? selectedPackage.maxSlot * tutor.pricePerHour

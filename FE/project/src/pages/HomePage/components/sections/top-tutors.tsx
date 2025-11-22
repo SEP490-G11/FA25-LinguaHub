@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import api from "@/config/axiosConfig";
 import { ROUTES } from "@/constants/routes";
 
-// Interface trả về từ /tutors/approved
+
 interface ApprovedTutor {
   verificationId: number;
   tutorId: number;
@@ -24,7 +24,7 @@ interface ApprovedTutor {
   reviewedAt: string;
 }
 
-// Interface trả về từ /tutors/{id}
+
 interface TutorDetail {
   tutorId: number;
   userId: number;
@@ -119,10 +119,10 @@ const TopTutors = () => {
               variants={staggerContainer}
           >
             {tutors.map((tutor) => (
-                <motion.div key={tutor.tutorId} variants={fadeInUp}>
-                  <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 group cursor-pointer border-0 bg-white/80 backdrop-blur-sm">
+                <motion.div key={tutor.tutorId} variants={fadeInUp} className="h-full">
+                  <Card className="overflow-hidden hover:shadow-2xl transition-all duration-300 group cursor-pointer border-0 bg-white/80 backdrop-blur-sm h-full flex flex-col">
 
-                    <Link to={`/tutors-Detail/${tutor.tutorId}`}>
+                    <Link to={`/tutors/${tutor.tutorId}`} className="flex flex-col h-full">
 
                       {/* Avatar — TĂNG SIZE TỪ h-72 → h-80 */}
                       <div className="relative w-full h-80 overflow-hidden rounded-t-xl bg-gray-100">
@@ -133,7 +133,7 @@ const TopTutors = () => {
                         />
                       </div>
 
-                      <CardContent className="p-6">
+                      <CardContent className="p-6 flex flex-col flex-1">
 
                         {/* NAME + RATING */}
                         <div className="flex justify-between items-center mb-3">
@@ -166,13 +166,22 @@ const TopTutors = () => {
                       </span>
                         </div>
 
-                        {/* BIO */}
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
+                        {/* BIO - Fixed height with ellipsis */}
+                        <p 
+                          className="text-sm text-muted-foreground mb-4 overflow-hidden"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical',
+                            height: '4.5rem',
+                            lineHeight: '1.5rem'
+                          }}
+                        >
                           {tutor.bio || "No bio available"}
                         </p>
 
-                        {/* PRICE */}
-                        <div className="flex justify-end">
+                        {/* PRICE - Push to bottom */}
+                        <div className="flex justify-end mt-auto">
                       <span className="text-lg font-bold text-indigo-600">
                         {formatPrice(tutor.pricePerHour)}
                       </span>

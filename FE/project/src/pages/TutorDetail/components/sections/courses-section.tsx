@@ -109,7 +109,7 @@ const CoursesSection = ({ courses }: CoursesSectionProps) => {
                   key={course.id}
                   className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer flex flex-col"
               >
-                <Link to={`/course/${course.id}`} className="flex flex-col h-full">
+                <Link to={`/courses/${course.id}`} className="flex flex-col h-full">
                   <img
                       src={
                           course.thumbnailURL ||

@@ -67,7 +67,11 @@ interface CalendarSlotsProps {
 const formatDateFixed = (d: Date) =>
     `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-const getPlanHour = (val: string) => parseInt(val.substring(0, 2), 10);
+// Convert time string "HH:MM" to minutes since midnight
+const timeToMinutes = (time: string): number => {
+  const [hour, minute] = time.split(':').map(Number);
+  return hour * 60 + minute;
+};
 
 const getMonday = (d: Date) => {
   const day = d.getDay();
@@ -103,7 +107,14 @@ const CalendarSlots = ({
   const canGoNext = currentWeekStart.getTime() !== fourthAllowedWeek.getTime();
 
   const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const hours = Array.from({ length: 11 }).map((_, i) => 6 + i);
+  
+  // Generate time slots: 30-minute intervals from 0:00 to 23:30 (48 slots total)
+  const timeSlots = Array.from({ length: 48 }).map((_, i) => {
+    const hour = Math.floor(i / 2);
+    const minute = (i % 2) * 30;
+    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  });
+  
   const weekDates = Array.from({ length: 7 }).map((_, i) => {
     const src = currentWeekStart;
     return new Date(src.getFullYear(), src.getMonth(), src.getDate() + i);
@@ -262,13 +273,16 @@ const CalendarSlots = ({
 
   const getStatus = (
       plan: BookingPlan,
-      hour: number
+      timeSlot: string
   ): "Available" | "Selected" | "Booked" | "Your Slot" | "Locked" | null => {
-    const sH = getPlanHour(plan.start_hours);
-    const eH = getPlanHour(plan.end_hours);
-    if (!(hour >= sH && hour < eH)) return null;
+    const slotMinutes = timeToMinutes(timeSlot);
+    const startMinutes = timeToMinutes(plan.start_hours);
+    const endMinutes = timeToMinutes(plan.end_hours);
+    
+    // Check if this time slot falls within the plan's time range
+    if (!(slotMinutes >= startMinutes && slotMinutes < endMinutes)) return null;
 
-    const slotKey = `${plan.date}T${String(hour).padStart(2, "0")}:00_plan_${plan.booking_planid}`;
+    const slotKey = `${plan.date}T${timeSlot}_plan_${plan.booking_planid}`;
 
     // Check locked slots first
     if (lockedSlotsMap[slotKey]) return "Locked";
@@ -280,7 +294,7 @@ const CalendarSlots = ({
     if (bookedByOthersMap[slotKey]) return "Booked"; 
 
     const exists = selectedSlots.some(
-        (s) => s.bookingPlanId === plan.booking_planid && s.time === `${hour}:00` && s.date === plan.date
+        (s) => s.bookingPlanId === plan.booking_planid && s.time === timeSlot && s.date === plan.date
     );
 
     if (exists) return "Selected";
@@ -420,13 +434,13 @@ const CalendarSlots = ({
         </div>
 
         {/* TABLE */}
-        <div className="overflow-x-auto rounded-lg border border-blue-200 bg-white shadow">
-          <table className="w-full border-collapse">
-            <thead>
+        <div className="relative overflow-auto rounded-lg border border-blue-200 bg-white shadow max-h-[600px]">
+          <table className="w-full border-collapse relative">
+            <thead className="sticky top-0 z-30">
             <tr className="bg-blue-100 text-blue-900">
-              <th className="border p-3">Hour</th>
+              <th className="border p-2 sticky left-0 bg-blue-100 z-40 min-w-[70px]">Time</th>
               {weekDates.map((d, i) => (
-                  <th key={i} className="border p-3 text-center">
+                  <th key={i} className="border p-2 text-center min-w-[100px] bg-blue-100">
                     <div className="font-semibold">{weekdayLabels[i]}</div>
                     <div className="text-xs">{formatDateFixed(d)}</div>
                   </th>
@@ -435,9 +449,9 @@ const CalendarSlots = ({
             </thead>
 
             <tbody>
-            {hours.map((hour) => (
-                <tr key={hour}>
-                  <td className="border p-2 bg-blue-50 font-medium">{hour}:00</td>
+            {timeSlots.map((timeSlot) => (
+                <tr key={timeSlot}>
+                  <td className="border p-1 bg-blue-50 font-medium text-xs sticky left-0 z-20 whitespace-nowrap">{timeSlot}</td>
 
                   {weekDates.map((date, col) => {
                     const dateStr = formatDateFixed(date);
@@ -455,15 +469,18 @@ const CalendarSlots = ({
                         date.getDate()
                     );
 
+                    const [slotHour, slotMinute] = timeSlot.split(':').map(Number);
+                    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+                    const slotMinutes = slotHour * 60 + slotMinute;
+
                     if (
                         thisDay < todayDate ||
-                        (thisDay.getTime() === todayDate.getTime() &&
-                            hour <= now.getHours())
+                        (thisDay.getTime() === todayDate.getTime() && slotMinutes <= currentMinutes)
                     ) {
                       return (
                           <td
                               key={col}
-                              className="border p-2 text-center text-gray-300 bg-gray-50"
+                              className="border p-1 text-center text-gray-300 bg-gray-50"
                           >
                             —
                           </td>
@@ -474,7 +491,7 @@ const CalendarSlots = ({
                       return (
                           <td
                               key={col}
-                              className="border p-2 text-center text-gray-300"
+                              className="border p-1 text-center text-gray-300"
                           >
                             —
                           </td>
@@ -482,17 +499,14 @@ const CalendarSlots = ({
                     }
 
                     return (
-                        <td key={col} className="border p-2 text-center">
+                        <td key={col} className="border p-1 text-center">
                           {plans.map((p) => {
-                            const sH = getPlanHour(p.start_hours);
-                            const eH = getPlanHour(p.end_hours);
-                            if (!(hour >= sH && hour < eH)) return null;
-
-                            const status = getStatus(p, hour);
+                            const status = getStatus(p, timeSlot);
+                            if (!status) return null;
 
                             const styleMap: Record<string, string> = {
                               Available:
-                                  "bg-green-500/20 text-green-900 border-green-400",
+                                  "bg-green-500/20 text-green-900 border-green-400 hover:bg-green-500/30",
                               Selected:
                                   "bg-blue-500/30 text-blue-900 border-blue-500",
                               Booked:
@@ -517,7 +531,7 @@ const CalendarSlots = ({
                                               (x) =>
                                                   !(
                                                       x.bookingPlanId === p.booking_planid &&
-                                                      x.time === `${hour}:00` &&
+                                                      x.time === timeSlot &&
                                                       x.date === p.date
                                                   )
                                           );
@@ -529,16 +543,17 @@ const CalendarSlots = ({
                                           ...prev,
                                           {
                                             date: p.date,
-                                            time: `${hour}:00`,
+                                            time: timeSlot,
                                             day: weekdayLabels[col],
                                             bookingPlanId: p.booking_planid,
                                           },
                                         ];
                                       });
                                     }}
-                                    className={`w-full h-10 rounded-lg text-sm border transition ${styleMap[status!]}`}
+                                    className={`w-full h-8 rounded text-[10px] border transition ${styleMap[status!]}`}
+                                    title={`${timeSlot} - ${status}`}
                                 >
-                                  {status}
+                                  {status === "Available" ? "✓" : status === "Selected" ? "✓" : status.substring(0, 1)}
                                 </button>
                             );
                           })}

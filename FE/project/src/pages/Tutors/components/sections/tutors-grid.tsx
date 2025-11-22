@@ -118,9 +118,18 @@ const TutorsGrid = ({ tutors, loading }: TutorsGridProps) => {
                           <span>{tutor.language}</span>
                         </div>
 
-                        {/* DESCRIPTION */}
-                        <p className="text-gray-600 mb-4 text-sm line-clamp-2">
-                          {tutor.description}
+                        {/* DESCRIPTION - Fixed height with ellipsis */}
+                        <p 
+                          className="text-gray-600 mb-4 text-sm overflow-hidden"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical',
+                            height: '4.5rem',
+                            lineHeight: '1.5rem'
+                          }}
+                        >
+                          {tutor.description || "No description available"}
                         </p>
 
                         {/* SPECIALTIES */}
