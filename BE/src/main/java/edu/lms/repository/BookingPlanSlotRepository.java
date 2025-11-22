@@ -1,6 +1,7 @@
 package edu.lms.repository;
 
 import edu.lms.entity.BookingPlanSlot;
+import edu.lms.entity.User;
 import edu.lms.enums.SlotStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -127,4 +128,44 @@ public interface BookingPlanSlotRepository extends JpaRepository<BookingPlanSlot
     List<BookingPlanSlot> findByBookingPlanIDOrderByStartTimeAsc(Long bookingPlanID);
 
     void deleteByBookingPlanID(Long bookingPlanID);
+
+    // ================== THÊM MỚI PHẦN HỌC VIÊN CỦA TUTOR ==================
+
+    /**
+     * Lấy danh sách User (distinct) đã book slot với tutor (lọc theo status)
+     * Dùng cho màn danh sách học viên của tutor.
+     */
+    @Query("""
+        SELECT DISTINCT u
+        FROM BookingPlanSlot s
+        JOIN User u ON s.userID = u.userID
+        WHERE s.tutorID = :tutorId
+          AND s.userID IS NOT NULL
+          AND s.status = :status
+    """)
+    List<User> findBookedUsersByTutor(
+            @Param("tutorId") Long tutorId,
+            @Param("status") SlotStatus status
+    );
+
+    /**
+     * Đếm tổng số slot theo tutor + learner + status (thường dùng với status = Paid)
+     */
+    Long countByTutorIDAndUserIDAndStatus(Long tutorID, Long userID, SlotStatus status);
+
+    /**
+     * Lấy thời gian buổi học (startTime) gần nhất giữa tutor và learner
+     */
+    @Query("""
+        SELECT MAX(s.startTime)
+        FROM BookingPlanSlot s
+        WHERE s.tutorID = :tutorId
+          AND s.userID = :userId
+          AND s.status = :status
+    """)
+    LocalDateTime findLastSlotTimeByTutorAndUser(
+            @Param("tutorId") Long tutorId,
+            @Param("userId") Long userId,
+            @Param("status") SlotStatus status
+    );
 }
