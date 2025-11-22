@@ -32,7 +32,7 @@ const TutorSchedule: React.FC = () => {
   const [defaultStartTime, setDefaultStartTime] = useState('08:00');
   const [defaultEndTime, setDefaultEndTime] = useState('22:00');
   const [slotDuration, setSlotDuration] = useState(30);
-  const [defaultPrice, setDefaultPrice] = useState(50000);
+  const [defaultPrice, setDefaultPrice] = useState(0); // No default price, will be set from booking plans
   const [meetingUrl, setMeetingUrl] = useState('');
   const [meetingUrlError, setMeetingUrlError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -160,11 +160,14 @@ const TutorSchedule: React.FC = () => {
     setDefaultStartTime('08:00');
     setDefaultEndTime('22:00');
     setSlotDuration(30);
-    setDefaultPrice(50000);
+    // Reset price to first booking plan's price if available
+    if (bookingPlans.length > 0) {
+      setDefaultPrice(bookingPlans[0].price_per_hours);
+    }
     setMeetingUrl('');
     setMeetingUrlError('');
     setSchedule(getDefaultSchedule());
-  }, []);
+  }, [bookingPlans]);
 
   // Function to exit edit mode
   const handleCancelEdit = useCallback(() => {
