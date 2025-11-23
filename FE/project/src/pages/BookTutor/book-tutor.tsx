@@ -19,7 +19,7 @@ interface Tutor {
   specialization?: string | null;
   teachingLanguage?: string | null;
   rating?: number;
-  pricePerHour: number;
+  pricePerHour: number; // Giá cho 1 slot 60 phút (1 giờ)
   courses?: unknown[];
 }
 
@@ -135,9 +135,9 @@ const BookTutor = () => {
         const [hour, minute] = slot.time.split(":");
         const startTime = `${slot.date}T${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
         
-        // Calculate end time: add 30 minutes
+        // Calculate end time: add 60 minutes (1 hour)
         const startMinutes = Number(hour) * 60 + Number(minute);
-        const endMinutes = startMinutes + 30;
+        const endMinutes = startMinutes + 60;
         const endHour = Math.floor(endMinutes / 60);
         const endMinute = endMinutes % 60;
         
@@ -173,7 +173,7 @@ const BookTutor = () => {
   if (loading || userLoading) return <div className="text-center py-10">Loading...</div>;
 
   /** ===================== PRICE ===================== */
-  // Each slot has the full tutor price (not divided)
+  // Each slot is 60 minutes (1 hour), pricePerHour is the price for one 1-hour slot
   const totalPrice = tutor
       ? selectedPackage
           ? selectedPackage.maxSlot * tutor.pricePerHour

@@ -10,7 +10,7 @@ import { z } from "zod";
 import { ROUTES } from "@/constants/routes";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import api from "@/config/axiosConfig";
+import api, { CustomAxiosRequestConfig } from "@/config/axiosConfig";
 
 
 const verifyEmailSchema = z.object({
@@ -72,7 +72,7 @@ const VerifyEmail = () => {
       await api.post("/auth/verify", { otp: data.otpCode }, { 
         withCredentials: true,
         skipAuth: true 
-      } as any);
+      } as CustomAxiosRequestConfig);
 
       setIsVerified(true);
       localStorage.removeItem("temp_verify_email");
@@ -106,11 +106,11 @@ const VerifyEmail = () => {
       }
 
       const signupData = JSON.parse(savedForm) as Record<string, unknown>;
-      await api.post("/auth/register", signupData, { skipAuth: true } as any);
+      await api.post("/auth/register", signupData, { skipAuth: true } as CustomAxiosRequestConfig);
 
       setResendMessage(" A new OTP has been sent to your email.");
 
-      // 🔥 Reset countdown sau khi BE trả về thành công
+      //  Reset countdown sau khi BE trả về thành công
       setCountdown(20);
       setCanResend(false);
     } catch (error) {

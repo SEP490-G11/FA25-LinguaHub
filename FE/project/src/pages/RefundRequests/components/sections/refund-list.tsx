@@ -1,9 +1,18 @@
 import React, { useState } from 'react';
-import { Calendar, User, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Calendar, User, CheckCircle, XCircle, AlertCircle, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import api from '@/config/axiosConfig.ts';
 
 interface RefundRequest {
@@ -29,7 +38,33 @@ interface RefundListProps {
 
 const RefundList = ({ requests, currentUserId, isStudentView = false }: RefundListProps) => {
   const [editableRequest, setEditableRequest] = useState<RefundRequest | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    bankName: '',
+    bankOwnerName: '',
+    bankAccountNumber: '',
+  });
   const { toast } = useToast();
+  
+  const openModal = (request: RefundRequest) => {
+    setEditableRequest(request);
+    setFormData({
+      bankName: request.bankName || '',
+      bankOwnerName: request.bankOwnerName || '',
+      bankAccountNumber: request.bankAccountNumber || '',
+    });
+    setIsModalOpen(true);
+  };
+  
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEditableRequest(null);
+    setFormData({
+      bankName: '',
+      bankOwnerName: '',
+      bankAccountNumber: '',
+    });
+  };
 
   const getStatusBadge = (status: RefundRequest['status']) => {
     switch (status) {
@@ -71,37 +106,35 @@ const RefundList = ({ requests, currentUserId, isStudentView = false }: RefundLi
     }
   };
 
-  const handleSubmitForm = async (event: React.FormEvent, requestId: number) => {
+  const handleSubmitForm = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (editableRequest) {
-      try {
-        const response = await api.put(`/learner/refund/${requestId}`, {
-          bankName: editableRequest.bankName,
-          bankOwnerName: editableRequest.bankOwnerName,
-          bankAccountNumber: editableRequest.bankAccountNumber,
-        });
+    if (!editableRequest) return;
 
-        if (response.data.code === 0) {
-          toast({
-            title: 'Success!',
-            description: 'Refund request updated successfully!',
-            variant: 'success',
-          });
-          setEditableRequest(null);
-        }
-      } catch (error) {
-        console.error('Error updating refund request:', error);
+    try {
+      const response = await api.put(`/learner/refund/${editableRequest.refundRequestId}`, formData);
+
+      if (response.data.code === 0) {
         toast({
-          title: 'Error',
-          description: 'Failed to update refund request.',
-          variant: 'destructive',
+          title: 'Success!',
+          description: 'Bank details submitted successfully!',
         });
+        closeModal();
+        // Reload page để cập nhật data
+        window.location.reload();
       }
+    } catch (error) {
+      console.error('Error updating refund request:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to submit bank details.',
+        variant: 'destructive',
+      });
     }
   };
 
   return (
+      <>
       <div className="space-y-4">
         {requests.map((request) => (
             <div key={request.refundRequestId} className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-all">
@@ -159,56 +192,89 @@ const RefundList = ({ requests, currentUserId, isStudentView = false }: RefundLi
                 {request.status === 'PENDING' && !request.bankAccountNumber && !request.bankOwnerName && !request.bankName && request.userId === currentUserId && (
                     <div className="flex flex-col gap-2 lg:min-w-[180px]">
                       <Button
-                          onClick={() => setEditableRequest(request)}
-                          className="bg-gradient-to-r from-yellow-600 to-yellow-700 text-white gap-2"
+                          onClick={() => openModal(request)}
+                          className="bg-gradient-to-r from-yellow-600 to-yellow-700 text-white gap-2 hover:from-yellow-700 hover:to-yellow-800"
                       >
-                        <CheckCircle className="w-4 h-4" />
+                        <CreditCard className="w-4 h-4" />
                         Provide Bank Details
                       </Button>
                     </div>
-                )}
-
-                {editableRequest && editableRequest.refundRequestId === request.refundRequestId && (
-                    <form onSubmit={(e) => handleSubmitForm(e, request.refundRequestId)} className="mt-4 space-y-4">
-                      <div>
-                        <label htmlFor="bankName" className="block text-sm font-medium text-slate-700">Bank Name</label>
-                        <input
-                            type="text"
-                            id="bankName"
-                            value={editableRequest.bankName || ''}
-                            onChange={(e) => setEditableRequest({ ...editableRequest, bankName: e.target.value })}
-                            className="mt-1 p-2 w-full border border-slate-300 rounded-md"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="bankOwnerName" className="block text-sm font-medium text-slate-700">Bank Owner Name</label>
-                        <input
-                            type="text"
-                            id="bankOwnerName"
-                            value={editableRequest.bankOwnerName || ''}
-                            onChange={(e) => setEditableRequest({ ...editableRequest, bankOwnerName: e.target.value })}
-                            className="mt-1 p-2 w-full border border-slate-300 rounded-md"
-                        />
-                      </div>
-                      <div>
-                        <label htmlFor="bankAccountNumber" className="block text-sm font-medium text-slate-700">Bank Account Number</label>
-                        <input
-                            type="text"
-                            id="bankAccountNumber"
-                            value={editableRequest.bankAccountNumber || ''}
-                            onChange={(e) => setEditableRequest({ ...editableRequest, bankAccountNumber: e.target.value })}
-                            className="mt-1 p-2 w-full border border-slate-300 rounded-md"
-                        />
-                      </div>
-                      <Button type="submit" className="mt-4 bg-green-600 text-white">
-                        Submit Details
-                      </Button>
-                    </form>
                 )}
               </div>
             </div>
         ))}
       </div>
+      
+      {/* Modal for Bank Details */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <CreditCard className="w-5 h-5 text-green-600" />
+              Provide Bank Details
+            </DialogTitle>
+            <DialogDescription>
+              Enter your bank account information to receive the refund of{' '}
+              <span className="font-bold text-green-600">
+                {editableRequest?.refundAmount.toLocaleString()} đ
+              </span>
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={handleSubmitForm} className="space-y-4 mt-4">
+            <div className="space-y-2">
+              <Label htmlFor="bankName">Bank Name *</Label>
+              <Input
+                id="bankName"
+                placeholder="e.g., Vietcombank, BIDV, Techcombank"
+                value={formData.bankName}
+                onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="bankOwnerName">Account Holder Name *</Label>
+              <Input
+                id="bankOwnerName"
+                placeholder="Full name as shown on bank account"
+                value={formData.bankOwnerName}
+                onChange={(e) => setFormData({ ...formData, bankOwnerName: e.target.value })}
+                required
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="bankAccountNumber">Account Number *</Label>
+              <Input
+                id="bankAccountNumber"
+                placeholder="Enter your bank account number"
+                value={formData.bankAccountNumber}
+                onChange={(e) => setFormData({ ...formData, bankAccountNumber: e.target.value })}
+                required
+              />
+            </div>
+            
+            <div className="flex gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeModal}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                Submit Details
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+      </>
   );
 };
 

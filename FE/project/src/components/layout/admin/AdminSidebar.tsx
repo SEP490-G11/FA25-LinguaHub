@@ -8,6 +8,7 @@ import {
   UserCheck,
   CreditCard,
   UserCog,
+  DollarSign,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -52,6 +53,11 @@ const menuItems: MenuItem[] = [
     title: 'Quản lý thanh toán',
     href: '/admin/payments',
     icon: CreditCard,
+  },
+  {
+    title: 'Quản lý hoàn tiền',
+    href: '/admin/refund-management',
+    icon: DollarSign,
   },
 ];
 

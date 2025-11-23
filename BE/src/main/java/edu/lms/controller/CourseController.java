@@ -25,7 +25,6 @@ public class CourseController {
 
     CourseService courseService;
 
-    /** Lấy email từ Authentication nếu có, còn lại trả null (guest). */
     private String resolveEmail(Authentication auth) {
         if (auth == null || !auth.isAuthenticated()) return null;
         Object p = auth.getPrincipal();

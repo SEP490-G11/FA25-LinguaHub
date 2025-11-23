@@ -22,6 +22,7 @@ interface RefundRequest {
 
 const RefundRequests = () => {
   const [activeFilter, setActiveFilter] = useState('all'); // bộ lọc mặc định là 'all'
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest'); // Sắp xếp theo ngày
   const [allRefundRequests, setAllRefundRequests] = useState<RefundRequest[]>([]);
   const [displayedRequests, setDisplayedRequests] = useState<RefundRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,7 +30,7 @@ const RefundRequests = () => {
   const [totalPages, setTotalPages] = useState(1);
   const currentUserId = 3; // User ID from the logged-in context
   const isStudentView = true;
-  const itemsPerPage = 5;
+  const itemsPerPage = 6;
 
   // Fetch all data once on component mount
   useEffect(() => {
@@ -56,25 +57,36 @@ const RefundRequests = () => {
     setCurrentPage(1);
   }, [activeFilter]);
 
-  // Compute displayed requests and pagination whenever all data, filter, or page changes
+  // Compute displayed requests and pagination whenever all data, filter, sort, or page changes
   useEffect(() => {
     const filteredByStatus = allRefundRequests.filter(
         (r) => activeFilter === 'all' || r.status.toLowerCase() === activeFilter
     );
-    const total = filteredByStatus.length;
+    
+    // Sắp xếp theo ngày
+    const sorted = [...filteredByStatus].sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return sortOrder === 'newest' ? dateB - dateA : dateA - dateB;
+    });
+    
+    const total = sorted.length;
     setTotalPages(Math.ceil(total / itemsPerPage));
-    const paged = filteredByStatus.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    const paged = sorted.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
     setDisplayedRequests(paged);
-  }, [allRefundRequests, activeFilter, currentPage]);
+  }, [allRefundRequests, activeFilter, sortOrder, currentPage]);
 
   // Stats calculated from all requests (overall, not filtered)
   const stats = {
     pending: allRefundRequests.filter((r) => r.status === 'PENDING').length,
     submitted: allRefundRequests.filter((r) => r.status === 'SUBMITTED').length,
-    processed: allRefundRequests.filter((r) => r.status === 'PROCESSED').length,
+    approved: allRefundRequests.filter((r) => r.status === 'APPROVED').length,
     rejected: allRefundRequests.filter((r) => r.status === 'REJECTED').length,
-    totalAmount: allRefundRequests
-        .filter((r) => r.status !== 'REJECTED')
+    approvedAmount: allRefundRequests
+        .filter((r) => r.status === 'APPROVED')
+        .reduce((acc, r) => acc + r.refundAmount, 0),
+    rejectedAmount: allRefundRequests
+        .filter((r) => r.status === 'REJECTED')
         .reduce((acc, r) => acc + r.refundAmount, 0),
   };
 
@@ -83,7 +95,12 @@ const RefundRequests = () => {
         <div className="max-w-7xl mx-auto px-4 py-8">
           <HeroSection stats={stats} />
 
-          <FiltersSection activeFilter={activeFilter} onFilterChange={setActiveFilter} />
+          <FiltersSection 
+            activeFilter={activeFilter} 
+            onFilterChange={setActiveFilter}
+            sortOrder={sortOrder}
+            onSortChange={setSortOrder}
+          />
 
           {loading ? (
               <div className="text-center py-16">

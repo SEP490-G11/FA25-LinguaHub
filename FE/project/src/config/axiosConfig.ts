@@ -1,4 +1,9 @@
-import axios, { InternalAxiosRequestConfig } from "axios";
+import axios, { InternalAxiosRequestConfig, AxiosRequestConfig } from "axios";
+
+// Extend AxiosRequestConfig to include skipAuth
+export interface CustomAxiosRequestConfig extends AxiosRequestConfig {
+    skipAuth?: boolean;
+}
 
 const api = axios.create({
     baseURL: "http://localhost:8080",

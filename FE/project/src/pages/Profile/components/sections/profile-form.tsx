@@ -12,17 +12,22 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // ================== VALIDATION ==================
 const profileSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
-  email: z.string().email("Invalid email format"),
   phone: z.string().min(9, "Invalid phone number"),
   dob: z.string().optional(),
   gender: z.string().optional(),
   country: z.string().optional(),
   address: z.string().optional(),
   bio: z.string().optional(),
+  avatarURL: z.string().optional(),
 });
 type ProfileFormData = z.infer<typeof profileSchema>;
+
+// Read-only fields (not in form data)
+interface UserDisplayData extends ProfileFormData {
+  username: string;
+  email: string;
+}
 
 // ==================================================
 
@@ -30,12 +35,18 @@ export const ProfileForm = () => {
   const [userId, setUserId] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarBase64, setAvatarBase64] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // Read-only display fields
+  const [username, setUsername] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
 
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors, isDirty },
   } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -49,18 +60,19 @@ export const ProfileForm = () => {
 
         const user = res.data.result;
         setUserId(user.userID);
+        setUsername(user.username);
+        setEmail(user.email);
         setAvatarPreview(user.avatarURL);
 
         reset({
-          username: user.username,
           fullName: user.fullName,
-          email: user.email,
           phone: user.phone,
           dob: user.dob,
           gender: user.gender || "Other",
           country: user.country,
           address: user.address,
           bio: user.bio,
+          avatarURL: user.avatarURL,
         });
       } catch (error) {
         console.error("❌ Failed to fetch user info:", error);
@@ -76,45 +88,45 @@ export const ProfileForm = () => {
     setLoading(true);
 
     try {
-      // CHỉ gửi các field được backend cho phép update
-      const allowedFields: (keyof ProfileFormData)[] = [
-        "fullName",
-        "country",
-        "address",
-        "phone",
-        "bio",
-        "dob",
-      ];
+      // Tạo payload với các field được phép update
+      const payload: Record<string, unknown> = {
+        fullName: data.fullName,
+        phone: data.phone,
+        dob: data.dob,
+        gender: data.gender,
+        country: data.country,
+        address: data.address,
+        bio: data.bio,
+      };
 
-      const payload: Partial<ProfileFormData> = {};
-
-      allowedFields.forEach((key) => {
-        if (data[key] !== undefined) {
-          payload[key] = data[key];
-        }
-      });
-
+      // Nếu có avatar mới (base64), thêm vào payload
+      if (avatarBase64) {
+        payload.avatarURL = avatarBase64;
+      }
 
       const res = await api.patch(`/users/${userId}`, payload);
-      const updatedUser = res.data;
+      const updatedUser = res.data; // Backend trả về user object trực tiếp
 
+      // Update lại form với data mới
+      setAvatarPreview(updatedUser.avatarURL);
+      setAvatarBase64(null);
+      
       reset({
-        username: updatedUser.username,
         fullName: updatedUser.fullName,
-        email: updatedUser.email,
         phone: updatedUser.phone,
         dob: updatedUser.dob,
         gender: updatedUser.gender,
         country: updatedUser.country,
         address: updatedUser.address,
         bio: updatedUser.bio,
+        avatarURL: updatedUser.avatarURL,
       });
 
       setIsEditing(false);
-      alert(" Profile updated successfully!");
+      alert("✅ Profile updated successfully!");
     } catch (error) {
-      console.error(" Failed to update profile:", error);
-      alert("Update failed!");
+      console.error("❌ Failed to update profile:", error);
+      alert("❌ Update failed!");
     } finally {
       setLoading(false);
     }
@@ -123,12 +135,23 @@ export const ProfileForm = () => {
   // ================== Cancel ==================
   const handleCancel = () => setIsEditing(false);
 
-  // ================== Avatar preview ==================
+  // ================== Avatar preview & convert to base64 ==================
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Kiểm tra kích thước file (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("❌ File size must be less than 5MB");
+        return;
+      }
+
       const reader = new FileReader();
-      reader.onloadend = () => setAvatarPreview(reader.result as string);
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        setAvatarPreview(base64String);
+        setAvatarBase64(base64String);
+        setValue("avatarURL", base64String, { shouldDirty: true });
+      };
       reader.readAsDataURL(file);
     }
   };
@@ -171,7 +194,8 @@ export const ProfileForm = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="text-sm font-medium text-gray-700">Username</label>
-              <Input {...register("username")} disabled />
+              <Input value={username} disabled className="bg-gray-100" />
+              <p className="text-xs text-gray-500 mt-1">Cannot be changed</p>
             </div>
 
             <div>
@@ -184,7 +208,8 @@ export const ProfileForm = () => {
 
             <div>
               <label className="text-sm font-medium text-gray-700">Email</label>
-              <Input type="email" {...register("email")} disabled />
+              <Input type="email" value={email} disabled className="bg-gray-100" />
+              <p className="text-xs text-gray-500 mt-1">Cannot be changed</p>
             </div>
 
             <div>

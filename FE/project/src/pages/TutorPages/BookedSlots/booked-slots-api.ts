@@ -1,10 +1,6 @@
 import axios from '@/config/axiosConfig';
 import { AxiosError } from 'axios';
 import { BookedSlotsResponse, BookedSlot } from './types';
-import { mockBookedSlots } from './mockData';
-
-// Set to true to use mock data for testing UI
-const USE_MOCK_DATA = true;
 
 const handleApiError = (error: unknown): never => {
   // Log error to console for debugging
@@ -42,14 +38,6 @@ const handleApiError = (error: unknown): never => {
 
 export const bookedSlotsApi = {
   getMySlots: async (): Promise<BookedSlot[]> => {
-    // Return mock data if enabled
-    if (USE_MOCK_DATA) {
-      console.log('[BookedSlots API] Using mock data');
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      return mockBookedSlots;
-    }
-    
     try {
       const response = await axios.get<BookedSlotsResponse>('/booking-slots/my-slots');
       

@@ -10,7 +10,7 @@ import { z } from "zod";
 import { ROUTES } from "@/constants/routes";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import api from "@/config/axiosConfig";
+import api, { CustomAxiosRequestConfig } from "@/config/axiosConfig";
 import { AxiosError } from "axios";
 
 //  Validate OTP
@@ -61,7 +61,7 @@ const VerifyEmailForgotPassword = () => {
     setApiError(null);
 
     try {
-      await api.post("/auth/verify-reset-otp", { otp: data.otpCode });
+      await api.post("/auth/verify-reset-otp", { otp: data.otpCode }, { skipAuth: true } as CustomAxiosRequestConfig);
 
       localStorage.removeItem("temp_forgot_password_email");
       setTimeout(() => navigate(ROUTES.RESET_PASSWORD), 0);
@@ -81,7 +81,7 @@ const VerifyEmailForgotPassword = () => {
     setResending(true);
 
     try {
-      await api.post("/auth/forgot-password", { email });
+      await api.post("/auth/forgot-password", { email }, { skipAuth: true } as CustomAxiosRequestConfig);
       setCountdown(20);
       setCanResend(false);
       setResendMessage(" A new OTP has been sent to your email.");

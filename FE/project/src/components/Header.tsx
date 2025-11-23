@@ -16,6 +16,7 @@ import { ROUTES } from "@/constants/routes";
 import api from "@/config/axiosConfig";
 import { useToast } from "@/components/ui/use-toast";
 import { useNotifications } from "@/hooks/useNotifications";
+import { notificationApi } from "@/queries/notification-api";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 
@@ -41,7 +42,7 @@ const Header = () => {
     const [user, setUser] = useState<User | null>(null);
     
 
-    const { recentNotifications, unreadCount } = useNotifications();
+    const { recentNotifications, unreadCount, refetch } = useNotifications();
 
 
     useEffect(() => {
@@ -263,11 +264,28 @@ const Header = () => {
                                                             "flex flex-col items-start gap-1 p-3 cursor-pointer",
                                                             !notification.isRead && "bg-blue-50/50"
                                                         )}
-                                                        onClick={() => {
-                                                            if (notification.primaryActionUrl) {
-                                                                navigate(notification.primaryActionUrl);
+                                                        onClick={async () => {
+                                                            try {
+                                                                // Mark as read nếu chưa đọc và đợi refetch
+                                                                if (!notification.isRead) {
+                                                                    await notificationApi.markAsRead(notification.notificationId);
+                                                                    await refetch(); // Đợi refetch hoàn thành
+                                                                }
+                                                                
+                                                                setNotificationsOpen(false);
+                                                                
+                                                                // Tutor không navigate, chỉ đánh dấu đã đọc
+                                                                if (user?.role !== "Tutor" && notification.primaryActionUrl) {
+                                                                    navigate(notification.primaryActionUrl);
+                                                                }
+                                                            } catch (error) {
+                                                                console.error('Failed to mark notification as read:', error);
+                                                                setNotificationsOpen(false);
+                                                                // Vẫn navigate dù có lỗi (trừ Tutor)
+                                                                if (user?.role !== "Tutor" && notification.primaryActionUrl) {
+                                                                    navigate(notification.primaryActionUrl);
+                                                                }
                                                             }
-                                                            setNotificationsOpen(false);
                                                         }}
                                                     >
                                                         <div className="flex items-start justify-between w-full gap-2">
@@ -365,6 +383,21 @@ const Header = () => {
                                             </Link>
                                         </DropdownMenuItem>
                                     )}
+                                    
+                                    {user?.role === "Admin" && (
+                                        <>
+                                            <DropdownMenuItem asChild>
+                                                <Link to="/admin/dashboard">
+                                                    <LayoutDashboard className="mr-2 h-4 w-4" /> Admin Dashboard
+                                                </Link>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <Link to="/admin/refund-management">
+                                                    <DollarSign className="mr-2 h-4 w-4" /> Refund Management
+                                                </Link>
+                                            </DropdownMenuItem>
+                                        </>
+                                    )}
                                         <>
                                             <DropdownMenuItem asChild>
                                                 <Link to={ROUTES.MY_ENROLLMENTS}>
@@ -383,12 +416,14 @@ const Header = () => {
                                             <MessageCircle className="mr-2 h-4 w-4" />Box Chat
                                         </Link>
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem asChild>
-                                        <Link to={ROUTES.REFUND_REQUESTS} className="cursor-pointer">
-                                            <DollarSign className="mr-2 h-4 w-4" />
-                                            <span>Request a refund</span>
-                                        </Link>
-                                    </DropdownMenuItem>
+                                    {user?.role !== "Tutor" && (
+                                        <DropdownMenuItem asChild>
+                                            <Link to={ROUTES.REFUND_REQUESTS} className="cursor-pointer">
+                                                <DollarSign className="mr-2 h-4 w-4" />
+                                                <span>Request a refund</span>
+                                            </Link>
+                                        </DropdownMenuItem>
+                                    )}
                                     <DropdownMenuItem asChild>
                                         <Link to={ROUTES.PAYMENT_HISTORY}>
                                             <CreditCard className="mr-2 h-4 w-4" /> Payment History

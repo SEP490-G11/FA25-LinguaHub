@@ -12,4 +12,8 @@ export const notificationApi = {
     const response = await api.get(`/api/notifications/user/${userId}`);
     return response.data;
   },
+
+  markAsRead: async (notificationId: number): Promise<void> => {
+    await api.patch(`/api/notifications/${notificationId}/read`, { read: true });
+  },
 };

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-    Menu, X, User, LogOut, Settings, LayoutDashboard
+    Menu, X, User, LogOut, Settings, LayoutDashboard, DollarSign
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -86,6 +86,10 @@ const AdminHeader = () => {
                             <DropdownMenuItem onClick={() => navigate("/admin/dashboard")}>
                                 <LayoutDashboard className="mr-2 h-4 w-4" />
                                 Dashboard
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => navigate("/admin/refund-management")}>
+                                <DollarSign className="mr-2 h-4 w-4" />
+                                Quản lý hoàn tiền
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => navigate("/profile")}>
                                 <User className="mr-2 h-4 w-4" />

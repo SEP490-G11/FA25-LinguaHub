@@ -108,11 +108,10 @@ const CalendarSlots = ({
 
   const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   
-  // Generate time slots: 30-minute intervals from 0:00 to 23:30 (48 slots total)
-  const timeSlots = Array.from({ length: 48 }).map((_, i) => {
-    const hour = Math.floor(i / 2);
-    const minute = (i % 2) * 30;
-    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  // Generate time slots: 60-minute intervals from 0:00 to 23:00 (24 slots total)
+  const timeSlots = Array.from({ length: 24 }).map((_, i) => {
+    const hour = i;
+    return `${String(hour).padStart(2, '0')}:00`;
   });
   
   const weekDates = Array.from({ length: 7 }).map((_, i) => {
@@ -186,8 +185,8 @@ const CalendarSlots = ({
 
         slots.forEach((s) => {
           const date = s.start_time.substring(0, 10);
-          const time = s.start_time.substring(11, 16); // Lấy cả HH:MM
-          const key = `${date}T${time}_plan_${s.booking_planid}`;
+          const hour = s.start_time.substring(11, 13);
+          const key = `${date}T${hour}:00_plan_${s.booking_planid}`; // Chỉ lấy giờ chẵn vì slot là 1 giờ
 
           if (s.status === "Locked") {
             // Slot đang bị khóa (chưa thanh toán)

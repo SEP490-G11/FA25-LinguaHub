@@ -12,7 +12,6 @@ import { ErrorMessage } from "@/components/shared/ErrorMessage";
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner";
 import { ROUTES } from "@/constants/routes";
 
-/* SCHEMA – đã tối ưu */
 const signUpSchema = z
     .object({
       username: z.string().min(3, "Username must be at least 3 characters"),
@@ -39,8 +38,7 @@ const signUpSchema = z
       gender: z.enum(["Male", "Female", "Other"]),
       password: z
           .string()
-          .min(8, "Password must be at least 8 characters")
-          .regex(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain uppercase, lowercase, and number"),
+          .min(8, "Password must be at least 8 characters"),
       confirmPassword: z.string().min(1, "Please confirm your password"),
     })
     .refine((data) => data.password === data.confirmPassword, {

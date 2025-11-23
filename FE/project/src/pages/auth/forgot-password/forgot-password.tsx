@@ -10,9 +10,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ErrorMessage } from '@/components/shared/ErrorMessage.tsx';
-import api from "@/config/axiosConfig";
+import api, { CustomAxiosRequestConfig } from "@/config/axiosConfig";
 
-// ✅ Schema validate email
+//  Schema validate email
 const emailVerificationSchema = z.object({
   email: z.string().email('Invalid email format'),
 });
@@ -42,8 +42,8 @@ const ForgotPassword = () => {
     try {
       const response = await api.post("/auth/forgot-password", {
         email: data.email,
-      });
-      console.log("✅ OTP sent:", response.data);
+      }, { skipAuth: true } as CustomAxiosRequestConfig);
+      console.log(" OTP sent:", response.data);
       navigate(ROUTES.VERIFY_EMAIL_FORGOT_PASSWORD, {
         state: { email: data.email },
       });

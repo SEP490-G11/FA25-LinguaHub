@@ -28,7 +28,6 @@ public class CourseService {
     EnrollmentRepository enrollmentRepository;
     CourseReviewRepository courseReviewRepository;
 
-    /** Tránh lookup với anonymous/null */
     private User findUserOrNull(String email) {
         if (email == null || "anonymousUser".equalsIgnoreCase(email)) return null;
         return userRepository.findByEmail(email).orElse(null);

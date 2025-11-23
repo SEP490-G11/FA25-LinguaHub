@@ -9,7 +9,7 @@ import { ErrorMessage } from "@/components/shared/ErrorMessage";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import api from "@/config/axiosConfig";
+import api, { CustomAxiosRequestConfig } from "@/config/axiosConfig";
 import { ROUTES } from "@/constants/routes";
 
 //  Validate theo BE
@@ -48,7 +48,7 @@ const ResetPassword = () => {
     setApiError(null);
 
     try {
-      const response = await api.post("/auth/set-new-password", data);
+      const response = await api.post("/auth/set-new-password", data, { skipAuth: true } as CustomAxiosRequestConfig);
 
       if (response.data.code !== 0) {
         setApiError(response.data.message ?? "Reset password failed");

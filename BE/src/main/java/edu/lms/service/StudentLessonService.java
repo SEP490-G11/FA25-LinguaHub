@@ -3,6 +3,7 @@ package edu.lms.service;
 import edu.lms.dto.request.LessonProgressRequest;
 import edu.lms.dto.response.LessonProgressResponse;
 import edu.lms.entity.*;
+import edu.lms.enums.EnrollmentStatus;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
 import edu.lms.repository.*;
@@ -34,15 +35,15 @@ public class StudentLessonService {
         Lesson lesson = lessonRepository.findById(lessonId)
                 .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_FOUND));
 
-        // 3. Lấy courseId qua quan hệ Section → Course
+        // 3. Lấy courseId
         Long courseId = lesson.getSection().getCourse().getCourseID();
 
-        // 4. Kiểm tra learner có enroll khóa học này chưa
+        // 4. Kiểm tra learner đã enroll chưa
         Enrollment enrollment = enrollmentRepository
                 .findByUser_UserIDAndCourse_CourseID(user.getUserID(), courseId)
                 .orElseThrow(() -> new AppException(ErrorCode.ENROLLMENT_NOT_FOUND));
 
-        // 5. Tìm hoặc tạo record UserLesson
+        // 5. Tìm hoặc tạo UserLesson
         UserLesson userLesson = userLessonRepository
                 .findByUser_UserIDAndLesson_LessonID(user.getUserID(), lessonId)
                 .orElseGet(() -> UserLesson.builder()
@@ -53,7 +54,7 @@ public class StudentLessonService {
                         .watchedDuration(0)
                         .build());
 
-        // 6. Cập nhật tiến độ
+        // 6. Cập nhật tiến độ bài học
         userLesson.setWatchedDuration(request.getWatchedDuration());
         userLesson.setIsDone(request.getIsDone());
 
@@ -62,8 +63,12 @@ public class StudentLessonService {
         }
 
         userLessonRepository.save(userLesson);
+
         // 7. Cập nhật tiến độ section
         updateUserCourseSectionProgress(user, lesson.getSection(), enrollment);
+
+        // 8. Sau khi cập nhật section, kiểm tra xem course đã hoàn thành chưa
+        updateEnrollmentStatusIfCourseCompleted(user, lesson.getSection(), enrollment);
 
         return LessonProgressResponse.builder()
                 .lessonId(lesson.getLessonID())
@@ -73,13 +78,13 @@ public class StudentLessonService {
                 .completedAt(userLesson.getCompletedAt())
                 .build();
     }
+
     private void updateUserCourseSectionProgress(User user, CourseSection section, Enrollment enrollment) {
         List<Lesson> lessons = section.getLessons();
         if (lessons == null || lessons.isEmpty()) return;
 
         long totalLessons = lessons.size();
 
-        // Đếm số lesson learner đã hoàn thành
         long completedLessons = lessons.stream()
                 .filter(lesson -> userLessonRepository
                         .findByUser_UserIDAndLesson_LessonID(user.getUserID(), lesson.getLessonID())
@@ -87,10 +92,8 @@ public class StudentLessonService {
                         .orElse(false))
                 .count();
 
-        // Tính phần trăm
         double progressPercent = ((double) completedLessons / totalLessons) * 100;
 
-        // Tìm hoặc tạo mới record trong bảng user_course_section
         UserCourseSection userCourseSection = userCourseSectionRepository
                 .findByUser_UserIDAndSection_SectionID(user.getUserID(), section.getSectionID())
                 .orElseGet(() -> UserCourseSection.builder()
@@ -104,4 +107,39 @@ public class StudentLessonService {
         userCourseSectionRepository.save(userCourseSection);
     }
 
+    // 👇 HÀM MỚI: nếu tất cả section của course đều >=100% thì set Completed
+    private void updateEnrollmentStatusIfCourseCompleted(
+            User user,
+            CourseSection currentSection,
+            Enrollment enrollment
+    ) {
+        Course course = currentSection.getCourse();
+        List<CourseSection> allSections = course.getSections();
+        if (allSections == null || allSections.isEmpty()) {
+            return;
+        }
+
+        // Lấy toàn bộ progress section của user trong enrollment này
+        List<UserCourseSection> userSections =
+                userCourseSectionRepository.findByUser_UserIDAndEnrollment_EnrollmentID(
+                        user.getUserID(),
+                        enrollment.getEnrollmentID()
+                );
+
+        // Nếu số record progress < số section -> chắc chắn chưa hoàn thành
+        if (userSections.size() < allSections.size()) {
+            return;
+        }
+
+        boolean allCompleted = userSections.stream()
+                .allMatch(ucs ->
+                        ucs.getProgress() != null &&
+                                ucs.getProgress().compareTo(BigDecimal.valueOf(100)) >= 0
+                );
+
+        if (allCompleted && enrollment.getStatus() != EnrollmentStatus.Completed) {
+            enrollment.setStatus(EnrollmentStatus.Completed);
+            enrollmentRepository.save(enrollment);
+        }
+    }
 }

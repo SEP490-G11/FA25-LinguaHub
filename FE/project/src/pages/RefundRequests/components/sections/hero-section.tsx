@@ -4,9 +4,10 @@ interface HeroSectionProps {
   stats: {
     pending: number;
     submitted: number;
-    processed: number;
+    approved: number;
     rejected: number;
-    totalAmount: number;
+    approvedAmount: number;
+    rejectedAmount: number;
   };
 }
 
@@ -38,9 +39,9 @@ const HeroSection = ({ stats }: HeroSectionProps) => {
               <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                 <div className="flex items-center gap-2 mb-2">
                   <CheckCircle className="w-4 h-4 text-green-300" />
-                  <span className="text-sm text-green-100 font-medium">Processed</span>
+                  <span className="text-sm text-green-100 font-medium">Approved</span>
                 </div>
-                <p className="text-3xl font-bold">{stats.processed}</p>
+                <p className="text-3xl font-bold">{stats.approved}</p>
               </div>
               <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
                 <div className="flex items-center gap-2 mb-2">
@@ -50,11 +51,21 @@ const HeroSection = ({ stats }: HeroSectionProps) => {
                 <p className="text-3xl font-bold">{stats.rejected}</p>
               </div>
             </div>
-            <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-sm text-green-100 font-medium">Total</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="w-4 h-4 text-green-300" />
+                  <span className="text-sm text-green-100 font-medium">Approved Amount</span>
+                </div>
+                <p className="text-3xl font-bold whitespace-nowrap">{stats.approvedAmount.toLocaleString()} đ</p>
               </div>
-              <p className="text-4xl font-bold whitespace-nowrap">{stats.totalAmount.toLocaleString()} đ</p>
+              <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                <div className="flex items-center gap-2 mb-2">
+                  <XCircle className="w-4 h-4 text-red-300" />
+                  <span className="text-sm text-green-100 font-medium">Rejected Amount</span>
+                </div>
+                <p className="text-3xl font-bold whitespace-nowrap">{stats.rejectedAmount.toLocaleString()} đ</p>
+              </div>
             </div>
           </div>
         </div>

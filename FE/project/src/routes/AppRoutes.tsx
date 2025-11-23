@@ -1,5 +1,6 @@
 import { Routes, Route } from 'react-router-dom';
 import { ROUTES } from '@/constants/routes.ts';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 
 // Pages
 import HomePage from '@/pages/HomePage/HomePage.tsx';
@@ -63,6 +64,7 @@ import BookTutor from '@/pages/BookTutor/book-tutor.tsx';
 import MyBookings from "@/pages/MyBookings/my-booking.tsx";
 import RefundRequests from "@/pages/RefundRequests/refund-requests.tsx";
 import Notifications from "@/pages/Notifications/notifications.tsx";
+import AdminRefundManagement from "@/pages/Admin/RefundManagement";
 
 export function AppRoutes() {
     return (
@@ -94,7 +96,14 @@ export function AppRoutes() {
             <Route path="/messages/:conversationId" element={<Messages />} />
             <Route path="/book-tutor/:tutorId" element={<BookTutor />} />
             <Route path="/my-bookings" element={<MyBookings />} />
-            <Route path={ROUTES.REFUND_REQUESTS} element={<RefundRequests />} />
+            <Route 
+                path={ROUTES.REFUND_REQUESTS} 
+                element={
+                    <ProtectedRoute allowedRoles={['Learner', 'Admin']}>
+                        <RefundRequests />
+                    </ProtectedRoute>
+                } 
+            />
             <Route path={ROUTES.NOTIFICATIONS} element={<Notifications />} />
             {/* User */}
             <Route path={ROUTES.PROFILE} element={<Profile />} />
@@ -107,6 +116,7 @@ export function AppRoutes() {
             <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<AdminDashboard />} />
                 <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="refund-management" element={<AdminRefundManagement />} />
                 <Route path="courses" element={<AdminCourses />} />
                 <Route path="courses/:courseId" element={<CoursesDetailPage />} />
                 <Route path="course-approval" element={<CourseApprovalPage />} />
