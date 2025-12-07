@@ -1,4 +1,3 @@
-// src/main/java/edu/lms/service/CourseSectionDraftService.java
 package edu.lms.service;
 
 import edu.lms.dto.request.CourseSectionRequest;
@@ -51,12 +50,12 @@ public class CourseSectionDraftService {
 
     private CourseSectionResponse toResponse(CourseSectionDraft s) {
         return CourseSectionResponse.builder()
-                .sectionID(s.getSectionDraftID())                      // dùng ID draft
-                .courseID(s.getDraft().getCourse().getCourseID())      // course live ID
+                .sectionID(s.getSectionDraftID())
+                .courseID(s.getDraft().getCourse().getCourseID())
                 .title(s.getTitle())
                 .description(s.getDescription())
                 .orderIndex(s.getOrderIndex())
-                .lessons(null) // lessons draft xử lý ở API riêng
+                .lessons(null)
                 .build();
     }
 
@@ -94,10 +93,6 @@ public class CourseSectionDraftService {
 
     public void deleteSection(Long sectionDraftID, String email) {
         CourseSectionDraft sd = resolveSectionDraftAndCheckOwner(sectionDraftID, email);
-
-        // Nếu muốn xóa luôn lessonDraft/resourcesDraft trong section này thì xử lý thêm ở đây
-        // (em có thể inject LessonDraftRepository & LessonResourceDraftRepository vào và delete)
-
         courseSectionDraftRepository.delete(sd);
     }
 }

@@ -105,6 +105,17 @@ public class Payment {
     String returnUrl;
 
     String cancelUrl;
+    // Payment.java
+
+    @Column(precision = 5, scale = 4)
+    BigDecimal commissionRate;
+
+    @Column(precision = 12, scale = 2)
+    BigDecimal commissionAmount;
+
+    @Column(precision = 12, scale = 2)
+    BigDecimal netAmount;
+
 
     // ==========================================
     // Lifecycle Hooks

@@ -1,12 +1,11 @@
-// src/main/java/edu/lms/controller/AdminCourseController.java
 package edu.lms.controller;
 
 import edu.lms.dto.request.AdminCourseReviewNoteRequest;
 import edu.lms.dto.request.ApiRespond;
+import edu.lms.dto.response.AdminCourseDetailResponse;
 import edu.lms.dto.response.AdminCourseDraftChangesResponse;
 import edu.lms.dto.response.AdminCourseDraftResponse;
 import edu.lms.dto.response.AdminCourseResponse;
-import edu.lms.dto.response.AdminCourseDetailResponse;
 import edu.lms.enums.CourseDraftStatus;
 import edu.lms.enums.CourseStatus;
 import edu.lms.service.AdminCourseService;

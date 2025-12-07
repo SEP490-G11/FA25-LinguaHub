@@ -3,6 +3,7 @@ package edu.lms.dto.response;
 import edu.lms.enums.CourseLevel;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -25,8 +26,13 @@ public class TutorCourseDetailResponse {
     String categoryName;
     String status;
 
-  String adminReviewNote;
+    String adminReviewNote;
 
+    Integer totalRatings;
+    Double avgRating;
+    Long learnerCount;
     List<CourseSectionResponse> section;
-    List<String> objectives; // "What you'll learn"
+
+
+    List<CourseObjectiveResponse> objectives;
 }

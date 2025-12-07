@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -25,7 +25,7 @@ public class LessonDraft {
     @JoinColumn(name = "sectionDraftID", nullable = false)
     CourseSectionDraft sectionDraft;
 
-    Long originalLessonID; // 🔹 ID bài học gốc (nullable)
+    Long originalLessonID; //  ID bài học gốc (nullable)
 
     String title;
     Short duration;
@@ -37,5 +37,11 @@ public class LessonDraft {
 
     @OneToMany(mappedBy = "lessonDraft", cascade = CascadeType.ALL, orphanRemoval = true)
     List<LessonResourceDraft> resources;
+    // ================== QuizQuestionDraft  ==================
+    @Builder.Default
+    @OneToMany(mappedBy = "lessonDraft", cascade = CascadeType.ALL, orphanRemoval = true)
+    @ToString.Exclude
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    List<QuizQuestionDraft> quizQuestions = new ArrayList<>();
 }
 

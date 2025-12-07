@@ -20,5 +20,6 @@ public interface UserCourseSectionRepository extends JpaRepository<UserCourseSec
         """)
     List<Object[]> findAverageProgressByEnrollmentIds(@Param("enrollmentIds") List<Long> enrollmentIds);
     List<UserCourseSection> findByUser_UserIDAndEnrollment_EnrollmentID(Long userId, Long enrollmentId);
+    List<UserCourseSection> findBySection_SectionID(Long sectionId);
 
 }

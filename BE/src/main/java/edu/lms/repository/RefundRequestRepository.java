@@ -20,4 +20,11 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
        """)
     BigDecimal sumRefundAmountByTutorAndStatus(Long tutorId, RefundStatus status);
 
+    // ==== thêm cho dashboard ====
+    long countByTutor_TutorIDAndStatusIn(Long tutorId, List<RefundStatus> statuses);
+
+    long countByStatusIn(List<RefundStatus> statuses);
+
+    List<RefundRequest> findTop10ByStatusInOrderByCreatedAtAsc(List<RefundStatus> statuses);
+
 }

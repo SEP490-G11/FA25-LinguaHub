@@ -1,4 +1,3 @@
-// src/main/java/edu/lms/service/TutorCourseService.java
 package edu.lms.service;
 
 import edu.lms.dto.request.TutorCourseRequest;
@@ -6,6 +5,7 @@ import edu.lms.dto.response.*;
 import edu.lms.entity.*;
 import edu.lms.enums.CourseDraftStatus;
 import edu.lms.enums.CourseStatus;
+import edu.lms.enums.LessonType;
 import edu.lms.enums.TutorStatus;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
@@ -40,11 +40,17 @@ public class TutorCourseService {
     CourseObjectiveRepository courseObjectiveRepository;
     CourseObjectiveDraftRepository courseObjectiveDraftRepository;
 
-    // NEW: thêm các repo cho Draft
     CourseDraftRepository courseDraftRepository;
     CourseSectionDraftRepository courseSectionDraftRepository;
     LessonDraftRepository lessonDraftRepository;
     LessonResourceDraftRepository lessonResourceDraftRepository;
+
+    QuizQuestionRepository quizQuestionRepository;
+    QuizOptionRepository quizOptionRepository;
+    QuizQuestionDraftRepository quizQuestionDraftRepository;
+    QuizOptionDraftRepository quizOptionDraftRepository;
+
+    CourseReviewRepository courseReviewRepository;
 
     // ====================== COMMON HELPERS ======================
 
@@ -64,30 +70,31 @@ public class TutorCourseService {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
     }
-   //
-   public TutorCourseDetailResponse startEditCourseDirect(String email, Long courseID) {
-       Tutor tutor = resolveTutorByEmail(email);
 
-       Course course = courseRepository.findById(courseID)
-               .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_FOUND));
+    // Cho phép tutor sửa trực tiếp course (khi CHƯA có enrollment)
+    public TutorCourseDetailResponse startEditCourseDirect(String email, Long courseID) {
+        Tutor tutor = resolveTutorByEmail(email);
 
-       ensureCourseOwner(course, tutor.getTutorID());
+        Course course = courseRepository.findById(courseID)
+                .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_FOUND));
 
-       // Nếu đã có learner enroll → dùng flow Draft (cũ)
-       if (enrollmentRepository.existsByCourse(course)) {
-           throw new AppException(ErrorCode.COURSE_HAS_ENROLLMENT);
-       }
+        ensureCourseOwner(course, tutor.getTutorID());
 
-       // Nếu đang Approved → chuyển thành Draft để sửa
-       if (course.getStatus() == CourseStatus.Approved) {
-           course.setStatus(CourseStatus.Draft);
-           course.setUpdatedAt(LocalDateTime.now());
-           courseRepository.save(course);
-       }
+        // Nếu đã có learner enroll → dùng flow Draft (cũ)
+        if (enrollmentRepository.existsByCourse(course)) {
+            throw new AppException(ErrorCode.COURSE_HAS_ENROLLMENT);
+        }
 
-       // Trả về detail của bản live (đang ở trạng thái Draft)
-       return toTutorCourseDetailResponse(course);
-   }
+        // Nếu đang Approved → chuyển thành Draft để sửa
+        if (course.getStatus() == CourseStatus.Approved) {
+            course.setStatus(CourseStatus.Draft);
+            course.setUpdatedAt(LocalDateTime.now());
+            courseRepository.save(course);
+        }
+
+        // Trả về detail của bản live (đang ở trạng thái Draft)
+        return toTutorCourseDetailResponse(course);
+    }
 
     // ========================== FLOW COURSE LIVE ============================
 
@@ -135,36 +142,24 @@ public class TutorCourseService {
 
     // Update (me) – CHỈ dùng cho course chưa có enrollment
     public TutorCourseResponse updateCourseForCurrentTutor(String email, Long courseID, TutorCourseRequest request) {
-        // 1. Lấy tutor từ email
         Tutor tutor = resolveTutorByEmail(email);
 
-        // 2. Lấy course
         Course course = courseRepository.findById(courseID)
                 .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_FOUND));
 
-        // 3. Check quyền sở hữu khóa học
         ensureCourseOwner(course, tutor.getTutorID());
 
-        // 4. Nếu đã có learner enroll → không cho sửa trực tiếp, phải dùng flow Draft
         if (enrollmentRepository.existsByCourse(course)) {
             throw new AppException(ErrorCode.COURSE_HAS_ENROLLMENT); // FE sẽ gọi API draft
         }
 
-        // 5. Nếu course đang Approved mà tutor chỉnh sửa metadata
-        //    => chuyển về Pending để Admin duyệt lại
         if (course.getStatus() == CourseStatus.Approved) {
             course.setStatus(CourseStatus.Pending);
         }
-        // Các trạng thái khác:
-        // - Draft: sửa thoải mái, sau này tutor gọi /submit để gửi duyệt
-        // - Pending: đang chờ duyệt, sửa thêm vẫn giữ Pending
-        // - Rejected: sửa xong, tutor lại gọi /submit để chuyển về Pending
 
-        // 6. Lấy category
         CourseCategory category = courseCategoryRepository.findById(request.getCategoryID())
                 .orElseThrow(() -> new AppException(ErrorCode.COURSE_CATEGORY_NOT_FOUND));
 
-        // 7. Gán các trường metadata
         course.setTitle(request.getTitle());
         course.setShortDescription(request.getShortDescription());
         course.setDescription(request.getDescription());
@@ -177,17 +172,13 @@ public class TutorCourseService {
         course.setCategory(category);
         course.setUpdatedAt(LocalDateTime.now());
 
-        // 8. Lưu lại
         courseRepository.save(course);
 
         log.info("Tutor [{}] updated course [{}] (status after update: {})",
                 tutor.getTutorID(), courseID, course.getStatus());
 
-        // 9. Trả về response
         return tutorCourseMapper.toTutorCourseResponse(course);
     }
-
-    // src/main/java/edu/lms/service/TutorCourseService.java
 
     @Transactional
     public void deleteCourseForCurrentTutor(String email, Long courseID) {
@@ -198,25 +189,23 @@ public class TutorCourseService {
 
         ensureCourseOwner(course, tutor.getTutorID());
 
-        // CHỈ cho xoá nếu là Draft hoặc Pending
+        // CHỈ cho xoá khi status = Draft hoặc Rejected
         if (course.getStatus() != CourseStatus.Draft
-                && course.getStatus() != CourseStatus.Pending) {
-            throw new AppException(ErrorCode.COURSE_DELETE_ONLY_DRAFT_OR_PENDING);
+                && course.getStatus() != CourseStatus.Rejected) {
+            throw new AppException(ErrorCode.COURSE_DELETE_ONLY_DRAFT_OR_REJECTED);
         }
 
-        // Nếu cẩn thận thêm, đảm bảo không có enrollment
+        // Không cho xoá nếu đã có learner enroll
         if (enrollmentRepository.existsByCourse(course)) {
             throw new AppException(ErrorCode.COURSE_HAS_ENROLLMENT);
         }
 
-        // 1) Xoá toàn bộ draft của course (dựa vào cascade từ CourseDraft xuống section/lesson/resource draft)
+        // Xoá luôn các bản draft liên quan (nếu có)
         List<CourseDraft> drafts = courseDraftRepository.findByCourse_CourseID(courseID);
         if (!drafts.isEmpty()) {
-            // dùng deleteAll để Hibernate xử lý cascade xuống SectionDraft/LessonDraft/ResourceDraft/ObjectiveDraft
             courseDraftRepository.deleteAll(drafts);
         }
 
-        // 2) Xoá luôn course; JPA sẽ cascade xoá sections, lessons, resources, objectives
         courseRepository.delete(course);
 
         log.warn("Tutor [{}] deleted course [{}] (status: {}) and all related data (drafts & curriculum via cascade)",
@@ -224,7 +213,56 @@ public class TutorCourseService {
     }
 
 
+    // Disable / Enable course
+    public TutorCourseResponse disableCourse(String email, Long courseID) {
+        Tutor tutor = resolveTutorByEmail(email);
 
+        if (tutor.getStatus() != TutorStatus.APPROVED) {
+            throw new AppException(ErrorCode.TUTOR_NOT_APPROVED);
+        }
+
+        Course course = courseRepository.findById(courseID)
+                .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_FOUND));
+
+        ensureCourseOwner(course, tutor.getTutorID());
+
+        if (course.getStatus() != CourseStatus.Approved) {
+            throw new AppException(ErrorCode.INVALID_STATE);
+        }
+
+        course.setStatus(CourseStatus.Disabled);
+        course.setUpdatedAt(LocalDateTime.now());
+        courseRepository.save(course);
+
+        log.info("Tutor [{}] disabled course [{}]", tutor.getTutorID(), courseID);
+
+        return tutorCourseMapper.toTutorCourseResponse(course);
+    }
+
+    public TutorCourseResponse enableCourse(String email, Long courseID) {
+        Tutor tutor = resolveTutorByEmail(email);
+
+        if (tutor.getStatus() != TutorStatus.APPROVED) {
+            throw new AppException(ErrorCode.TUTOR_NOT_APPROVED);
+        }
+
+        Course course = courseRepository.findById(courseID)
+                .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_FOUND));
+
+        ensureCourseOwner(course, tutor.getTutorID());
+
+        if (course.getStatus() != CourseStatus.Disabled) {
+            throw new AppException(ErrorCode.INVALID_STATE);
+        }
+
+        course.setStatus(CourseStatus.Approved);
+        course.setUpdatedAt(LocalDateTime.now());
+        courseRepository.save(course);
+
+        log.info("Tutor [{}] enabled course [{}]", tutor.getTutorID(), courseID);
+
+        return tutorCourseMapper.toTutorCourseResponse(course);
+    }
 
     // Lấy students đã enroll khóa học của tutor
     public List<TutorCourseStudentResponse> getStudentsByCourse(Long courseId, Long tutorId) {
@@ -262,7 +300,7 @@ public class TutorCourseService {
         return toTutorCourseDetailResponse(course);
     }
 
-    // submit lần đầu hoặc sau khi bị Rejected (Course live → Pending)
+    // submit course for review
     public TutorCourseResponse submitCourseForReview(String email, Long courseID) {
         Tutor tutor = resolveTutorByEmail(email);
 
@@ -273,19 +311,16 @@ public class TutorCourseService {
 
         CourseStatus status = course.getStatus();
 
-        // Không cho submit khi đã Approved (course đang live cho learner)
         if (status == CourseStatus.Approved) {
             throw new AppException(ErrorCode.CAN_NOT_CHANGE_STATUS);
         }
 
-        // Nếu đã Pending rồi thì bỏ qua, không đổi gì
         if (status == CourseStatus.Pending) {
             log.info("Tutor [{}] re-submit course [{}] ignored (already Pending)",
                     tutor.getTutorID(), courseID);
             return tutorCourseMapper.toTutorCourseResponse(course);
         }
 
-        // Chỉ cho phép từ Draft hoặc Rejected → Pending
         if (status == CourseStatus.Draft || status == CourseStatus.Rejected) {
             course.setStatus(CourseStatus.Pending);
             course.setUpdatedAt(LocalDateTime.now());
@@ -296,32 +331,25 @@ public class TutorCourseService {
             return tutorCourseMapper.toTutorCourseResponse(course);
         }
 
-        // Nếu có thêm các trạng thái khác mà không xử lý ở trên
         throw new AppException(ErrorCode.INVALID_STATE);
     }
-
 
     // ========================== FLOW COURSE DRAFT ============================
 
     // 1) Tutor bắt đầu/chỉnh sửa draft update cho 1 course đã Approved
     @Transactional
     public TutorCourseDetailResponse startEditCourseDraft(String email, Long courseID) {
-        // 1. Lấy tutor từ email
         Tutor tutor = resolveTutorByEmail(email);
 
-        // 2. Lấy course live
         Course course = courseRepository.findById(courseID)
                 .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_FOUND));
 
-        // 3. Check quyền sở hữu
         ensureCourseOwner(course, tutor.getTutorID());
 
-        // 4. Chỉ cho phép tạo draft / edit cho course đã Approved
         if (course.getStatus() != CourseStatus.Approved) {
             throw new AppException(ErrorCode.CAN_ONLY_EDIT_DRAFT_FOR_APPROVED_COURSE);
         }
 
-        // 5. Nếu đã có draft đang EDITING hoặc PENDING_REVIEW thì dùng lại
         var existingDraftOpt = courseDraftRepository.findByCourse_CourseIDAndStatusIn(
                 courseID,
                 List.of(CourseDraftStatus.EDITING, CourseDraftStatus.PENDING_REVIEW)
@@ -351,13 +379,14 @@ public class TutorCourseService {
 
         courseDraftRepository.save(draft);
 
-        // 7. Clone Section/Lesson/Resource sang bản draft
+        // 7. Clone Section/Lesson/Resource + QUIZ sang bản draft
         var sections = course.getSections();
         if (sections != null) {
             for (CourseSection s : sections) {
+
                 CourseSectionDraft sd = CourseSectionDraft.builder()
                         .draft(draft)
-                        .originalSectionID(s.getSectionID())   // GÁN ID GỐC
+                        .originalSectionID(s.getSectionID())
                         .title(s.getTitle())
                         .description(s.getDescription())
                         .orderIndex(s.getOrderIndex())
@@ -366,9 +395,10 @@ public class TutorCourseService {
 
                 if (s.getLessons() != null) {
                     for (Lesson l : s.getLessons()) {
+
                         LessonDraft ld = LessonDraft.builder()
                                 .sectionDraft(sd)
-                                .originalLessonID(l.getLessonID())     // GÁN ID GỐC
+                                .originalLessonID(l.getLessonID())
                                 .title(l.getTitle())
                                 .duration(l.getDuration())
                                 .lessonType(l.getLessonType())
@@ -378,11 +408,40 @@ public class TutorCourseService {
                                 .build();
                         lessonDraftRepository.save(ld);
 
+                        // NEW: nếu lesson là Quiz thì clone luôn quiz_question + quiz_option
+                        if (l.getLessonType() == LessonType.Quiz) {
+                            List<QuizQuestion> questions =
+                                    quizQuestionRepository.findByLessonOrderByOrderIndexAsc(l);
+
+                            for (QuizQuestion q : questions) {
+                                QuizQuestionDraft qd = QuizQuestionDraft.builder()
+                                        .lessonDraft(ld)
+                                        .questionText(q.getQuestionText())
+                                        .orderIndex(q.getOrderIndex())
+                                        .explanation(q.getExplanation())
+                                        .score(q.getScore())
+                                        .build();
+                                quizQuestionDraftRepository.save(qd);
+
+                                if (q.getOptions() != null) {
+                                    for (QuizOption o : q.getOptions()) {
+                                        QuizOptionDraft od = QuizOptionDraft.builder()
+                                                .questionDraft(qd)
+                                                .optionText(o.getOptionText())
+                                                .isCorrect(o.getIsCorrect())
+                                                .orderIndex(o.getOrderIndex())
+                                                .build();
+                                        quizOptionDraftRepository.save(od);
+                                    }
+                                }
+                            }
+                        }
+
                         if (l.getResources() != null) {
                             for (LessonResource r : l.getResources()) {
                                 LessonResourceDraft rd = LessonResourceDraft.builder()
                                         .lessonDraft(ld)
-                                        .originalResourceID(r.getResourceID()) // GÁN ID GỐC
+                                        .originalResourceID(r.getResourceID())
                                         .resourceType(r.getResourceType())
                                         .resourceTitle(r.getResourceTitle())
                                         .resourceURL(r.getResourceURL())
@@ -396,13 +455,13 @@ public class TutorCourseService {
             }
         }
 
-        // 8. Clone Objective sang bản draft (nếu course có objectives)
-        var objectives = course.getObjectives(); // dùng quan hệ @OneToMany trong Course
+        // 8. Clone Objective sang bản draft
+        var objectives = course.getObjectives();
         if (objectives != null) {
             for (CourseObjective o : objectives) {
                 CourseObjectiveDraft od = CourseObjectiveDraft.builder()
                         .draft(draft)
-                        .originalObjectiveID(o.getObjectiveID())  // GÁN ID GỐC
+                        .originalObjectiveID(o.getObjectiveID())
                         .objectiveText(o.getObjectiveText())
                         .orderIndex(o.getOrderIndex())
                         .build();
@@ -410,13 +469,11 @@ public class TutorCourseService {
             }
         }
 
-        log.info("Tutor [{}] started new draft [{}] for course [{}] (always clone from Approved)",
+        log.info("Tutor [{}] started new draft [{}] for course [{}] (clone with quiz)",
                 tutor.getTutorID(), draft.getDraftID(), courseID);
 
-        // 9. Trả về detail dựa trên bản draft (sections + lessons + resources + objectives draft)
         return toTutorCourseDetailResponse(draft);
     }
-
 
     // 2) Tutor xem chi tiết bản draft
     public TutorCourseDetailResponse getMyCourseDraftDetail(String email, Long draftID) {
@@ -430,7 +487,7 @@ public class TutorCourseService {
         return toTutorCourseDetailResponse(draft);
     }
 
-    // 3) Tutor update metadata của draft (title, desc, price,...)
+    // 3) Tutor update metadata của draft
     public TutorCourseDetailResponse updateCourseDraftInfo(String email, Long draftID, TutorCourseRequest request) {
         Tutor tutor = resolveTutorByEmail(email);
 
@@ -472,14 +529,12 @@ public class TutorCourseService {
 
         CourseDraftStatus status = draft.getStatus();
 
-        // Nếu đã PENDING_REVIEW thì bỏ qua, không đổi
         if (status == CourseDraftStatus.PENDING_REVIEW) {
             log.info("Tutor [{}] re-submit draft [{}] ignored (already PENDING_REVIEW)",
                     tutor.getTutorID(), draftID);
             return toTutorCourseDetailResponse(draft);
         }
 
-        // CHỈ cho submit từ EDITING hoặc REJECTED → PENDING_REVIEW
         if (status == CourseDraftStatus.EDITING || status == CourseDraftStatus.REJECTED) {
             draft.setStatus(CourseDraftStatus.PENDING_REVIEW);
             draft.setUpdatedAt(LocalDateTime.now());
@@ -488,10 +543,8 @@ public class TutorCourseService {
             return toTutorCourseDetailResponse(draft);
         }
 
-        // Các trạng thái khác là không hợp lệ (ví dụ APPROVED,...)
         throw new AppException(ErrorCode.INVALID_STATE);
     }
-
 
     @Transactional
     public void deleteCourseDraftForCurrentTutor(String email, Long draftID) {
@@ -502,14 +555,10 @@ public class TutorCourseService {
 
         ensureDraftOwner(draft, tutor.getTutorID());
 
-        // CHỈ cho xoá khi draft đang ở trạng thái EDITING
         if (draft.getStatus() != CourseDraftStatus.EDITING) {
             throw new AppException(ErrorCode.INVALID_STATE);
         }
 
-        // CourseDraft đã có:
-        // @OneToMany(mappedBy = "draft", cascade = ALL, orphanRemoval = true)
-        // -> sẽ tự xoá SectionDraft, LessonDraft, LessonResourceDraft, ObjectiveDraft
         courseDraftRepository.delete(draft);
 
         log.info("Tutor [{}] deleted course draft [{}] of course [{}]",
@@ -519,7 +568,6 @@ public class TutorCourseService {
 
     // ================== MAPPERS cho LIVE & DRAFT DETAIL =====================
 
-    // LIVE: LessonResource
     private LessonResourceResponse toLessonResourceResponse(LessonResource lr) {
         return LessonResourceResponse.builder()
                 .resourceID(lr.getResourceID())
@@ -530,20 +578,28 @@ public class TutorCourseService {
                 .build();
     }
 
-    // DRAFT: LessonResourceDraft
     private LessonResourceResponse toLessonResourceResponse(LessonResourceDraft lr) {
         return LessonResourceResponse.builder()
-                // dùng id draft hoặc originalResourceID tùy FE, ở đây anh để id draft
                 .resourceID(lr.getResourceDraftID())
                 .resourceType(lr.getResourceType())
                 .resourceTitle(lr.getResourceTitle())
                 .resourceURL(lr.getResourceURL())
-                .uploadedAt(null) // Draft không có uploadedAt -> để null
+                .uploadedAt(null)
                 .build();
     }
 
-    // LIVE: Lesson
     private LessonResponse toLessonResponse(Lesson l) {
+        // DEFAULT: không có quiz
+        List<QuizQuestionResponse> quizQuestionResponses = null;
+
+        // Nếu lesson là Quiz -> load danh sách câu hỏi + options
+        if (l.getLessonType() == LessonType.Quiz) {
+            var questions = quizQuestionRepository.findByLessonOrderByOrderIndexAsc(l);
+            quizQuestionResponses = questions.stream()
+                    .map(this::toQuizQuestionResponse)
+                    .toList();
+        }
+
         return LessonResponse.builder()
                 .lessonID(l.getLessonID())
                 .title(l.getTitle())
@@ -554,31 +610,48 @@ public class TutorCourseService {
                 .orderIndex(l.getOrderIndex())
                 .createdAt(l.getCreatedAt())
                 .resources(
-                        l.getResources() == null ? null :
-                                l.getResources().stream().map(this::toLessonResourceResponse).toList()
+                        l.getResources() == null
+                                ? List.of()
+                                : l.getResources().stream()
+                                .map(this::toLessonResourceResponse)
+                                .toList()
                 )
+                .quizQuestions(quizQuestionResponses)
                 .build();
     }
 
-    // DRAFT: LessonDraft
+
     private LessonResponse toLessonResponse(LessonDraft l) {
+        List<QuizQuestionResponse> quizQuestionResponses = null;
+
+        if (l.getLessonType() == LessonType.Quiz) {
+            var questions = quizQuestionDraftRepository.findByLessonDraftOrderByOrderIndexAsc(l);
+            quizQuestionResponses = questions.stream()
+                    .map(this::toQuizQuestionResponse)
+                    .toList();
+        }
+
         return LessonResponse.builder()
-                .lessonID(l.getLessonDraftID()) // dùng id draft
+                .lessonID(l.getLessonDraftID())
                 .title(l.getTitle())
                 .duration(l.getDuration())
                 .lessonType(l.getLessonType())
                 .videoURL(l.getVideoURL())
                 .content(l.getContent())
                 .orderIndex(l.getOrderIndex())
-                .createdAt(null) // Draft không có createdAt -> để null
+                .createdAt(null) // draft chưa cần createdAt
                 .resources(
-                        l.getResources() == null ? null :
-                                l.getResources().stream().map(this::toLessonResourceResponse).toList()
+                        l.getResources() == null
+                                ? List.of()
+                                : l.getResources().stream()
+                                .map(this::toLessonResourceResponse)
+                                .toList()
                 )
+                .quizQuestions(quizQuestionResponses)
                 .build();
     }
 
-    // LIVE: CourseSection
+
     private CourseSectionResponse toCourseSectionResponse(CourseSection s) {
         return CourseSectionResponse.builder()
                 .sectionID(s.getSectionID())
@@ -593,10 +666,9 @@ public class TutorCourseService {
                 .build();
     }
 
-    // DRAFT: CourseSectionDraft
     private CourseSectionResponse toCourseSectionResponse(CourseSectionDraft s) {
         return CourseSectionResponse.builder()
-                .sectionID(s.getSectionDraftID()) // dùng id draft
+                .sectionID(s.getSectionDraftID())
                 .courseID(s.getDraft().getCourse().getCourseID())
                 .title(s.getTitle())
                 .description(s.getDescription())
@@ -608,8 +680,11 @@ public class TutorCourseService {
                 .build();
     }
 
-    // LIVE: detail course
     private TutorCourseDetailResponse toTutorCourseDetailResponse(Course c) {
+        long learnerCount = enrollmentRepository.countByCourse_CourseID(c.getCourseID());
+        var rating = aggregateRating(c.getCourseID());
+
+
         return TutorCourseDetailResponse.builder()
                 .id(c.getCourseID())
                 .title(c.getTitle())
@@ -623,27 +698,38 @@ public class TutorCourseService {
                 .thumbnailURL(c.getThumbnailURL())
                 .categoryName(c.getCategory() != null ? c.getCategory().getName() : null)
                 .status(c.getStatus() != null ? c.getStatus().name() : null)
-
                 .adminReviewNote(c.getAdminReviewNote())
-
+                .avgRating(rating.avg)
+                .totalRatings(rating.total)
+                .learnerCount(learnerCount)
                 .section(
-                        c.getSections() == null ? null :
-                                c.getSections().stream().map(this::toCourseSectionResponse).toList()
+                        c.getSections() == null ? List.of() :
+                                c.getSections().stream()
+                                        .map(this::toCourseSectionResponse)
+                                        .toList()
                 )
                 .objectives(
                         c.getObjectives() == null ? List.of() :
                                 c.getObjectives().stream()
                                         .sorted(Comparator.comparing(CourseObjective::getOrderIndex))
-                                        .map(CourseObjective::getObjectiveText)
+                                        .map(o -> CourseObjectiveResponse.builder()
+                                                .objectiveID(o.getObjectiveID())
+                                                .courseID(c.getCourseID())
+                                                .objectiveText(o.getObjectiveText())
+                                                .orderIndex(o.getOrderIndex())
+                                                .build()
+                                        )
                                         .toList()
                 )
                 .build();
     }
 
-
     private TutorCourseDetailResponse toTutorCourseDetailResponse(CourseDraft d) {
+        long learnerCount = enrollmentRepository.countByCourse_CourseID(d.getDraftID());
+        var rating = aggregateRating(d.getDraftID());
+
         return TutorCourseDetailResponse.builder()
-                .id(d.getDraftID()) // id draft
+                .id(d.getDraftID())
                 .title(d.getTitle())
                 .shortDescription(d.getShortDescription())
                 .description(d.getDescription())
@@ -655,21 +741,104 @@ public class TutorCourseService {
                 .thumbnailURL(d.getThumbnailURL())
                 .categoryName(d.getCategory() != null ? d.getCategory().getName() : null)
                 .status(d.getStatus() != null ? d.getStatus().name() : null)
-
                 .adminReviewNote(d.getAdminReviewNote())
-
+                .avgRating(rating.avg)
+                .totalRatings(rating.total)
+                .learnerCount(learnerCount)
                 .section(
-                        d.getSections() == null ? null :
-                                d.getSections().stream().map(this::toCourseSectionResponse).toList()
+                        d.getSections() == null ? List.of() :
+                                d.getSections().stream()
+                                        .map(this::toCourseSectionResponse)
+                                        .toList()
                 )
                 .objectives(
                         d.getObjectives() == null ? List.of() :
                                 d.getObjectives().stream()
                                         .sorted(Comparator.comparing(CourseObjectiveDraft::getOrderIndex))
-                                        .map(CourseObjectiveDraft::getObjectiveText)
+                                        .map(o -> CourseObjectiveResponse.builder()
+                                                .objectiveID(o.getObjectiveDraftID()) // 👈 ID của draft objective
+                                                .courseID(d.getCourse().getCourseID())
+                                                .objectiveText(o.getObjectiveText())
+                                                .orderIndex(o.getOrderIndex())
+                                                .build()
+                                        )
                                         .toList()
                 )
                 .build();
     }
 
+
+    // ================== MAPPER QUIZ (LIVE) ==================
+    private QuizOptionResponse toQuizOptionResponse(QuizOption o) {
+        return QuizOptionResponse.builder()
+                .optionID(o.getOptionID())
+                .optionText(o.getOptionText())
+                .isCorrect(o.getIsCorrect())          // Tutor thấy được đáp án đúng
+                .orderIndex(o.getOrderIndex())
+                .build();
+    }
+
+    private QuizQuestionResponse toQuizQuestionResponse(QuizQuestion q) {
+        return QuizQuestionResponse.builder()
+                .questionID(q.getQuestionID())
+                .questionText(q.getQuestionText())
+                .orderIndex(q.getOrderIndex())
+                .explanation(q.getExplanation())
+                .score(q.getScore())
+                .options(
+                        q.getOptions() == null
+                                ? List.of()
+                                : q.getOptions().stream()
+                                .sorted(Comparator.comparing(
+                                        QuizOption::getOrderIndex,
+                                        Comparator.nullsLast(Integer::compareTo)
+                                ))
+                                .map(this::toQuizOptionResponse)
+                                .toList()
+                )
+                .build();
+    }
+
+    // ================== MAPPER QUIZ (DRAFT) ==================
+    private QuizOptionResponse toQuizOptionResponse(QuizOptionDraft o) {
+        return QuizOptionResponse.builder()
+                .optionID(o.getOptionDraftID())
+                .optionText(o.getOptionText())
+                .isCorrect(o.getIsCorrect())
+                .orderIndex(o.getOrderIndex())
+                .build();
+    }
+
+    private QuizQuestionResponse toQuizQuestionResponse(QuizQuestionDraft q) {
+        return QuizQuestionResponse.builder()
+                .questionID(q.getQuestionDraftID())
+                .questionText(q.getQuestionText())
+                .orderIndex(q.getOrderIndex())
+                .explanation(q.getExplanation())
+                .score(q.getScore())
+                .options(
+                        q.getOptions() == null
+                                ? List.of()
+                                : q.getOptions().stream()
+                                .sorted(Comparator.comparing(
+                                        QuizOptionDraft::getOrderIndex,
+                                        Comparator.nullsLast(Integer::compareTo)
+                                ))
+                                .map(this::toQuizOptionResponse)
+                                .toList()
+                )
+                .build();
+    }
+
+    private record RatingAgg(double avg, int total) {}
+    private RatingAgg aggregateRating(Long courseId) {
+        var reviews = courseReviewRepository.findByCourse_CourseID(courseId);
+        if (reviews == null || reviews.isEmpty()) return new RatingAgg(0.0, 0);
+
+        int total = reviews.size();
+        double sum = reviews.stream().mapToDouble(r -> r.getRating() == null ? 0 : r.getRating()).sum();
+        double avg = total == 0 ? 0.0 : sum / total;
+        avg = Math.round(avg * 10.0) / 10.0; // 1 chữ số
+        return new RatingAgg(avg, total);
+    }
 }

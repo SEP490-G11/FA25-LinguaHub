@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,4 +38,10 @@ public interface EnrollmentRepository extends JpaRepository<Enrollment, Long> {
     // thêm:
     List<Enrollment> findByUser_UserIDAndCourse_Tutor_TutorID(Long userId, Long tutorId);
 
+    // Đếm số learner distinct có enrollment
+    @Query("SELECT COUNT(DISTINCT e.user.userID) FROM Enrollment e")
+    long countDistinctLearners();
+
+    // dùng cho biểu đồ tăng trưởng theo tháng
+    List<Enrollment> findByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
 }

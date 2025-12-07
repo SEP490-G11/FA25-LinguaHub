@@ -23,7 +23,7 @@ public enum ErrorCode {
     PASSWORD_ENABLED(2004,"The password is false", HttpStatus.BAD_REQUEST),
     EMAIL_EXISTED(2005,"This Email has Signed in before", HttpStatus.BAD_REQUEST),
     USER_NOT_FOUND(2006,"User not found", HttpStatus.NOT_FOUND),
-
+    USER_NOT_EXISTED(2007,"User is not exist", HttpStatus.NOT_FOUND),
     // COURSE
     COURSE_NOT_FOUND(3001, "Course not found", HttpStatus.NOT_FOUND),
     COURSE_HAS_ENROLLMENT(3002, "Cannot modify or delete a course that already has enrolled learners", HttpStatus.CONFLICT),
@@ -37,7 +37,6 @@ public enum ErrorCode {
     COURSE_NOT_COMPLETED_HALF(3010, "You must complete at least 50% of the course before reviewing", HttpStatus.BAD_REQUEST),
     COURSE_NOT_APPROVED(3011, "This course is not yet approved for public view", HttpStatus.FORBIDDEN),
     REFUND_NOT_FOUND(1013, "Refund Not found", HttpStatus.NOT_FOUND),
-    COURSE_DELETE_ONLY_DRAFT_OR_PENDING(3015, "COURSE_DELETE_ONLY_DRAFT_OR_PENDING", HttpStatus.BAD_REQUEST),
     // COURSE DRAFT / VERSIONING (THÊM MỚI)
     CAN_ONLY_EDIT_DRAFT_FOR_APPROVED_COURSE(
             3012,
@@ -96,21 +95,45 @@ public enum ErrorCode {
     // CHAT & POLICY
     CHAT_ROOM_NOT_FOUND(8001, "Chat room not found", HttpStatus.NOT_FOUND),
     POLICY_NOT_FOUND(8002, "Policy not found", HttpStatus.NOT_FOUND),
+    INVALID_MEETING_LINK(8007, "Meeting link must be a valid Google Meet link (https://meet.google.com/)", HttpStatus.BAD_REQUEST),
 
     // PAYMENT
     INVALID_PAYMENT_TYPE(8003, "Ivalid Payment Type", HttpStatus.NOT_FOUND),
     BOOKING_SLOT_NOT_AVAILABLE(8004, "Booking Slot Amount of this Tutor is 0, Please Choose other Tutor ", HttpStatus.NOT_FOUND),
-    BOOKING_PLAN_MAX_DAYS_EXCEEDED(7008, "Tutor can only work maximum 4 days per week", HttpStatus.BAD_REQUEST),
-
+    BOOKING_PLAN_MAX_DAYS_EXCEEDED(8005, "Tutor can only work maximum 4 days per week", HttpStatus.BAD_REQUEST),
+    BOOKING_PAYMENT_CANCEL_TOO_MANY_TIMES(8006, "Thanh toan bi huy qua nhieu lan vui long thu lai sau 1 gio", HttpStatus.BAD_REQUEST),
     // WISH LIST
     ALREADY_IN_WISHLIST(8005, "The course already in wishlist", HttpStatus.CONFLICT),
 
     // REVIEW OR FEEDBACK
     ALREADY_REVIEWED(9000, "You have already reviewed this course", HttpStatus.CONFLICT),
+    ALREADY_FEEDBACK(9005, "You have already feedback this plan", HttpStatus.CONFLICT),
     REVIEW_NOT_FOUND(9001, "Review not found", HttpStatus.NOT_FOUND),
-
+    BOOKING_NOT_PAID(9003,"Booking is not paid", HttpStatus.BAD_REQUEST),
+    INVALID_RATING(9004, "Invalid rating", HttpStatus.BAD_REQUEST),
     // OBJECTIVE COURSE
     OBJECTIVE_NOT_FOUND(9002, "Objective not found", HttpStatus.NOT_FOUND),
+
+    //Notification
+    NOTIFICATION_NOT_FOUND(9100, "Notify not found", HttpStatus.NOT_FOUND),
+
+    //QUIZ
+    QUIZ_QUESTION_NOT_FOUND(10000, "Quiz Question not found", HttpStatus.NOT_FOUND),
+    LESSON_NOT_FOUND(10001, "Lesson not found", HttpStatus.NOT_FOUND),
+    QUIZ_NO_QUESTION(10002, "Quiz Question not found", HttpStatus.NOT_FOUND),
+    QUIZ_RESULT_NOT_FOUND(10003, "Quiz Result not found", HttpStatus.NOT_FOUND),
+
+    //CloudFlare
+    INVALID_TURNSTILE_TOKEN(100,"Verification failed. Please refresh and try again.", HttpStatus.BAD_REQUEST),
+
+    CATEGORY_ALREADY_EXISTS(10004, "Category already exists", HttpStatus.CONFLICT),
+    CATEGORY_NOT_FOUND(10005, "Category not found", HttpStatus.NOT_FOUND),
+    CATEGORY_IN_USE(10006, "Category in use", HttpStatus.CONFLICT),
+    LANGUAGE_ALREADY_EXISTS(10007, "Language already exists", HttpStatus.CONFLICT),
+    LANGUAGE_NOT_FOUND(10008, "Language not found", HttpStatus.NOT_FOUND),
+    LANGUAGE_IN_USE(10009, "Language in use", HttpStatus.NOT_FOUND),
+    LANGUAGE_NAME_EN_IN_USE(10010, "Language name in use", HttpStatus.NOT_FOUND),
+
     ;
 
     ErrorCode(int code, String message, HttpStatusCode httpStatusCode) {

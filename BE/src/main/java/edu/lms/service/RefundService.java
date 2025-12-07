@@ -5,8 +5,10 @@ import edu.lms.dto.response.RefundRequestResponse;
 import edu.lms.entity.RefundRequest;
 import edu.lms.entity.Tutor;
 import edu.lms.enums.RefundStatus;
+import edu.lms.enums.SlotStatus;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
+import edu.lms.repository.BookingPlanSlotRepository;
 import edu.lms.repository.RefundRequestRepository;
 import edu.lms.repository.TutorRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,7 @@ public class RefundService {
     RefundRequestRepository refundRepo;
     WithdrawService withdrawService;
     TutorRepository tutorRepository;
+    BookingPlanSlotRepository bookingPlanSlotRepository;
 
     public void submitRefundInfo(Long refundId, RefundInfoRequest dto, Long userId) {
         RefundRequest req = refundRepo.findById(refundId)
@@ -78,18 +81,27 @@ public class RefundService {
         Tutor tutor = req.getTutor();
         Long tutorId = tutor.getTutorID();
 
-        // 1) Check đủ tiền trong ví (theo thuật toán mới)
+        // 1) Check đủ tiền trong ví
         BigDecimal currentBalance = withdrawService.calculateCurrentBalance(tutorId);
         if (req.getRefundAmount().compareTo(currentBalance) > 0) {
             throw new AppException(ErrorCode.INVALID_AMOUNT);
         }
 
-        // 2) Cập nhật trạng thái refund
+        // 2) Update trạng thái refund
         req.setStatus(RefundStatus.APPROVED);
         req.setProcessedAt(LocalDateTime.now());
         refundRepo.save(req);
 
-        // 3) Re-calc lại balance và update snapshot wallet_balance
+        // 3) Nếu có slot liên quan → set slot = Rejected
+        if (req.getSlotId() != null) {
+            bookingPlanSlotRepository.findById(req.getSlotId())
+                    .ifPresent(slot -> {
+                        slot.setStatus(SlotStatus.Rejected);
+                        bookingPlanSlotRepository.save(slot);
+                    });
+        }
+
+        // 4) Recalc ví tutor
         BigDecimal newBalance = withdrawService.calculateCurrentBalance(tutorId);
         tutor.setWalletBalance(newBalance);
         tutorRepository.save(tutor);

@@ -1,6 +1,7 @@
 package edu.lms.repository;
 
 import edu.lms.entity.BookingPlanSlot;
+import edu.lms.entity.User;
 import edu.lms.enums.SlotStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -15,6 +16,7 @@ import java.util.List;
 public interface BookingPlanSlotRepository extends JpaRepository<BookingPlanSlot, Long> {
 
     boolean existsByBookingPlanID(Long bookingPlanID);
+
     boolean existsByTutorIDAndStartTimeAndEndTime(Long tutorID, LocalDateTime startTime, LocalDateTime endTime);
 
     List<BookingPlanSlot> findAllByPaymentID(Long paymentId);
@@ -127,4 +129,34 @@ public interface BookingPlanSlotRepository extends JpaRepository<BookingPlanSlot
     List<BookingPlanSlot> findByBookingPlanIDOrderByStartTimeAsc(Long bookingPlanID);
 
     void deleteByBookingPlanID(Long bookingPlanID);
+
+    /**
+     * Lấy danh sách User (distinct) đã booking slot (status = X) với tutor
+     */
+    @Query("""
+        SELECT DISTINCT u
+        FROM BookingPlanSlot s
+        JOIN User u ON s.userID = u.userID
+        WHERE s.tutorID = :tutorId
+          AND s.userID IS NOT NULL
+          AND s.status = :status
+    """)
+    List<User> findBookedUsersByTutor(
+            @Param("tutorId") Long tutorId,
+            @Param("status") SlotStatus status
+    );
+    List<BookingPlanSlot> findByTutorIDAndStatus(Long tutorId, SlotStatus status);
+
+    // ==== thêm cho dashboard ====
+
+    List<BookingPlanSlot> findTop5ByTutorIDAndStartTimeAfterAndStatusInOrderByStartTimeAsc(
+            Long tutorID,
+            LocalDateTime startTime,
+            List<SlotStatus> statuses
+    );
+    List<BookingPlanSlot> findByStatusAndStartTimeBetweenAndReminderSentFalse(
+            SlotStatus status,
+            LocalDateTime from,
+            LocalDateTime to
+    );
 }

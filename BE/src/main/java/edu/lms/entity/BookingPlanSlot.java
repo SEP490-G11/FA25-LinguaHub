@@ -52,4 +52,22 @@ public class BookingPlanSlot {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_package_id")
     UserPackage userPackage;
+
+    @Builder.Default
+    @Column(name = "reminder_sent", nullable = false)
+    Boolean reminderSent = false;
+
+    @Builder.Default
+    @Column(name = "tutor_join", nullable = false)
+    Boolean tutorJoin = false;
+
+    @Builder.Default
+    @Column(name = "learner_join", nullable = false)
+    Boolean learnerJoin = false;
+
+    @Column(name = "tutor_evidence", length = 1000)
+    String tutorEvidence;   // URL ảnh / mô tả
+
+    @Column(name = "learner_evidence", length = 1000)
+    String learnerEvidence; // URL ảnh / mô tả
 }

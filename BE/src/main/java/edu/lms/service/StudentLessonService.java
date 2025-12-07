@@ -107,7 +107,7 @@ public class StudentLessonService {
         userCourseSectionRepository.save(userCourseSection);
     }
 
-    // 👇 HÀM MỚI: nếu tất cả section của course đều >=100% thì set Completed
+    //  HÀM MỚI: nếu tất cả section của course đều >=100% thì set Completed
     private void updateEnrollmentStatusIfCourseCompleted(
             User user,
             CourseSection currentSection,

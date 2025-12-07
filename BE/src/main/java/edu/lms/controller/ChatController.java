@@ -8,6 +8,7 @@ import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
 import edu.lms.security.UserPrincipal;
 import edu.lms.service.ChatService;
+import edu.lms.service.WebSocketChatService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -32,6 +33,7 @@ import java.util.List;
 public class ChatController {
 
     ChatService chatService;
+    WebSocketChatService webSocketChatService;
 
     /**
      * Get or create Advice chat room
@@ -131,6 +133,27 @@ public class ChatController {
         return ResponseEntity.ok(ApiRespond.<ChatMessageResponse>builder()
                 .result(message)
                 .message("Meeting link sent successfully")
+                .build());
+    }
+
+    /**
+     * Send typing indicator to chat room
+     * This broadcasts typing status via WebSocket to other participants
+     */
+    @Operation(summary = "Gửi typing indicator vào chat room (lấy senderID từ authentication) - Broadcast qua WebSocket")
+    @PostMapping("/room/{chatRoomId}/typing")
+    public ResponseEntity<ApiRespond<String>> sendTypingIndicator(
+            @PathVariable Long chatRoomId
+    ) {
+        Long senderID = getCurrentUserId();
+        
+        // Validate user has access to this chat room before broadcasting typing
+        chatService.validateUserAccessToChatRoom(chatRoomId, senderID);
+        
+        webSocketChatService.broadcastTyping(chatRoomId, senderID);
+        return ResponseEntity.ok(ApiRespond.<String>builder()
+                .result("Typing indicator sent")
+                .message("Typing indicator broadcasted successfully")
                 .build());
     }
 

@@ -1,4 +1,3 @@
-// src/main/java/edu/lms/controller/CourseController.java
 package edu.lms.controller;
 
 import edu.lms.dto.request.ApiRespond;
@@ -9,9 +8,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -31,17 +32,15 @@ public class CourseController {
 
         if (p instanceof Jwt jwt) {
             String email = jwt.getClaimAsString("email");
-            return (email != null && !email.isBlank()) ? email : jwt.getSubject(); // fallback sub
+            return (email != null && !email.isBlank()) ? email : jwt.getSubject();
         }
-        if (p instanceof UserDetails ud) return ud.getUsername();
-        if (p instanceof String s)     return "anonymousUser".equalsIgnoreCase(s) ? null : s;
         return null;
     }
 
     @Operation(summary = "Public: Get all Approved courses")
     @GetMapping("/public/approved")
     public ApiRespond<List<CourseResponse>> getAllApprovedPublic(Authentication authentication) {
-        String email = resolveEmail(authentication); // null nếu guest, có token thì ra email/sub
+        String email = resolveEmail(authentication);
         return ApiRespond.<List<CourseResponse>>builder()
                 .result(courseService.getAllApproved(email))
                 .build();

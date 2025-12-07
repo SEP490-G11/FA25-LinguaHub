@@ -4,6 +4,8 @@ import edu.lms.dto.request.ApiRespond;
 import edu.lms.dto.request.ChangePasswordRequest;
 import edu.lms.dto.request.UserCreationRequest;
 import edu.lms.dto.response.UserResponse;
+import edu.lms.exception.AppException;
+import edu.lms.exception.ErrorCode;
 import edu.lms.service.UserService;
 import jakarta.validation.Valid;
 import lombok.AccessLevel;
@@ -12,12 +14,12 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Slf4j
 @RestController
@@ -63,12 +65,23 @@ public class UserController {
     }
 
     @PatchMapping("/{userID}")
-    @PreAuthorize("hasAuthority('UPDATE_USER') or hasAuthority('ADMIN')")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<UserResponse> updateUserFields(
             @PathVariable Long userID,
+            @AuthenticationPrincipal org.springframework.security.oauth2.jwt.Jwt jwt,
             @RequestBody Map<String, Object> updates) {
+
+        Long currentUserId = jwt.getClaim("userId");
+
+        // nếu không phải chính chủ và cũng không có UPDATE_USER -> chặn
+        if (!currentUserId.equals(userID)
+                && jwt.getClaimAsStringList("permissions").stream().noneMatch("UPDATE_USER"::equals)) {
+            throw new AppException(ErrorCode.UNAUTHENTICATED);
+        }
+
         return ResponseEntity.ok(userService.updateUserFields(userID, updates));
     }
+
 
     @DeleteMapping("/{userID}")
     @PreAuthorize("hasAuthority('DELETE_USER')")

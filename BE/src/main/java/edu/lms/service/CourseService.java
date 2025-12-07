@@ -171,9 +171,9 @@ public class CourseService {
                 if (section.getLessons() == null) continue;
                 for (Lesson l : section.getLessons()) {
                     if (l.getLessonType() == LessonType.Video && l.getDuration() != null) {
-                        totalVideoHours += l.getDuration() / 60.0; // phút → giờ
+                        totalVideoHours += l.getDuration() / 60.0;
                     }
-                    if (l.getLessonType() == LessonType.Test) totalPracticeTests++;
+                    if (l.getLessonType() == LessonType.Quiz) totalPracticeTests++;
                     if (l.getLessonType() == LessonType.Reading) totalArticles++;
                     if (l.getResources() != null) totalResources += l.getResources().size();
                 }
@@ -233,8 +233,8 @@ public class CourseService {
                         ? c.getSections().stream().map(this::toCourseSectionResponse).toList()
                         : null)
                 .contentSummary(summarizeCourseContent(c))
-                .isWishListed(user != null ? isWishListed : null) // guest -> null
-                .isPurchased(isPurchased)                        // luôn boolean
+                .isWishListed(user != null ? isWishListed : null)
+                .isPurchased(isPurchased)
                 .learnerCount(learnerCount)
                 .tutorID(tutor != null ? tutor.getTutorID() : null)
                 .tutorAvatarURL(tutorUser != null ? tutorUser.getAvatarURL() : null)
@@ -284,8 +284,8 @@ public class CourseService {
                 .categoryName(c.getCategory() != null ? c.getCategory().getName() : null)
                 .tutorName(tutorUser != null ? tutorUser.getFullName() : null)
                 .status(c.getStatus() != null ? c.getStatus().name() : null)
-                .isWishListed(user != null ? isWishListed : null) // guest -> null
-                .isPurchased(isPurchased)                        // luôn boolean
+                .isWishListed(user != null ? isWishListed : null)
+                .isPurchased(isPurchased)
                 .learnerCount(learnerCount)
                 .tutorAvatarURL(tutorUser != null ? tutorUser.getAvatarURL() : null)
                 .tutorAddress(tutorUser != null

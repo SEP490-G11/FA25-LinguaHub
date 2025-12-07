@@ -25,86 +25,128 @@ public class BookingPlanSlotService {
     private final BookingPlanRepository bookingPlanRepository;
     private final TutorRepository tutorRepository;
 
+    /* ============================================================
+       GET ALL SLOTS FOR USER
+       ============================================================ */
     public List<BookingPlanSlotResponse> getSlotsForUser(Long userId) {
         List<BookingPlanSlot> slots = bookingPlanSlotRepository.findByUserID(userId);
-        
-        // Nếu không có slot, trả về empty list
+
         if (slots.isEmpty()) {
             return List.of();
         }
-        
-        // Lấy tất cả booking plan IDs để query meetingUrl
-        List<Long> bookingPlanIds = slots.stream()
-                .map(BookingPlanSlot::getBookingPlanID)
-                .filter(id -> id != null)
-                .distinct()
-                .collect(Collectors.toList());
-        
-        // Lấy meetingUrl từ các booking plans (chỉ query nếu có IDs)
-        Map<Long, String> meetingUrlMap = bookingPlanIds.isEmpty() 
-                ? Map.of()
-                : bookingPlanRepository.findAllById(bookingPlanIds)
-                        .stream()
-                        .filter(plan -> plan != null && plan.getBookingPlanID() != null)
-                        .collect(Collectors.toMap(
-                                BookingPlan::getBookingPlanID,
-                                plan -> plan.getMeetingUrl() != null ? plan.getMeetingUrl() : "",
-                                (existing, replacement) -> existing
-                        ));
-        
-        // Convert to DTO, chỉ trả về meetingUrl khi status = Paid
+
+        // Meeting URL Map
+        Map<Long, String> meetingUrlMap = buildMeetingUrlMap(slots);
+
+        // Tutor Fullname Map
+        Map<Long, String> tutorNameMap = buildTutorNameMap(slots);
+
+        // Convert to DTO
         return slots.stream()
-                .map(slot -> toSlotResponse(slot, meetingUrlMap))
+                .map(slot -> toSlotResponse(slot, meetingUrlMap, tutorNameMap))
                 .collect(Collectors.toList());
     }
 
+    /* ============================================================
+       GET ALL PAID SLOTS BY TUTOR
+       ============================================================ */
+    public List<BookingPlanSlotResponse> getPaidSlotsByTutor(Long tutorId) {
+
+        List<BookingPlanSlot> slots = bookingPlanSlotRepository
+                .findByTutorIDAndStatus(tutorId, SlotStatus.Paid);
+
+        if (slots.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, String> meetingUrlMap = buildMeetingUrlMap(slots);
+        Map<Long, String> tutorNameMap = buildTutorNameMap(slots);
+
+        return slots.stream()
+                .map(slot -> toSlotResponse(slot, meetingUrlMap, tutorNameMap))
+                .collect(Collectors.toList());
+    }
+
+    /* ============================================================
+       GET ALL SLOTS FOR TUTOR (ANY STATUS)
+       ============================================================ */
     public List<BookingPlanSlotResponse> getSlotsForTutor(Long userId) {
         Tutor tutor = tutorRepository.findByUser_UserID(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.TUTOR_NOT_FOUND));
 
         List<BookingPlanSlot> slots = bookingPlanSlotRepository.findByTutorID(tutor.getTutorID());
-        
-        // Nếu không có slot, trả về empty list
+
         if (slots.isEmpty()) {
             return List.of();
         }
-        
-        // Lấy tất cả booking plan IDs để query meetingUrl
+
+        Map<Long, String> meetingUrlMap = buildMeetingUrlMap(slots);
+        Map<Long, String> tutorNameMap = buildTutorNameMap(slots);
+
+        return slots.stream()
+                .map(slot -> toSlotResponse(slot, meetingUrlMap, tutorNameMap))
+                .collect(Collectors.toList());
+    }
+
+    /* ============================================================
+       COMMON METHODS
+       ============================================================ */
+
+    /** Build Meeting URL Map */
+    private Map<Long, String> buildMeetingUrlMap(List<BookingPlanSlot> slots) {
         List<Long> bookingPlanIds = slots.stream()
                 .map(BookingPlanSlot::getBookingPlanID)
                 .filter(id -> id != null)
                 .distinct()
                 .collect(Collectors.toList());
-        
-        // Lấy meetingUrl từ các booking plans (chỉ query nếu có IDs)
-        Map<Long, String> meetingUrlMap = bookingPlanIds.isEmpty()
+
+        return bookingPlanIds.isEmpty()
                 ? Map.of()
-                : bookingPlanRepository.findAllById(bookingPlanIds)
-                        .stream()
-                        .filter(plan -> plan != null && plan.getBookingPlanID() != null)
-                        .collect(Collectors.toMap(
-                                BookingPlan::getBookingPlanID,
-                                plan -> plan.getMeetingUrl() != null ? plan.getMeetingUrl() : "",
-                                (existing, replacement) -> existing
-                        ));
-        
-        // Convert to DTO, chỉ trả về meetingUrl khi status = Paid
-        return slots.stream()
-                .map(slot -> toSlotResponse(slot, meetingUrlMap))
-                .collect(Collectors.toList());
+                : bookingPlanRepository.findAllById(bookingPlanIds).stream()
+                .filter(plan -> plan != null && plan.getBookingPlanID() != null)
+                .collect(Collectors.toMap(
+                        BookingPlan::getBookingPlanID,
+                        plan -> plan.getMeetingUrl() != null ? plan.getMeetingUrl() : "",
+                        (existing, replacement) -> existing
+                ));
     }
-    
-    private BookingPlanSlotResponse toSlotResponse(BookingPlanSlot slot, Map<Long, String> meetingUrlMap) {
-        // Chỉ trả về meetingUrl khi slot đã thanh toán (status = Paid)
+
+    /** Build Tutor Fullname Map */
+    private Map<Long, String> buildTutorNameMap(List<BookingPlanSlot> slots) {
+        List<Long> tutorIds = slots.stream()
+                .map(BookingPlanSlot::getTutorID)
+                .filter(id -> id != null)
+                .distinct()
+                .collect(Collectors.toList());
+
+        return tutorIds.isEmpty()
+                ? Map.of()
+                : tutorRepository.findAllById(tutorIds).stream()
+                .filter(tutor -> tutor.getUser() != null)
+                .collect(Collectors.toMap(
+                        Tutor::getTutorID,
+                        tutor -> tutor.getUser().getFullName() != null
+                                ? tutor.getUser().getFullName()
+                                : "",
+                        (existing, replacement) -> existing
+                ));
+    }
+
+    /** Convert Entity -> Response DTO */
+    private BookingPlanSlotResponse toSlotResponse(
+            BookingPlanSlot slot,
+            Map<Long, String> meetingUrlMap,
+            Map<Long, String> tutorNameMap
+    ) {
+
         String meetingUrl = null;
         if (slot.getStatus() == SlotStatus.Paid && slot.getBookingPlanID() != null) {
             meetingUrl = meetingUrlMap.get(slot.getBookingPlanID());
-            // Nếu meetingUrl là empty string, set về null
             if (meetingUrl != null && meetingUrl.isEmpty()) {
                 meetingUrl = null;
             }
         }
-        
+
         return BookingPlanSlotResponse.builder()
                 .slotID(slot.getSlotID())
                 .bookingPlanID(slot.getBookingPlanID())
@@ -117,6 +159,11 @@ public class BookingPlanSlotService {
                 .lockedAt(slot.getLockedAt())
                 .expiresAt(slot.getExpiresAt())
                 .meetingUrl(meetingUrl)
+                .tutorFullName(tutorNameMap.get(slot.getTutorID()))
+                .learnerJoin(slot.getLearnerJoin())
+                .tutorJoin(slot.getTutorJoin())
+                .learnerEvidence(slot.getLearnerEvidence())
+                .tutorEvidence(slot.getTutorEvidence())
                 .build();
     }
 }

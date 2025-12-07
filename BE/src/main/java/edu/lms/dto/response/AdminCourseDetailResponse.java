@@ -40,7 +40,10 @@ public class AdminCourseDetailResponse {
 
     String adminReviewNote;
 
-    // ==== CURRICULUM & OBJECTIVES ====
+    Integer totalRatings;
+    Double avgRating;
+    Long learnerCount;
+
     List<CourseSectionResponse> sections; // Section + Lesson + Resource
     List<String> objectives;              // Danh sách mục tiêu (text)
 }

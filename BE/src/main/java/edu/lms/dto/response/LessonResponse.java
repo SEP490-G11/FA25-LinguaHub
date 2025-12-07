@@ -3,6 +3,7 @@ package edu.lms.dto.response;
 import edu.lms.enums.LessonType;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -21,4 +22,5 @@ public class LessonResponse {
     Integer orderIndex;
     LocalDateTime createdAt;
     List<LessonResourceResponse> resources;
+    List<QuizQuestionResponse> quizQuestions;
 }

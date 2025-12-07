@@ -23,7 +23,7 @@ public class CourseSectionDraft {
     @JoinColumn(name = "draftID", nullable = false)
     CourseDraft draft;
 
-    // 🔹 Section gốc trong bảng live (nullable: null = section mới)
+    //  Section gốc trong bảng live (nullable: null = section mới)
     Long originalSectionID;
 
     String title;

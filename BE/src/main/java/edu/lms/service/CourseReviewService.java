@@ -12,7 +12,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -29,8 +28,6 @@ public class CourseReviewService {
     EnrollmentRepository enrollmentRepository;
     TutorRepository tutorRepository;
     UserCourseSectionRepository userCourseSectionRepository;
-
-
     @Transactional
     public CourseReviewResponse createReview(Long courseId, CourseReviewRequest request) {
         // Lấy user từ JWT token
@@ -63,7 +60,7 @@ public class CourseReviewService {
             throw new AppException(ErrorCode.COURSE_NOT_COMPLETED_HALF);
         }
 
-        // Kiểm tra đã review chưa
+        // Kiểm tra đã review chưa (1 user chỉ review 1 lần cho 1 course)
         boolean alreadyReviewed = courseReviewRepository
                 .findByCourse_CourseIDAndUser_UserID(courseId, user.getUserID())
                 .isPresent();
@@ -77,14 +74,11 @@ public class CourseReviewService {
                 .course(course)
                 .user(user)
                 .comment(request.getComment())
-                .rating(request.getRating())
+                .rating(request.getRating()) // giả định request.getRating() là Double
                 .createdAt(LocalDateTime.now())
                 .build();
 
         courseReviewRepository.save(review);
-
-        // Cập nhật lại rating trung bình của Tutor
-        updateTutorRating(course.getTutor());
 
         return CourseReviewResponse.builder()
                 .feedbackID(review.getReviewID())
@@ -96,7 +90,40 @@ public class CourseReviewService {
                 .build();
     }
 
-    // DELETE REVIEW
+    @Transactional
+    public CourseReviewResponse updateReview(Long reviewId, CourseReviewRequest request) {
+        // Lấy user hiện tại từ JWT
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
+
+        // Tìm review
+        CourseReview review = courseReviewRepository.findById(reviewId)
+                .orElseThrow(() -> new AppException(ErrorCode.REVIEW_NOT_FOUND));
+
+        // Chỉ cho phép chủ sở hữu review được sửa
+        if (!review.getUser().getUserID().equals(user.getUserID())) {
+            throw new AppException(ErrorCode.UNAUTHORIZED);
+        }
+
+        // Cập nhật nội dung review
+        review.setRating(request.getRating());
+        review.setComment(request.getComment());
+        // Nếu entity có field updatedAt => set thêm ở đây
+
+        courseReviewRepository.save(review);
+
+
+        // Trả về response
+        return CourseReviewResponse.builder()
+                .feedbackID(review.getReviewID())
+                .userFullName(user.getFullName())
+                .userAvatarURL(user.getAvatarURL())
+                .rating(review.getRating())
+                .comment(review.getComment())
+                .createdAt(review.getCreatedAt())
+                .build();
+    }
 
     @Transactional
     public void deleteReview(Long reviewId) {
@@ -111,33 +138,9 @@ public class CourseReviewService {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        Tutor tutor = review.getCourse().getTutor();
+        // Tutor tutor = review.getCourse().getTutor();
+
         courseReviewRepository.delete(review);
-        updateTutorRating(tutor);
-    }
 
-
-    //TÍNH LẠI RATING TRUNG BÌNH CỦA TUTOR
-
-    private void updateTutorRating(Tutor tutor) {
-        if (tutor == null) return;
-        List<Course> tutorCourses = courseRepository.findAll().stream()
-                .filter(c -> c.getTutor() != null && c.getTutor().getTutorID().equals(tutor.getTutorID()))
-                .toList();
-
-        // Gom tất cả review của các course đó
-        List<CourseReview> tutorReviews = tutorCourses.stream()
-                .flatMap(c -> courseReviewRepository.findByCourse_CourseID(c.getCourseID()).stream())
-                .toList();
-
-        double avgRating = tutorReviews.isEmpty()
-                ? 0.0
-                : tutorReviews.stream()
-                .mapToDouble(CourseReview::getRating)
-                .average()
-                .orElse(0.0);
-
-        tutor.setRating(BigDecimal.valueOf(avgRating));
-        tutorRepository.save(tutor);
     }
 }

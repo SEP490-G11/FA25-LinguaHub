@@ -1,7 +1,7 @@
 package edu.lms.entity;
 
-import edu.lms.enums.CourseStatus;
 import edu.lms.enums.CourseLevel;
+import edu.lms.enums.CourseStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;

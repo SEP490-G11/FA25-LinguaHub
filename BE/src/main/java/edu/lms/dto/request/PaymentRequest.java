@@ -1,6 +1,5 @@
 package edu.lms.dto.request;
 
-import edu.lms.entity.UserPackage;
 import edu.lms.enums.PaymentType;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -19,4 +18,5 @@ public class PaymentRequest {
     private PaymentType paymentType;
     private Long userPackageId;
     private List<SlotRequest> slots;
+    private String turnstileToken;
 }

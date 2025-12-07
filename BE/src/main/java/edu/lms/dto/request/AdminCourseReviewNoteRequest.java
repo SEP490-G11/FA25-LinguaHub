@@ -1,7 +1,9 @@
-// src/main/java/edu/lms/dto/request/AdminCourseReviewNoteRequest.java
 package edu.lms.dto.request;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import static lombok.AccessLevel.PRIVATE;

@@ -1,4 +1,3 @@
-// src/main/java/edu/lms/dto/response/AdminCourseDraftChangesResponse.java
 package edu.lms.dto.response;
 
 import lombok.Builder;

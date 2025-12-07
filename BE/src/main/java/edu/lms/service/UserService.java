@@ -5,6 +5,7 @@ import edu.lms.dto.request.UserCreationRequest;
 import edu.lms.dto.response.UserResponse;
 import edu.lms.entity.Role;
 import edu.lms.entity.User;
+import edu.lms.enums.Gender;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
 import edu.lms.mapper.UserMapping;
@@ -25,7 +26,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Slf4j
 @Service
@@ -101,6 +101,8 @@ public class UserService {
                 case "phone" -> user.setPhone((String) value);
                 case "bio" -> user.setBio((String) value);
                 case "dob" -> user.setDob(LocalDate.parse((String) value));
+                case "avatarURL" -> user.setAvatarURL((String) value);
+                case "gender" -> user.setGender((Gender) value);
                 default -> throw new RuntimeException("Field '" + field + "' not updatable");
             }
         });
@@ -122,7 +124,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXIST));
 
-        // Chỉ cập nhật isActive = false
+
         user.setIsActive(false);
         userRepository.save(user);
     }

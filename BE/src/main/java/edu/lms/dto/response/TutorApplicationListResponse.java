@@ -4,6 +4,7 @@ package edu.lms.dto.response;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -22,6 +23,7 @@ public class TutorApplicationListResponse {
     String specialization;
     String teachingLanguage;
     Double pricePerHour; // Giá booking/slot mỗi giờ (giá tối thiểu từ các booking plans active)
+    BigDecimal rating; // Rating từ learner feedback booking
     String status;
     LocalDateTime submittedAt;
     LocalDateTime reviewedAt;

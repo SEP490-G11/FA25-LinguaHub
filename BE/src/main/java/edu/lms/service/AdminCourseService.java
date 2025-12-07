@@ -1,10 +1,11 @@
-// src/main/java/edu/lms/service/AdminCourseService.java
 package edu.lms.service;
 
 import edu.lms.dto.response.*;
 import edu.lms.entity.*;
 import edu.lms.enums.CourseDraftStatus;
 import edu.lms.enums.CourseStatus;
+import edu.lms.enums.LessonType;
+import edu.lms.enums.NotificationType;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
 import edu.lms.repository.*;
@@ -13,6 +14,7 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -35,6 +37,14 @@ public class AdminCourseService {
     UserCourseSectionRepository userCourseSectionRepository;
     EnrollmentRepository enrollmentRepository;
     EmailService emailService;
+    NotificationService notificationService;
+
+    QuizQuestionRepository quizQuestionRepository;
+    QuizOptionRepository quizOptionRepository;
+    QuizQuestionDraftRepository quizQuestionDraftRepository;
+    QuizOptionDraftRepository quizOptionDraftRepository;
+
+    CourseReviewRepository courseReviewRepository;
 
     // ====================== MAPPER CHO COURSE LIVE ======================
 
@@ -111,6 +121,16 @@ public class AdminCourseService {
 
     // LIVE: Lesson
     private LessonResponse toLessonResponse(Lesson l) {
+        // DEFAULT: không có quiz
+        List<QuizQuestionResponse> quizQuestionResponses = null;
+
+        // Nếu lesson là Quiz -> load danh sách câu hỏi + options
+        if (l.getLessonType() == LessonType.Quiz) {
+            var questions = quizQuestionRepository.findByLessonOrderByOrderIndexAsc(l);
+            quizQuestionResponses = questions.stream()
+                    .map(this::toQuizQuestionResponse)
+                    .toList();
+        }
         return LessonResponse.builder()
                 .lessonID(l.getLessonID())
                 .title(l.getTitle())
@@ -126,11 +146,20 @@ public class AdminCourseService {
                                 .map(this::toLessonResourceResponse)
                                 .toList()
                 )
+                .quizQuestions(quizQuestionResponses)
                 .build();
     }
 
     // DRAFT: LessonDraft
     private LessonResponse toLessonResponse(LessonDraft l) {
+        List<QuizQuestionResponse> quizQuestionResponses = null;
+
+        if (l.getLessonType() == LessonType.Quiz) {
+            var questions = quizQuestionDraftRepository.findByLessonDraftOrderByOrderIndexAsc(l);
+            quizQuestionResponses = questions.stream()
+                    .map(this::toQuizQuestionResponse)
+                    .toList();
+        }
         return LessonResponse.builder()
                 .lessonID(l.getLessonDraftID()) // id draft
                 .title(l.getTitle())
@@ -146,6 +175,7 @@ public class AdminCourseService {
                                 .map(this::toLessonResourceResponse)
                                 .toList()
                 )
+                .quizQuestions(quizQuestionResponses)
                 .build();
     }
 
@@ -195,9 +225,86 @@ public class AdminCourseService {
                 .build();
     }
 
+    // ================== MAPPER QUIZ (LIVE) ==================
+    private QuizOptionResponse toQuizOptionResponse(QuizOption o) {
+        return QuizOptionResponse.builder()
+                .optionID(o.getOptionID())
+                .optionText(o.getOptionText())
+                .isCorrect(o.getIsCorrect())          // Tutor thấy được đáp án đúng
+                .orderIndex(o.getOrderIndex())
+                .build();
+    }
+
+    private QuizQuestionResponse toQuizQuestionResponse(QuizQuestion q) {
+        return QuizQuestionResponse.builder()
+                .questionID(q.getQuestionID())
+                .questionText(q.getQuestionText())
+                .orderIndex(q.getOrderIndex())
+                .explanation(q.getExplanation())
+                .score(q.getScore())
+                .options(
+                        q.getOptions() == null
+                                ? List.of()
+                                : q.getOptions().stream()
+                                .sorted(Comparator.comparing(
+                                        QuizOption::getOrderIndex,
+                                        Comparator.nullsLast(Integer::compareTo)
+                                ))
+                                .map(this::toQuizOptionResponse)
+                                .toList()
+                )
+                .build();
+    }
+
+    // ================== MAPPER QUIZ (DRAFT) ==================
+    private QuizOptionResponse toQuizOptionResponse(QuizOptionDraft o) {
+        return QuizOptionResponse.builder()
+                .optionID(o.getOptionDraftID())
+                .optionText(o.getOptionText())
+                .isCorrect(o.getIsCorrect())
+                .orderIndex(o.getOrderIndex())
+                .build();
+    }
+
+    private QuizQuestionResponse toQuizQuestionResponse(QuizQuestionDraft q) {
+        return QuizQuestionResponse.builder()
+                .questionID(q.getQuestionDraftID())
+                .questionText(q.getQuestionText())
+                .orderIndex(q.getOrderIndex())
+                .explanation(q.getExplanation())
+                .score(q.getScore())
+                .options(
+                        q.getOptions() == null
+                                ? List.of()
+                                : q.getOptions().stream()
+                                .sorted(Comparator.comparing(
+                                        QuizOptionDraft::getOrderIndex,
+                                        Comparator.nullsLast(Integer::compareTo)
+                                ))
+                                .map(this::toQuizOptionResponse)
+                                .toList()
+                )
+                .build();
+    }
+
     // ====================== DETAIL MAPPER LIVE & DRAFT ======================
 
+    private record RatingAgg(double avg, int total) {}
+    private RatingAgg aggregateRating(Long courseId) {
+        var reviews = courseReviewRepository.findByCourse_CourseID(courseId);
+        if (reviews == null || reviews.isEmpty()) return new RatingAgg(0.0, 0);
+
+        int total = reviews.size();
+        double sum = reviews.stream().mapToDouble(r -> r.getRating() == null ? 0 : r.getRating()).sum();
+        double avg = total == 0 ? 0.0 : sum / total;
+        avg = Math.round(avg * 10.0) / 10.0; // 1 chữ số
+        return new RatingAgg(avg, total);
+    }
+
     private AdminCourseDetailResponse toAdminDetail(Course c) {
+        long learnerCount = enrollmentRepository.countByCourse_CourseID(c.getCourseID());
+        var rating = aggregateRating(c.getCourseID());
+
         return AdminCourseDetailResponse.builder()
                 .id(c.getCourseID())
                 .courseID(c.getCourseID())
@@ -218,6 +325,9 @@ public class AdminCourseService {
                 .createdAt(c.getCreatedAt())
                 .updatedAt(c.getUpdatedAt())
                 .adminReviewNote(c.getAdminReviewNote())
+                .avgRating(rating.avg)
+                .totalRatings(rating.total)
+                .learnerCount(learnerCount)
                 .sections(
                         c.getSections() == null ? List.of()
                                 : c.getSections().stream()
@@ -242,6 +352,8 @@ public class AdminCourseService {
     }
 
     private AdminCourseDetailResponse toAdminDetail(CourseDraft d) {
+        long learnerCount = enrollmentRepository.countByCourse_CourseID(d.getDraftID());
+        var rating = aggregateRating(d.getDraftID());
         return AdminCourseDetailResponse.builder()
                 .id(d.getDraftID())
                 .courseID(d.getCourse().getCourseID())
@@ -262,6 +374,9 @@ public class AdminCourseService {
                 .createdAt(d.getCreatedAt())
                 .updatedAt(d.getUpdatedAt())
                 .adminReviewNote(d.getAdminReviewNote())
+                .avgRating(rating.avg)
+                .totalRatings(rating.total)
+                .learnerCount(learnerCount)
                 .sections(
                         d.getSections() == null ? List.of()
                                 : d.getSections().stream()
@@ -366,7 +481,7 @@ public class AdminCourseService {
 
         courseRepository.save(course);
 
-        // 👇 gửi email cho tutor
+        // gửi email + notification cho tutor
         notifyTutorCourseApproved(course, note);
 
         return toAdmin(course);
@@ -387,7 +502,7 @@ public class AdminCourseService {
 
         courseRepository.save(course);
 
-        // 👇 gửi email cho tutor
+        // gửi email + notification cho tutor
         notifyTutorCourseRejected(course, note);
 
         return toAdmin(course);
@@ -406,10 +521,10 @@ public class AdminCourseService {
 
         Course course = draft.getCourse();
 
-        // 🔹 build diff để gửi mail cho learner
+        //  build diff để gửi mail / notification cho learner
         AdminCourseDraftChangesResponse changes = buildDraftChanges(course, draft);
 
-        //  1. Tìm các lesson cần reset progress (VIDEO đổi URL, READING đổi content)
+        //  1. Tìm các lesson cần reset progress (VIDEO / READING / QUIZ)
         List<Long> lessonIdsNeedReset = findLessonIdsNeedResetProgress(course, draft);
 
         //  2. Update metadata từ draft → course live
@@ -428,24 +543,26 @@ public class AdminCourseService {
 
         courseRepository.save(course);
 
-        //  3. Sync curriculum (Section / Lesson / Resource)
+        //  3. Sync curriculum (Section / Lesson / Resource / Quiz)
         syncCurriculumFromDraft(course, draft);
 
         //  4. Sync objectives
         syncObjectivesFromDraft(course, draft);
 
-        //  5. Xóa progress của các lesson bị ảnh hưởng
+        //  5. Xóa progress của các lesson bị ảnh hưởng (UserLesson)
         if (!lessonIdsNeedReset.isEmpty()) {
             userLessonRepository.deleteByLesson_LessonIDIn(lessonIdsNeedReset);
         }
 
+        //  5.1. Recalculate lại tiến độ học tập sau khi curriculum thay đổi
+        recalculateProgressAfterCurriculumChanged(course);
+
         //  6. Xóa draft sau khi merge
         courseDraftRepository.delete(draft);
 
-        //  7. Gửi email cho learner đã enroll
+        //  7. Gửi email + notification cho learner & tutor
         notifyLearnersCourseUpdated(course, changes);
         notifyTutorCourseDraftApproved(draft, changes);
-
 
         return toAdmin(course);
     }
@@ -462,13 +579,140 @@ public class AdminCourseService {
         draft.setStatus(CourseDraftStatus.REJECTED);
         draft.setUpdatedAt(LocalDateTime.now());
         draft.setAdminReviewNote(note);
-        // @Transactional sẽ tự flush
+
+        // Gửi email + notification cho tutor
         notifyTutorCourseDraftRejected(draft, note);
     }
 
     @Transactional
     public void rejectCourseDraft(Long draftID) {
         rejectCourseDraft(draftID, null);
+    }
+
+    // ====================== SYNC QUIZ TỪ DRAFT → LIVE ======================
+
+    /**
+     * Kiểm tra quiz (question + option) có thay đổi hay không.
+     * Chỉ dùng khi cả live & draft đều là QUIZ.
+     */
+    private boolean isQuizContentChanged(Lesson live, LessonDraft draft) {
+        if (live.getLessonType() != LessonType.Quiz || draft.getLessonType() != LessonType.Quiz) {
+            return false;
+        }
+
+        List<QuizQuestion> liveQuestions =
+                quizQuestionRepository.findByLessonOrderByOrderIndexAsc(live);
+        List<QuizQuestionDraft> draftQuestions =
+                quizQuestionDraftRepository.findByLessonDraftOrderByOrderIndexAsc(draft);
+
+        if (liveQuestions.size() != draftQuestions.size()) {
+            return true;
+        }
+
+        for (int i = 0; i < liveQuestions.size(); i++) {
+            QuizQuestion q = liveQuestions.get(i);
+            QuizQuestionDraft dq = draftQuestions.get(i);
+
+            if (!Objects.equals(q.getQuestionText(), dq.getQuestionText())
+                    || !Objects.equals(q.getScore(), dq.getScore())
+                    || !Objects.equals(q.getOrderIndex(), dq.getOrderIndex())) {
+                return true;
+            }
+
+            List<QuizOption> liveOptions =
+                    q.getOptions() == null ? List.of() : q.getOptions();
+            List<QuizOptionDraft> draftOptions =
+                    dq.getOptions() == null ? List.of() : dq.getOptions();
+
+            if (liveOptions.size() != draftOptions.size()) {
+                return true;
+            }
+
+            for (int j = 0; j < liveOptions.size(); j++) {
+                QuizOption o = liveOptions.get(j);
+                QuizOptionDraft od = draftOptions.get(j);
+
+                if (!Objects.equals(o.getOptionText(), od.getOptionText())
+                        || !Objects.equals(o.getIsCorrect(), od.getIsCorrect())
+                        || !Objects.equals(o.getOrderIndex(), od.getOrderIndex())) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private void createQuizFromDraft(Lesson liveLesson, LessonDraft draftLesson) {
+        List<QuizQuestionDraft> draftQuestions =
+                quizQuestionDraftRepository.findByLessonDraftOrderByOrderIndexAsc(draftLesson);
+
+        for (QuizQuestionDraft qd : draftQuestions) {
+            QuizQuestion q = QuizQuestion.builder()
+                    .lesson(liveLesson)
+                    .questionText(qd.getQuestionText())
+                    .orderIndex(qd.getOrderIndex())
+                    .explanation(qd.getExplanation())
+                    .score(qd.getScore())
+                    .build();
+            quizQuestionRepository.save(q);
+
+            List<QuizOptionDraft> draftOptions =
+                    qd.getOptions() == null ? List.of() : qd.getOptions();
+
+            for (QuizOptionDraft od : draftOptions) {
+                QuizOption o = QuizOption.builder()
+                        .question(q)
+                        .optionText(od.getOptionText())
+                        .isCorrect(od.getIsCorrect())
+                        .orderIndex(od.getOrderIndex())
+                        .build();
+                quizOptionRepository.save(o);
+            }
+        }
+    }
+
+    /**
+     * Đồng bộ quiz (question + option) cho 1 lesson live từ lesson draft tương ứng.
+     * Rule:
+     *  - Nếu draft không phải QUIZ:
+     *      + Nếu live đang là QUIZ -> xóa toàn bộ quiz cũ.
+     *      + Nếu live không phải QUIZ -> không làm gì.
+     *  - Nếu draft là QUIZ:
+     *      + Nếu live cũng là QUIZ và nội dung không đổi -> giữ nguyên (không xóa, không reset).
+     *      + Ngược lại -> xóa quiz cũ, tạo mới từ draft.
+     */
+    private void syncQuizFromDraft(Lesson liveLesson, LessonDraft draftLesson) {
+        LessonType liveType = liveLesson.getLessonType();
+        LessonType draftType = draftLesson.getLessonType();
+
+        // Draft không phải quiz
+        if (draftType == null || draftType != LessonType.Quiz) {
+            if (liveType == LessonType.Quiz) {
+                List<QuizQuestion> liveQuestions =
+                        quizQuestionRepository.findByLessonOrderByOrderIndexAsc(liveLesson);
+                if (!liveQuestions.isEmpty()) {
+                    // dùng deleteAll (không dùng deleteAllInBatch) để cascade xóa option
+                    quizQuestionRepository.deleteAll(liveQuestions);
+                }
+            }
+            return;
+        }
+
+        // Draft là quiz
+        if (liveType == LessonType.Quiz && !isQuizContentChanged(liveLesson, draftLesson)) {
+            // Quiz không đổi -> không đụng tới question/option
+            return;
+        }
+
+        // Cần recreate quiz: xóa quiz cũ (nếu có) rồi tạo lại
+        List<QuizQuestion> liveQuestions =
+                quizQuestionRepository.findByLessonOrderByOrderIndexAsc(liveLesson);
+        if (!liveQuestions.isEmpty()) {
+            quizQuestionRepository.deleteAll(liveQuestions);
+        }
+
+        createQuizFromDraft(liveLesson, draftLesson);
     }
 
     // ====================== SYNC CURRICULUM ======================
@@ -613,6 +857,9 @@ public class AdminCourseService {
                                 lessonResourceRepository.deleteAllInBatch(resourcesOfLesson.values());
                             }
                         }
+
+                        // 4. SYNC QUIZ (nếu lesson là QUIZ hoặc đổi type)
+                        syncQuizFromDraft(liveLesson, ld);
                     }
 
                     // ====== LESSON CÒN DƯ TRONG SECTION (KHÔNG CÒN TRONG DRAFT) ======
@@ -636,6 +883,7 @@ public class AdminCourseService {
                             lessonResourceRepository.deleteAllInBatch(resLeft);
                         }
 
+                        // Quiz của lesson này cũng sẽ bị xóa theo cascade khi xóa lesson
                         // 3) Xóa lesson
                         lessonRepository.deleteAllInBatch(lessonsOfSection.values());
                     }
@@ -678,6 +926,7 @@ public class AdminCourseService {
                         lessonResourceRepository.deleteAllInBatch(rs);
                     }
 
+                    // Quiz cũng bị xóa theo cascade khi xóa lesson
                     // 2.3) Xóa lesson
                     lessonRepository.deleteAllInBatch(ls);
                 }
@@ -899,21 +1148,24 @@ public class AdminCourseService {
         return result;
     }
 
+    // QUAN TRỌNG: thêm QUIZ + xử lý đổi lessonType
     private boolean isLessonChangeRequireResetProgress(Lesson live, LessonDraft draft) {
-        if (live.getLessonType() == null) return false;
-        String type = live.getLessonType().name();
+        LessonType liveType = live.getLessonType();
+        LessonType draftType = draft.getLessonType();
 
-        switch (type) {
-            case "VIDEO" -> {
-                return !Objects.equals(live.getVideoURL(), draft.getVideoURL());
-            }
-            case "READING" -> {
-                return !Objects.equals(live.getContent(), draft.getContent());
-            }
-            default -> {
-                return false;
-            }
+        if (liveType == null) return false;
+
+        // Đổi kiểu lesson (Video -> Quiz, Quiz -> Reading, ...) => reset
+        if (draftType != null && liveType != draftType) {
+            return true;
         }
+
+        return switch (liveType) {
+            case Video -> !Objects.equals(live.getVideoURL(), draft.getVideoURL());
+            case Reading -> !Objects.equals(live.getContent(), draft.getContent());
+            case Quiz -> isQuizContentChanged(live, draft);   // chỉ reset nếu quiz đổi
+            default -> false;
+        };
     }
 
     private List<LessonChangeResponse> buildLessonChanges(Course course, CourseDraft draft) {
@@ -973,7 +1225,8 @@ public class AdminCourseService {
 
                 boolean reset = isLessonChangeRequireResetProgress(live, ld);
 
-                if (!fields.isEmpty()) {
+                if (!fields.isEmpty() || reset) {
+                    // nếu reset = true nhưng không có field meta đổi (ví dụ chỉ sửa quiz) vẫn tạo record
                     result.add(LessonChangeResponse.builder()
                             .originalLessonId(live.getLessonID())
                             .draftLessonId(ld.getLessonDraftID())
@@ -1154,6 +1407,49 @@ public class AdminCourseService {
                 .build();
     }
 
+    // ============ RE-CALC PROGRESS SAU KHI CURRICULUM THAY ĐỔI ============
+
+    /**
+     * Tính lại progress cho từng section (UserCourseSection.progress - BigDecimal).
+     */
+    private void recalculateSectionProgress(Course course) {
+        Long courseId = course.getCourseID();
+
+        List<CourseSection> sections = courseSectionRepository.findByCourse_CourseID(courseId);
+        for (CourseSection section : sections) {
+            Long sectionId = section.getSectionID();
+            int totalLessonsInSection = section.getLessons() != null
+                    ? section.getLessons().size()
+                    : 0;
+
+            List<UserCourseSection> userSections =
+                    userCourseSectionRepository.findBySection_SectionID(sectionId);
+            if (userSections == null || userSections.isEmpty()) continue;
+
+            for (UserCourseSection ucs : userSections) {
+                if (ucs.getUser() == null || ucs.getUser().getUserID() == null) continue;
+                Long userId = ucs.getUser().getUserID();
+
+                long completedInSection = userLessonRepository
+                        .countByUser_UserIDAndLesson_Section_SectionIDAndIsDoneTrue(
+                                userId,
+                                sectionId
+                        );
+
+                double percent = totalLessonsInSection == 0
+                        ? 0.0
+                        : (completedInSection * 100.0) / totalLessonsInSection;
+
+                ucs.setProgress(BigDecimal.valueOf(percent));
+            }
+        }
+    }
+
+    private void recalculateProgressAfterCurriculumChanged(Course course) {
+        // Hiện tại chỉ recalc theo section; nếu sau này thêm progress cho Enrollment thì mở rộng thêm.
+        recalculateSectionProgress(course);
+    }
+
     // ====================== PUBLIC: GET DIFF ======================
 
     @Transactional(readOnly = true)
@@ -1165,18 +1461,32 @@ public class AdminCourseService {
         return buildDraftChanges(course, draft);
     }
 
-    // ====================== EMAIL HELPERS ======================
+    // ====================== EMAIL + NOTIFICATION HELPERS ======================
 
     private void notifyTutorCourseApproved(Course course, String note) {
         Tutor tutor = course.getTutor();
         if (tutor == null || tutor.getUser() == null) {
             return;
         }
+
+        Long userId = tutor.getUser().getUserID();
         String email = tutor.getUser().getEmail();
-        if (email == null || email.isBlank()) {
-            return;
+
+        // Email
+        if (email != null && !email.isBlank()) {
+            emailService.sendCourseApprovedToTutor(email, course.getTitle(), note);
         }
-        emailService.sendCourseApprovedToTutor(email, course.getTitle(), note);
+
+        // Notification
+        notificationService.sendNotification(
+                userId,
+                "[LinguaHub] Course approved",
+                "Your course \"" + course.getTitle()
+                        + "\" has been approved and is now live on LinguaHub."
+                        + (note != null && !note.isBlank() ? "\n\nAdmin note:\n" + note : ""),
+                NotificationType.COURSE_APPROVED,
+                "/tutor/courses/" + course.getCourseID()
+        );
     }
 
     private void notifyTutorCourseRejected(Course course, String note) {
@@ -1184,11 +1494,25 @@ public class AdminCourseService {
         if (tutor == null || tutor.getUser() == null) {
             return;
         }
+
+        Long userId = tutor.getUser().getUserID();
         String email = tutor.getUser().getEmail();
-        if (email == null || email.isBlank()) {
-            return;
+
+        // Email
+        if (email != null && !email.isBlank()) {
+            emailService.sendCourseRejectedToTutor(email, course.getTitle(), note);
         }
-        emailService.sendCourseRejectedToTutor(email, course.getTitle(), note);
+
+        // Notification
+        notificationService.sendNotification(
+                userId,
+                "[LinguaHub] Course rejected",
+                "Your course \"" + course.getTitle()
+                        + "\" was rejected by the admin."
+                        + (note != null && !note.isBlank() ? "\n\nReason:\n" + note : ""),
+                NotificationType.COURSE_REJECTED,
+                "/tutor/courses/" + course.getCourseID()
+        );
     }
 
     private String buildCourseChangeSummary(AdminCourseDraftChangesResponse changes) {
@@ -1238,7 +1562,7 @@ public class AdminCourseService {
 
             if (reset > 0) {
                 sb.append("  → Note: ").append(reset)
-                        .append(" lesson(s) had major changes, your progress for those lessons was reset.\n");
+                        .append(" lesson(s) had major changes (including Quiz), your progress for those lessons was reset.\n");
             }
         }
 
@@ -1267,45 +1591,96 @@ public class AdminCourseService {
         String summary = buildCourseChangeSummary(changes);
 
         Set<String> emails = new HashSet<>();
+        Set<Long> userIds = new HashSet<>();
+
         for (Enrollment e : enrollments) {
-            if (e.getUser() != null && e.getUser().getEmail() != null) {
-                emails.add(e.getUser().getEmail());
+            if (e.getUser() != null) {
+                if (e.getUser().getEmail() != null) {
+                    emails.add(e.getUser().getEmail());
+                }
+                if (e.getUser().getUserID() != null) {
+                    userIds.add(e.getUser().getUserID());
+                }
             }
         }
 
+        // Email
         for (String email : emails) {
             emailService.sendCourseUpdatedToLearner(email, course.getTitle(), summary);
         }
+
+        // Notification
+        for (Long userId : userIds) {
+            notificationService.sendNotification(
+                    userId,
+                    "[LinguaHub] Course updated: " + course.getTitle(),
+                    "The course \"" + course.getTitle()
+                            + "\" that you enrolled in has just been updated.\n\n"
+                            + "Summary of changes:\n" + summary,
+                    NotificationType.COURSE_UPDATED,
+                    "/courses/" + course.getCourseID()
+            );
+        }
     }
+
     private void notifyTutorCourseDraftApproved(CourseDraft draft, AdminCourseDraftChangesResponse changes) {
         Tutor tutor = draft.getTutor();
         if (tutor == null || tutor.getUser() == null) return;
 
+        Long userId = tutor.getUser().getUserID();
         String email = tutor.getUser().getEmail();
-        if (email == null || email.isBlank()) return;
 
         // Dùng lại logic build summary đã gửi cho learner
         String summary = buildCourseChangeSummary(changes);
 
-        emailService.sendCourseDraftApprovedToTutor(
-                email,
-                draft.getCourse().getTitle(),
-                summary
+        // Email
+        if (email != null && !email.isBlank()) {
+            emailService.sendCourseDraftApprovedToTutor(
+                    email,
+                    draft.getCourse().getTitle(),
+                    summary
+            );
+        }
+
+        // Notification
+        notificationService.sendNotification(
+                userId,
+                "[LinguaHub] Course draft approved",
+                "Your draft updates for the course \""
+                        + draft.getCourse().getTitle()
+                        + "\" have been approved and applied to the live course.\n\n"
+                        + "Summary of changes:\n" + summary,
+                NotificationType.COURSE_DRAFT_APPROVED,
+                "/tutor/courses/" + draft.getCourse().getCourseID()
         );
     }
 
     private void notifyTutorCourseDraftRejected(CourseDraft draft, String note) {
         Tutor tutor = draft.getTutor();
         if (tutor == null || tutor.getUser() == null) return;
-        String email = tutor.getUser().getEmail();
-        if (email == null || email.isBlank()) return;
 
-        emailService.sendCourseDraftRejectedToTutor(
-                email,
-                draft.getCourse().getTitle(),
-                note
+        Long userId = tutor.getUser().getUserID();
+        String email = tutor.getUser().getEmail();
+
+        // Email
+        if (email != null && !email.isBlank()) {
+            emailService.sendCourseDraftRejectedToTutor(
+                    email,
+                    draft.getCourse().getTitle(),
+                    note
+            );
+        }
+
+        // Notification
+        notificationService.sendNotification(
+                userId,
+                "[LinguaHub] Course draft rejected",
+                "Your draft update for the course \""
+                        + draft.getCourse().getTitle()
+                        + "\" was rejected by the admin."
+                        + (note != null && !note.isBlank() ? "\n\nReason:\n" + note : ""),
+                NotificationType.COURSE_DRAFT_REJECTED,
+                "/tutor/courses/" + draft.getCourse().getCourseID()
         );
     }
-
-
 }

@@ -1,4 +1,3 @@
-// src/main/java/edu/lms/controller/TutorCourseController.java
 package edu.lms.controller;
 
 import edu.lms.dto.request.ApiRespond;
@@ -99,6 +98,32 @@ public class TutorCourseController {
         tutorCourseService.deleteCourseForCurrentTutor(email, courseID);
     }
 
+    //Disable
+    @Operation(summary = "Tutor vô hiệu hóa (disable) khóa học đã Approved (ngừng nhận học viên mới)")
+    @PutMapping("/{courseID}/disable")
+    public ApiRespond<TutorCourseResponse> disableCourse(
+            @AuthenticationPrincipal(expression = "claims['sub']") String email,
+            @PathVariable Long courseID
+    ) {
+        return ApiRespond.<TutorCourseResponse>builder()
+                .result(tutorCourseService.disableCourse(email, courseID))
+                .message("Course disabled successfully")
+                .build();
+    }
+
+    @Operation(summary = "Tutor bật lại (enable) khóa học đã Disabled (cho phép enroll trở lại)")
+    @PutMapping("/{courseID}/enable")
+    public ApiRespond<TutorCourseResponse> enableCourse(
+            @AuthenticationPrincipal(expression = "claims['sub']") String email,
+            @PathVariable Long courseID
+    ) {
+        return ApiRespond.<TutorCourseResponse>builder()
+                .result(tutorCourseService.enableCourse(email, courseID))
+                .message("Course enabled successfully")
+                .build();
+    }
+
+
     // GET USERS ENROLL OF COURSE
     @GetMapping("/courses/{courseID}/students")
     public ApiRespond<List<TutorCourseStudentResponse>> getStudentsByCourse(
@@ -114,6 +139,8 @@ public class TutorCourseController {
                 .build();
     }
 
+
+    //View detail
     @Operation(summary = "Tutor xem chi tiết khóa học của chính mình (kèm Section/Lesson/Resource)")
     @GetMapping("/{courseID}")
     public ApiRespond<TutorCourseDetailResponse> getMyCourseDetail(

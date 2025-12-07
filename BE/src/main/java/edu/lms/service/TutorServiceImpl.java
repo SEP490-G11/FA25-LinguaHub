@@ -5,17 +5,13 @@ import edu.lms.dto.request.TutorCertificateRequest;
 import edu.lms.dto.request.TutorUpdateRequest;
 import edu.lms.dto.response.*;
 import edu.lms.entity.*;
+import edu.lms.enums.CourseStatus;
 import edu.lms.enums.TutorStatus;
 import edu.lms.enums.TutorVerificationStatus;
-import edu.lms.enums.CourseStatus;
 import edu.lms.exception.TutorApplicationException;
 import edu.lms.exception.TutorNotFoundException;
 import edu.lms.mapper.TutorCourseMapper;
-import edu.lms.repository.TutorRepository;
-import edu.lms.repository.TutorVerificationRepository;
-import edu.lms.repository.UserRepository;
-import edu.lms.repository.CourseRepository;
-import edu.lms.repository.BookingPlanRepository;
+import edu.lms.repository.*;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -37,8 +34,10 @@ public class TutorServiceImpl implements TutorService {
     private final TutorRepository tutorRepository;
     private final TutorVerificationRepository tutorVerificationRepository;
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final CourseRepository courseRepository;
     private final BookingPlanRepository bookingPlanRepository;
+    private final FeedbackRepository feedbackRepository;
     private final TutorCourseMapper tutorCourseMapper;
     private final TutorBookingPlanService tutorBookingPlanService;
 
@@ -297,7 +296,14 @@ public class TutorServiceImpl implements TutorService {
         tutor.setBio(verification.getBio());
         tutorRepository.save(tutor);
         
-        log.info("Tutor application approved successfully for verification ID: {}, tutor ID: {}", verificationId, tutor.getTutorID());
+        // Change user role from Learner to Tutor
+        User user = tutor.getUser();
+        Role tutorRole = roleRepository.findById("Tutor")
+                .orElseThrow(() -> new EntityNotFoundException("Tutor role not found"));
+        user.setRole(tutorRole);
+        userRepository.save(user);
+        
+        log.info("Tutor application approved successfully for verification ID: {}, tutor ID: {}, user role changed to Tutor", verificationId, tutor.getTutorID());
     }
 
     @Override
@@ -349,6 +355,55 @@ public class TutorServiceImpl implements TutorService {
         // Tính giá booking tối thiểu từ các booking plans active
         Double pricePerHour = calculateMinPricePerHour(tutor.getTutorID());
         
+        // Lấy tất cả feedbacks từ booking của tutor với JOIN FETCH để tránh N+1
+        List<Feedback> feedbacks = feedbackRepository.findByPayment_TutorIdWithDetails(tutor.getTutorID());
+        log.info("Found {} feedbacks for tutor ID: {}", feedbacks.size(), tutor.getTutorID());
+        
+        List<TutorFeedbackItemResponse> feedbackResponses = feedbacks.stream()
+                .map(feedback -> {
+                    log.debug("Processing feedback ID: {}, rating: {}, comment: {}", 
+                            feedback.getFeedbackID(), feedback.getRating(), feedback.getComment());
+                    return TutorFeedbackItemResponse.builder()
+                            .feedbackID(feedback.getFeedbackID())
+                            .rating(feedback.getRating())
+                            .comment(feedback.getComment())
+                            .createdAt(feedback.getPayment() != null ? feedback.getPayment().getPaidAt() : null)
+                            .learnerName(feedback.getUser() != null ? feedback.getUser().getFullName() : null)
+                            .learnerAvatarURL(feedback.getUser() != null ? feedback.getUser().getAvatarURL() : null)
+                            .build();
+                })
+                // Sắp xếp theo thời gian: mới nhất trước (createdAt DESC)
+                .sorted(Comparator.comparing(
+                        TutorFeedbackItemResponse::getCreatedAt,
+                        Comparator.nullsLast(Comparator.reverseOrder())
+                ))
+                .collect(Collectors.toList());
+        
+        log.info("Mapped {} feedback responses for tutor ID: {}", feedbackResponses.size(), tutor.getTutorID());
+        
+        // Lấy tất cả chứng chỉ từ các verification đã được approved (với JOIN FETCH để tránh N+1)
+        List<TutorVerification> approvedVerifications = tutorVerificationRepository
+                .findAllByTutorWithCertificates(tutor)
+                .stream()
+                .filter(verification -> verification.getStatus() == TutorVerificationStatus.APPROVED)
+                .collect(Collectors.toList());
+        
+        List<TutorCertificateResponse> certificateResponses = approvedVerifications.stream()
+                .flatMap(verification -> {
+                    if (verification.getCertificates() != null && !verification.getCertificates().isEmpty()) {
+                        return verification.getCertificates().stream();
+                    }
+                    return java.util.stream.Stream.empty();
+                })
+                .map(certificate -> TutorCertificateResponse.builder()
+                        .certificateId(certificate.getCertificateId())
+                        .certificateName(certificate.getCertificateName())
+                        .documentUrl(certificate.getDocumentUrl())
+                        .build())
+                .collect(Collectors.toList());
+        
+        log.info("Found {} certificates for tutor ID: {}", certificateResponses.size(), tutor.getTutorID());
+        
         return TutorDetailResponse.builder()
                 .tutorId(tutor.getTutorID())
                 .userId(user.getUserID())
@@ -365,6 +420,8 @@ public class TutorServiceImpl implements TutorService {
                 .status(tutor.getStatus().name())
                 .courses(courseResponses)
                 .pricePerHour(pricePerHour)
+                .feedbacks(feedbackResponses)
+                .certificates(certificateResponses)
                 .build();
     }
 
@@ -404,6 +461,9 @@ public class TutorServiceImpl implements TutorService {
                     // Tính giá booking tối thiểu từ các booking plans active
                     Double pricePerHour = calculateMinPricePerHour(tutor.getTutorID());
                     
+                    // Tính rating trung bình chỉ từ booking feedbacks (không bao gồm course reviews)
+                    BigDecimal bookingRating = calculateBookingRating(tutor.getTutorID());
+                    
                     return TutorApplicationListResponse.builder()
                             .verificationId(latestVerification != null ? latestVerification.getTutorVerificationID() : null)
                             .tutorId(tutor.getTutorID())
@@ -415,6 +475,7 @@ public class TutorServiceImpl implements TutorService {
                             .specialization(specialization)
                             .teachingLanguage(teachingLanguage)
                             .pricePerHour(pricePerHour)
+                            .rating(bookingRating)
                             .status(tutor.getStatus().name())
                             .submittedAt(latestVerification != null ? latestVerification.getSubmittedAt() : null)
                             .reviewedAt(latestVerification != null ? latestVerification.getReviewedAt() : null)
@@ -527,6 +588,9 @@ public class TutorServiceImpl implements TutorService {
         // Tính giá booking tối thiểu từ các booking plans active
         Double pricePerHour = calculateMinPricePerHour(tutor.getTutorID());
         
+        // Tính rating trung bình chỉ từ booking feedbacks (không bao gồm course reviews)
+        BigDecimal bookingRating = calculateBookingRating(tutor.getTutorID());
+        
         return TutorApplicationListResponse.builder()
                 .verificationId(verification.getTutorVerificationID())
                 .tutorId(tutor.getTutorID())
@@ -538,6 +602,7 @@ public class TutorServiceImpl implements TutorService {
                 .specialization(verification.getSpecialization())
                 .teachingLanguage(verification.getTeachingLanguage())
                 .pricePerHour(pricePerHour)
+                .rating(bookingRating)
                 .status(verification.getStatus().name())
                 .submittedAt(verification.getSubmittedAt())
                 .reviewedAt(verification.getReviewedAt())
@@ -568,6 +633,28 @@ public class TutorServiceImpl implements TutorService {
         
         log.debug("Calculated min price per hour for tutor ID {}: {}", tutorId, minPrice);
         return minPrice;
+    }
+    
+    /**
+     * Tính rating trung bình chỉ từ booking feedbacks của tutor (không bao gồm course reviews)
+     * @param tutorId ID của tutor
+     * @return Rating trung bình từ booking feedbacks, BigDecimal.ZERO nếu không có feedback nào
+     */
+    private BigDecimal calculateBookingRating(Long tutorId) {
+        List<Feedback> bookingFeedbacks = feedbackRepository.findByPayment_TutorId(tutorId);
+        
+        if (bookingFeedbacks.isEmpty()) {
+            log.debug("No booking feedbacks found for tutor ID: {}", tutorId);
+            return BigDecimal.ZERO;
+        }
+        
+        double avgRating = bookingFeedbacks.stream()
+                .mapToDouble(f -> f.getRating().doubleValue())
+                .average()
+                .orElse(0.0);
+        
+        log.debug("Calculated booking rating for tutor ID {}: {}", tutorId, avgRating);
+        return BigDecimal.valueOf(avgRating);
     }
 
     private TutorApplicationDetailResponse mapToApplicationDetailResponse(TutorVerification verification) {

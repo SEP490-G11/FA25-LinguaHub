@@ -8,7 +8,6 @@ import lombok.experimental.FieldDefaults;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Data
 @NoArgsConstructor
@@ -39,6 +38,8 @@ public class User {
     Role role;
 
     String fullName;
+    @Lob
+    @Column(name = "avatarUrl", columnDefinition = "LONGTEXT")
     String avatarURL;
 
     @Enumerated(EnumType.STRING)

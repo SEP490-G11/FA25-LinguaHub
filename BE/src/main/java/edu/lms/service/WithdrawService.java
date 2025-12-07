@@ -2,21 +2,13 @@ package edu.lms.service;
 
 import edu.lms.dto.request.WithdrawRequest;
 import edu.lms.dto.response.WithdrawResponse;
-import edu.lms.entity.Payment;
-import edu.lms.entity.Setting;
-import edu.lms.entity.Tutor;
-import edu.lms.entity.WithdrawMoney;
+import edu.lms.entity.*;
 import edu.lms.enums.PaymentType;
+import edu.lms.enums.SlotStatus;
 import edu.lms.enums.WithdrawStatus;
-import edu.lms.enums.RefundStatus;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
-import edu.lms.repository.PaymentRepository;
-import edu.lms.repository.SettingRepository;
-import edu.lms.repository.TutorRepository;
-import edu.lms.repository.WithdrawRepository;
-import edu.lms.repository.RefundRequestRepository;
-import lombok.AccessLevel;
+import edu.lms.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
@@ -36,11 +28,15 @@ public class WithdrawService {
     PaymentRepository paymentRepository;
     SettingRepository settingRepository;
     RefundRequestRepository refundRepository;
+    BookingPlanSlotRepository bookingPlanSlotRepository;
 
     // =============================
     //  TÍNH TỔNG NET INCOME (PAYMENT)
     // =============================
-    // Tổng tiền tutor nhận được từ tất cả payment PAID (đã trừ commission)
+    // Tổng tiền tutor nhận được:
+    //  - Course: mọi payment PAID
+    //  - Booking: chỉ payment có tất cả slot Paid && tutorJoin && learnerJoin
+    //  - Mỗi payment dùng snapshot netAmount; nếu null thì fallback dùng Setting hiện tại
     private BigDecimal calculateNetIncome(Long tutorId) {
 
         Setting setting = settingRepository.getCurrentSetting();
@@ -52,17 +48,56 @@ public class WithdrawService {
         BigDecimal totalNet = BigDecimal.ZERO;
 
         for (Payment p : payments) {
-            BigDecimal net;
 
+            // ----- COURSE: luôn tính nếu PAID -----
             if (p.getPaymentType() == PaymentType.Course) {
-                net = p.getAmount()
-                        .subtract(p.getAmount().multiply(commissionCourse));
-            } else {
-                net = p.getAmount()
-                        .subtract(p.getAmount().multiply(commissionBooking));
+
+                BigDecimal net;
+
+                if (p.getNetAmount() != null) {
+                    // ✅ dùng snapshot nếu có
+                    net = p.getNetAmount();
+                } else {
+                    // fallback cho dữ liệu cũ
+                    net = p.getAmount()
+                            .subtract(p.getAmount().multiply(commissionCourse));
+                }
+
+                totalNet = totalNet.add(net);
             }
 
-            totalNet = totalNet.add(net);
+            // ----- BOOKING: chỉ tính nếu tất cả slot đã join -----
+            else if (p.getPaymentType() == PaymentType.Booking) {
+
+                List<BookingPlanSlot> slots =
+                        bookingPlanSlotRepository.findAllByPaymentID(p.getPaymentID());
+
+                if (slots.isEmpty()) {
+                    continue;
+                }
+
+                boolean allConfirmed = slots.stream()
+                        .filter(s -> s.getStatus() == SlotStatus.Paid)
+                        .allMatch(s ->
+                                Boolean.TRUE.equals(s.getTutorJoin())
+                                        && Boolean.TRUE.equals(s.getLearnerJoin())
+                        );
+
+                if (!allConfirmed) {
+                    // chưa release → chưa cộng vào ví
+                    continue;
+                }
+
+                BigDecimal net;
+                if (p.getNetAmount() != null) {
+                    net = p.getNetAmount();
+                } else {
+                    net = p.getAmount()
+                            .subtract(p.getAmount().multiply(commissionBooking));
+                }
+
+                totalNet = totalNet.add(net);
+            }
         }
 
         return totalNet;
@@ -71,13 +106,12 @@ public class WithdrawService {
     // =============================
     //  TÍNH SỐ DƯ HIỆN TẠI CỦA VÍ
     // =============================
-    // Balance = NetIncome - WithdrawApproved - RefundApproved
+    // Balance = NetIncome - WithdrawApproved
+    // (refund learner do admin xử lý từ tiền admin, không trừ ví tutor nữa)
     public BigDecimal calculateCurrentBalance(Long tutorId) {
 
-        // 1) Tổng thu nhập ròng từ tất cả payment thành công
         BigDecimal netIncome = calculateNetIncome(tutorId);
 
-        // 2) Tổng tiền đã rút (APPROVED)
         BigDecimal totalWithdrawApproved =
                 withdrawRepository.sumWithdrawAmountByTutorAndStatus(
                         tutorId,
@@ -87,22 +121,9 @@ public class WithdrawService {
             totalWithdrawApproved = BigDecimal.ZERO;
         }
 
-        // 3) Tổng tiền refund đã được duyệt (trả lại cho learner)
-        BigDecimal totalRefundApproved =
-                refundRepository.sumRefundAmountByTutorAndStatus(
-                        tutorId,
-                        RefundStatus.APPROVED
-                );
-        if (totalRefundApproved == null) {
-            totalRefundApproved = BigDecimal.ZERO;
-        }
-
-        // 4) Số dư hiện tại
         return netIncome
-                .subtract(totalWithdrawApproved)
-                .subtract(totalRefundApproved);
+                .subtract(totalWithdrawApproved);
     }
-
 
     // =============================
     // TUTOR REQUEST WITHDRAW
@@ -112,17 +133,13 @@ public class WithdrawService {
         Tutor tutor = tutorRepository.findById(tutorId)
                 .orElseThrow(() -> new AppException(ErrorCode.TUTOR_NOT_FOUND));
 
-        // Số dư thực tế trong ví = tính lại theo thuật toán
         BigDecimal currentBalance = calculateCurrentBalance(tutorId);
-
         BigDecimal withdrawAmount = req.getWithdrawAmount();
 
-        // Không cho rút quá số đang có
         if (withdrawAmount.compareTo(currentBalance) > 0) {
             throw new AppException(ErrorCode.INVALID_AMOUNT);
         }
 
-        // Tạo bản ghi Withdraw (totalAmount = snapshot số dư tại thời điểm yêu cầu)
         WithdrawMoney withdraw = WithdrawMoney.builder()
                 .tutor(tutor)
                 .totalAmount(currentBalance)
@@ -138,7 +155,6 @@ public class WithdrawService {
         return toResponse(withdraw);
     }
 
-
     // =============================
     // GET BALANCE TỪ VÍ
     // =============================
@@ -146,7 +162,6 @@ public class WithdrawService {
         // Luôn tính lại, không đọc cứng từ tutor.walletBalance
         return calculateCurrentBalance(tutorId);
     }
-
 
     // =============================
     // HISTORY FOR TUTOR
@@ -157,7 +172,6 @@ public class WithdrawService {
                 .map(this::toResponse)
                 .toList();
     }
-
 
     // =============================
     // MAPPER
@@ -175,5 +189,4 @@ public class WithdrawService {
                 .createdAt(w.getCreatedAt())
                 .build();
     }
-
 }

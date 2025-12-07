@@ -1,14 +1,17 @@
-// src/main/java/edu/lms/service/StudentCourseService.java
 package edu.lms.service;
 
-import edu.lms.dto.response.*;
+import edu.lms.dto.response.LessonInSectionResponse;
+import edu.lms.dto.response.SectionProgressResponse;
+import edu.lms.dto.response.StudentCourseListItemResponse;
+import edu.lms.dto.response.StudentCourseResponse;
 import edu.lms.entity.Enrollment;
+import edu.lms.entity.Lesson;
 import edu.lms.entity.UserLesson;
+import edu.lms.entity.UserQuizResult;
+import edu.lms.enums.LessonType;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
-import edu.lms.repository.EnrollmentRepository;
-import edu.lms.repository.UserCourseSectionRepository;
-import edu.lms.repository.UserLessonRepository;
+import edu.lms.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,8 +25,10 @@ public class StudentCourseService {
     private final EnrollmentRepository enrollmentRepository;
     private final UserCourseSectionRepository userCourseSectionRepository;
     private final UserLessonRepository userLessonRepository;
+    private final QuizQuestionRepository quizQuestionRepository;
+    private final UserQuizResultRepository userQuizResultRepository;
 
-    /** Danh sách khoá học đã ghi danh (nhẹ, không trả về lessons) */
+    // Danh sách khoá học đã ghi danh
     public List<StudentCourseListItemResponse> getCoursesSummary(Long userId) {
         List<Enrollment> enrollments = enrollmentRepository.findByUser_UserID(userId);
 
@@ -62,7 +67,7 @@ public class StudentCourseService {
         }).toList();
     }
 
-    /** Chi tiết tiến độ 1 khoá: sections + lessons */
+    // Chi tiết tiến độ 1 khoá: sections + lessons (kèm info quiz)
     public StudentCourseResponse getCourseDetail(Long userId, Long courseId) {
         var enrollment = enrollmentRepository
                 .findByUser_UserIDAndCourse_CourseID(userId, courseId)
@@ -95,17 +100,10 @@ public class StudentCourseService {
             BigDecimal sectionProgress = (ucs != null) ? ucs.getProgress() : BigDecimal.ZERO;
             boolean sectionDone = sectionProgress.compareTo(BigDecimal.valueOf(100)) >= 0;
 
-            var lessonList = section.getLessons().stream().map(lesson -> {
-                boolean isDone = userLessonRepository
-                        .findByUser_UserIDAndLesson_LessonID(userId, lesson.getLessonID())
-                        .map(UserLesson::getIsDone)
-                        .orElse(false);
-                return LessonInSectionResponse.builder()
-                        .lessonId(lesson.getLessonID())
-                        .lessonTitle(lesson.getTitle())
-                        .isDone(isDone)
-                        .build();
-            }).toList();
+            var lessonList = section.getLessons()
+                    .stream()
+                    .map(lesson -> mapLessonInSection(userId, lesson))
+                    .toList();
 
             return SectionProgressResponse.builder()
                     .sectionId(section.getSectionID())
@@ -135,4 +133,52 @@ public class StudentCourseService {
                 .sectionProgress(sectionProgressList)
                 .build();
     }
+
+    // Helper: map 1 lesson + trạng thái + quiz info + kết quả gần nhất (nếu có)
+    private LessonInSectionResponse mapLessonInSection(Long userId, Lesson lesson) {
+        boolean isDone = userLessonRepository
+                .findByUser_UserIDAndLesson_LessonID(userId, lesson.getLessonID())
+                .map(UserLesson::getIsDone)
+                .orElse(false);
+
+        // Mặc định không có quiz / chưa có kết quả
+        Integer totalQuizQuestions = null;
+        Integer correctAnswers = null;
+        Double scorePercent = null;
+        Boolean passed = null;
+
+        // Nếu là Quiz -> đếm số câu hỏi + lấy kết quả lần gần nhất (nếu có)
+        if (lesson.getLessonType() == LessonType.Quiz) {
+            // 1) Đếm số câu hỏi
+            totalQuizQuestions = (int) quizQuestionRepository.countByLesson(lesson);
+
+            // 2) Lấy kết quả quiz gần nhất (nếu user đã làm)
+            var latestOpt = userQuizResultRepository
+                    .findTopByUser_UserIDAndLesson_LessonIDOrderBySubmittedAtDesc(userId, lesson.getLessonID());
+
+            if (latestOpt.isPresent()) {
+                UserQuizResult latest = latestOpt.get();
+
+                if (latest.getCorrectQuestions() != null) {
+                    correctAnswers = latest.getCorrectQuestions();
+                }
+                if (latest.getPercentage() != null) {
+                    scorePercent = latest.getPercentage().doubleValue();
+                }
+                passed = latest.getPassed();
+            }
+        }
+
+        return LessonInSectionResponse.builder()
+                .lessonId(lesson.getLessonID())
+                .lessonTitle(lesson.getTitle())
+                .lessonType(lesson.getLessonType())
+                .isDone(isDone)
+                .totalQuizQuestions(totalQuizQuestions)
+                .correctAnswers(correctAnswers)
+                .scorePercent(scorePercent)
+                .passed(passed)
+                .build();
+    }
+
 }

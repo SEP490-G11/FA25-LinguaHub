@@ -4,7 +4,9 @@ import edu.lms.entity.Tutor;
 import edu.lms.entity.User;
 import edu.lms.enums.TutorStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -26,4 +28,12 @@ public interface TutorRepository extends JpaRepository<Tutor, Long> {
 
     Optional<Tutor> findByUser_Email(String email);
 
+    long countByStatus(TutorStatus status);
+
+    // THÊM MỚI: dùng createdAt của User
+    @Query("""
+        SELECT t FROM Tutor t
+        WHERE t.user.createdAt BETWEEN :from AND :to
+    """)
+    List<Tutor> findByUserCreatedAtBetween(LocalDateTime from, LocalDateTime to);
 }

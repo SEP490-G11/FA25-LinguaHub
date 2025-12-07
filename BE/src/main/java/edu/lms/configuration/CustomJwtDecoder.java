@@ -1,9 +1,6 @@
 package edu.lms.configuration;
 
-import java.text.ParseException;
-import java.util.Objects;
-import javax.crypto.spec.SecretKeySpec;
-
+import com.nimbusds.jose.JOSEException;
 import edu.lms.dto.request.IntrospectRequest;
 import edu.lms.service.AuthenticationService;
 import lombok.extern.slf4j.Slf4j;
@@ -15,7 +12,10 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.stereotype.Component;
-import com.nimbusds.jose.JOSEException;
+
+import javax.crypto.spec.SecretKeySpec;
+import java.text.ParseException;
+import java.util.Objects;
 @Slf4j
 @Component
 public class CustomJwtDecoder implements JwtDecoder {

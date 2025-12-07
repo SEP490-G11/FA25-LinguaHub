@@ -51,7 +51,7 @@ public class CourseObjectiveDraftService {
 
     private CourseObjectiveResponse toResponse(CourseObjectiveDraft od) {
         return CourseObjectiveResponse.builder()
-                .objectiveID(od.getObjectiveDraftID())          // dùng ID draft
+                .objectiveID(od.getObjectiveDraftID())
                 .courseID(od.getDraft().getDraftID())
                 .objectiveText(od.getObjectiveText())
                 .orderIndex(od.getOrderIndex())

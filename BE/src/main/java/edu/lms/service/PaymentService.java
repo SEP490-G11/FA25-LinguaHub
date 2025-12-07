@@ -39,8 +39,10 @@ public class PaymentService {
     private final UserPackageRepository userPackageRepository;
     private final SettingRepository settingRepository;
     private final WithdrawService withdrawService;
+    private final CloudflareTurnstileService cloudflareTurnstileService;
+
     // =============================
-    // TÍNH NET CHO 1 PAYMENT
+    // (optional) TÍNH NET CHO 1 PAYMENT – giờ ưu tiên snapshot netAmount
     // =============================
     private BigDecimal calculateNetForPayment(Payment payment) {
         Setting setting = settingRepository.getCurrentSetting();
@@ -97,6 +99,10 @@ public class PaymentService {
 
         // ----------------- BOOKING PAYMENT -----------------
         else if (request.getPaymentType() == PaymentType.Booking) {
+            boolean verified = cloudflareTurnstileService.verify(request.getTurnstileToken());
+            if (!verified) {
+                throw new AppException(ErrorCode.INVALID_TURNSTILE_TOKEN);
+            }
             UserPackage userPackage = null;
 
             if (request.getUserPackageId() != null) {
@@ -110,6 +116,35 @@ public class PaymentService {
             tutorId = plan.getTutorID();
             User user = userRepository.findById(request.getUserId())
                     .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXIST));
+
+            // ========== chặn hủy / hết hạn > 3 lần trong vòng 1h ==========
+            LocalDateTime oneHourAgo = LocalDateTime.now().minusHours(1);
+
+            long cancelledCount = paymentRepository
+                    .countByUserIdAndPaymentTypeAndTargetIdAndStatusAndCreatedAtAfter(
+                            user.getUserID(),
+                            PaymentType.Booking,
+                            plan.getBookingPlanID(),
+                            PaymentStatus.CANCELLED,
+                            oneHourAgo
+                    );
+
+            long expiredCount = paymentRepository
+                    .countByUserIdAndPaymentTypeAndTargetIdAndStatusAndCreatedAtAfter(
+                            user.getUserID(),
+                            PaymentType.Booking,
+                            plan.getBookingPlanID(),
+                            PaymentStatus.EXPIRED,
+                            oneHourAgo
+                    );
+
+            long badAttempts = cancelledCount + expiredCount;
+
+            if (badAttempts >= 3) {
+                throw new AppException(ErrorCode.BOOKING_PAYMENT_CANCEL_TOO_MANY_TIMES);
+            }
+
+            // ========================================================
 
             List<SlotRequest> slots = request.getSlots();
             if (slots == null || slots.isEmpty()) {
@@ -134,6 +169,7 @@ public class PaymentService {
                         .lockedAt(LocalDateTime.now())
                         .expiresAt(LocalDateTime.now().plusMinutes(15))
                         .userPackage(userPackage)
+                        .reminderSent(false)
                         .build();
 
                 bookingPlanSlotRepository.save(slot);
@@ -158,9 +194,7 @@ public class PaymentService {
             );
 
             amount = totalAmount;
-        }
-
-        else {
+        } else {
             throw new AppException(ErrorCode.INVALID_PAYMENT_TYPE);
         }
 
@@ -214,6 +248,33 @@ public class PaymentService {
     }
 
     // ======================================================
+    // SNAPSHOT COMMISSION KHI PAYMENT PAID
+    // ======================================================
+    private void applyCommissionSnapshot(Payment payment) {
+        // Nếu đã có snapshot rồi thì không làm lại (phòng trường hợp gọi processPostPayment nhiều lần)
+        if (payment.getNetAmount() != null) {
+            return;
+        }
+
+        Setting setting = settingRepository.getCurrentSetting();
+        BigDecimal rate = BigDecimal.ZERO;
+
+        if (payment.getPaymentType() == PaymentType.Course) {
+            rate = setting.getCommissionCourse();
+        } else if (payment.getPaymentType() == PaymentType.Booking) {
+            rate = setting.getCommissionBooking();
+        }
+
+        payment.setCommissionRate(rate);
+
+        BigDecimal commissionAmount = payment.getAmount().multiply(rate);
+        payment.setCommissionAmount(commissionAmount);
+
+        BigDecimal net = payment.getAmount().subtract(commissionAmount);
+        payment.setNetAmount(net);
+    }
+
+    // ======================================================
     // HẬU THANH TOÁN (PAYMENT SUCCESS)
     // ======================================================
     @Transactional
@@ -222,6 +283,10 @@ public class PaymentService {
 
         payment.setIsPaid(true);
         payment.setPaidAt(LocalDateTime.now());
+
+        // 🔹 Snapshot commission tại thời điểm thanh toán
+        applyCommissionSnapshot(payment);
+
         paymentRepository.save(payment);
 
         Long userId = payment.getUserId();
@@ -250,7 +315,7 @@ public class PaymentService {
             payment.setTutorId(tutor.getTutorID());
             paymentRepository.save(payment);
 
-            // CẬP NHẬT SỐ DƯ VÍ TUTOR = TÍNH LẠI THEO THUẬT TOÁN
+            // Cập nhật số dư ví (tính theo thuật toán mới – dùng snapshot netAmount)
             BigDecimal newBalance = withdrawService.calculateCurrentBalance(tutor.getTutorID());
             tutor.setWalletBalance(newBalance);
             tutorRepository.save(tutor);
@@ -290,19 +355,79 @@ public class PaymentService {
                 }
             }
 
-            // CẬP NHẬT SỐ DƯ VÍ TUTOR = TÍNH LẠI THEO THUẬT TOÁN
-            if (tutor != null) {
-                BigDecimal newBalance = withdrawService.calculateCurrentBalance(tutor.getTutorID());
-                tutor.setWalletBalance(newBalance);
-                tutorRepository.save(tutor);
-
-                log.info("[WALLET] Updated wallet_balance for tutor {} = {} after BOOKING payment",
-                        tutor.getTutorID(), tutor.getWalletBalance());
-            }
-
+            // ❗ KHÔNG cộng ví tutor ở đây.
+            // Chỉ khi cả tutorJoin & learnerJoin = true (ở BookingAttendanceService + WithdrawService)
             log.info("[BOOKING PAYMENT] User {} confirmed {} slots",
                     userId, slots.size());
         }
+    }
+
+    // ======================================================
+    // USER CANCEL PAYMENT (FROM /api/payments/cancel)
+    // ======================================================
+    @Transactional
+    public Payment handleUserCancelPayment(Long paymentId) {
+        Payment payment = paymentRepository.findById(paymentId)
+                .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
+
+        // Nếu đã PAID thì không cho đổi trạng thái, chỉ log
+        if (payment.getStatus() == PaymentStatus.PAID) {
+            log.warn("[CANCEL] User tried to cancel PAID payment {}", paymentId);
+            return payment;
+        }
+
+        // Idempotent: nếu đã CANCELLED rồi thì trả về luôn
+        if (payment.getStatus() == PaymentStatus.CANCELLED) {
+            log.info("[CANCEL] Payment {} already CANCELLED → ignore", paymentId);
+            return payment;
+        }
+
+        payment.setStatus(PaymentStatus.CANCELLED);
+        payment.setIsPaid(false);
+        payment.setPaidAt(null);
+        paymentRepository.save(payment);
+
+        // Nếu là booking thì rollback slot đã lock
+        if (payment.getPaymentType() == PaymentType.Booking) {
+            rollbackBookingSlots(payment, "USER_CANCEL");
+        }
+
+        // Hủy link PayOS nếu còn
+        if (payment.getPaymentLinkId() != null) {
+            try {
+                payOSService.cancelPaymentLink(payment.getPaymentLinkId());
+            } catch (Exception e) {
+                log.error("[CANCEL] Failed to cancel PayOS link {}: {}",
+                        payment.getPaymentLinkId(), e.getMessage());
+            }
+        }
+
+        log.info("[CANCEL] Payment {} set to CANCELLED by user", paymentId);
+        return payment;
+    }
+
+    // ======================================================
+    // ROLLBACK SLOT BOOKING (DÙNG CHUNG CHO CANCEL / FAILED ...)
+    // ======================================================
+    void rollbackBookingSlots(Payment payment, String reason) {
+        if (payment.getPaymentType() != PaymentType.Booking) return;
+
+        List<BookingPlanSlot> slots =
+                bookingPlanSlotRepository.findAllByPaymentID(payment.getPaymentID());
+
+        long deletedCount = 0;
+        for (BookingPlanSlot slot : slots) {
+            if (slot.getStatus() == SlotStatus.Locked) {
+                bookingPlanSlotRepository.delete(slot);
+                deletedCount++;
+
+                log.warn("[ROLLBACK] Deleted slot {} ({} - {}) due to {}",
+                        slot.getSlotID(), slot.getStartTime(), slot.getEndTime(), reason);
+            }
+        }
+
+        log.warn("[ROLLBACK] Payment {} marked {}. Slots removed={}",
+                payment.getOrderCode(), reason, deletedCount);
     }
 
     // ======================================================

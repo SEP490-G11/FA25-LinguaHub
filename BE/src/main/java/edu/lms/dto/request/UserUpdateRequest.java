@@ -1,6 +1,7 @@
 package edu.lms.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
+import edu.lms.enums.Gender;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -20,4 +21,6 @@ public class UserUpdateRequest {
     @JsonFormat(pattern = "yyyy-MM-dd")
     LocalDate dob;
     List<String> roles;
+    String avatarURL;
+    Gender gender;
 }

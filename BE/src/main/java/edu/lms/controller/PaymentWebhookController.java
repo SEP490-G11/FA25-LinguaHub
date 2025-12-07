@@ -1,5 +1,6 @@
 package edu.lms.controller;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.lms.service.PaymentWebhookService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -7,10 +8,10 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-import vn.payos.PayOS;
-import vn.payos.type.Webhook;
-import vn.payos.type.WebhookData;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
 
@@ -22,49 +23,58 @@ import java.util.Map;
 public class PaymentWebhookController {
 
     private final PaymentWebhookService paymentWebhookService;
-    private final PayOS payOS;
     private final ObjectMapper mapper;
 
     @PostMapping
     @Operation(summary = "Receive PayOS webhook", description = "Callback from PayOS after payment result")
     public ResponseEntity<Map<String, Object>> handleWebhook(@RequestBody String rawBody) {
         try {
-            log.info("[PAYOS WEBHOOK] RAW BODY = {}", rawBody);
+            // 1) Log RAW BODY để xem PayOS gửi gì trong mọi trường hợp (SUCCESS / CANCEL / FAILED)
+            log.info("[PAYOS WEBHOOK][RAW] {}", rawBody);
 
-            // Parse JSON
-            Webhook webhook = mapper.readValue(rawBody, Webhook.class);
+            JsonNode root = mapper.readTree(rawBody);
 
-            // Verify signature
-            WebhookData data = payOS.verifyPaymentWebhookData(webhook);
+            // 2) Lấy code/desc ở ngoài
+            String rootCode = root.path("code").asText();      // "00" / "xx"
+            String rootDesc = root.path("desc").asText();      // "success" / "something"
 
-            Long orderCode = data.getOrderCode();
-            String code = data.getCode();   // "00" = SUCCESS
-            String desc = data.getDesc();   // description text
+            // 3) Lấy data bên trong
+            JsonNode dataNode = root.path("data");
+            long orderCode = dataNode.path("orderCode").asLong();  // 123
+            String dataCode = dataNode.path("code").asText();      // "00" / "xx"
+            String dataDesc = dataNode.path("desc").asText();      // "Thành công" / "..."
 
-            log.info("[PAYOS VERIFIED] orderCode={} | code={} | desc={}",
-                    orderCode, code, desc);
+            // 4) Log chi tiết để debug CANCEL vs SUCCESS
+            log.info("[PAYOS WEBHOOK][PARSED] orderCode={} | rootCode={} | rootDesc={} | dataCode={} | dataDesc={}",
+                    orderCode, rootCode, rootDesc, dataCode, dataDesc);
 
-            // Forward to service
+            // 5) Chọn code & desc dùng nội bộ (ưu tiên trong data nếu có)
+            String finalCode = (dataCode != null && !dataCode.isBlank()) ? dataCode : rootCode;
+            String finalDesc = (dataDesc != null && !dataDesc.isBlank()) ? dataDesc : rootDesc;
+
+            // 6) Forward sang service xử lý DB
             paymentWebhookService.handleWebhook(
                     String.valueOf(orderCode),
-                    code,     // <-- code quyết định PAID hay FAILED
+                    finalCode,
                     Map.of(
-                            "code", code,
-                            "desc", desc
+                            "rootCode", rootCode,
+                            "rootDesc", rootDesc,
+                            "dataCode", dataCode,
+                            "dataDesc", dataDesc
                     )
             );
 
             return ResponseEntity.ok(Map.of(
                     "message", "Webhook processed successfully",
                     "orderCode", orderCode,
-                    "status", code
+                    "status", finalCode
             ));
 
         } catch (Exception e) {
-            log.error("[PAYOS WEBHOOK ERROR] {}", e.getMessage(), e);
+            log.error("[PAYOS WEBHOOK][ERROR] {}", e.getMessage(), e);
 
             return ResponseEntity.ok(Map.of(
-                    "message", "Webhook received but verification failed",
+                    "message", "Webhook received but parse/handle failed",
                     "error", e.getMessage()
             ));
         }

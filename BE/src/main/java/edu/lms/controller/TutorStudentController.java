@@ -1,12 +1,16 @@
 package edu.lms.controller;
 
 import edu.lms.dto.request.ApiRespond;
+import edu.lms.dto.response.TutorStudentBookingSummaryResponse;
 import edu.lms.dto.response.TutorStudentDetailResponse;
 import edu.lms.dto.response.TutorStudentSummaryResponse;
 import edu.lms.service.TutorStudentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -17,8 +21,7 @@ public class TutorStudentController {
 
     private final TutorStudentService tutorStudentService;
 
-
-    //Tutor xem danh sách học viên của CHÍNH MÌNH
+    // Tutor xem danh sách học viên của CHÍNH MÌNH
     @GetMapping("/students")
     public ApiRespond<List<TutorStudentSummaryResponse>> getStudentsForCurrentTutor(
             Authentication authentication
@@ -33,9 +36,7 @@ public class TutorStudentController {
                 .build();
     }
 
-
-     //Tutor xem chi tiết 1 học viên (modal detail)
-
+    // Tutor xem chi tiết 1 học viên (modal detail)
     @GetMapping("/students/{studentId}")
     public ApiRespond<TutorStudentDetailResponse> getStudentDetailForCurrentTutor(
             @PathVariable Long studentId,
@@ -48,6 +49,18 @@ public class TutorStudentController {
 
         return ApiRespond.<TutorStudentDetailResponse>builder()
                 .result(detail)
+                .build();
+    }
+    @GetMapping("/booking-students")
+    public ApiRespond<List<TutorStudentBookingSummaryResponse>> getBookingStudentsForCurrentTutor(
+            Authentication authentication
+    ) {
+        String email = resolveEmail(authentication);
+
+        var data = tutorStudentService.getBookingStudentsForTutorByTutorEmail(email);
+
+        return ApiRespond.<List<TutorStudentBookingSummaryResponse>>builder()
+                .result(data)
                 .build();
     }
 

@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.math.BigDecimal;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,7 +24,8 @@ public class Feedback {
     @ManyToOne @JoinColumn(name = "paymentID")
     Payment payment;
 
-    Integer rating;
+    @Column(precision = 2, scale = 1, nullable = false)
+    BigDecimal rating;
     @Column(columnDefinition = "TEXT")
     String comment;
 }

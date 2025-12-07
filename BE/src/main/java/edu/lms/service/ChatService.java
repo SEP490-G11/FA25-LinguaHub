@@ -33,6 +33,7 @@ public class ChatService {
     UserRepository userRepository;
     TutorRepository tutorRepository;
     BookingPlanSlotRepository bookingPlanSlotRepository;
+    WebSocketChatService webSocketChatService;
 
     /**
      * Get or create Advice chat room between Learner and Tutor
@@ -185,7 +186,17 @@ public class ChatService {
         message = chatRoomMessageRepository.save(message);
         log.info("Message saved successfully with ID {}", message.getMessageID());
 
-        return mapToChatMessageResponse(message);
+        ChatMessageResponse messageResponse = mapToChatMessageResponse(message);
+        
+        // Broadcast message via WebSocket for real-time updates
+        try {
+            webSocketChatService.broadcastMessage(messageResponse);
+        } catch (Exception e) {
+            log.error("Error broadcasting message via WebSocket, but message was saved", e);
+            // Don't throw exception - message is already saved
+        }
+
+        return messageResponse;
     }
 
     /**
@@ -209,7 +220,7 @@ public class ChatService {
             List<BookingPlanSlot> paidSlots = bookingPlanSlotRepository
                     .findPaidSlotsByUserAndTutor(learner.getUserID(), tutor.getTutorID())
                     .stream()
-                    .filter(slot -> slot.getEndTime().isAfter(java.time.LocalDateTime.now()))
+                    .filter(slot -> slot.getEndTime().isAfter(LocalDateTime.now()))
                     .toList();
 
             // Nếu không còn slot nào đã thanh toán và chưa hết hạn, room là read-only
@@ -262,12 +273,31 @@ public class ChatService {
                 .orElseThrow(() -> new AppException(ErrorCode.CHAT_ROOM_NOT_FOUND));
 
         // Verify user has access to this room
-        if (!chatRoom.getUser().getUserID().equals(userID) &&
-                !chatRoom.getTutor().getUser().getUserID().equals(userID)) {
+        validateUserAccessToChatRoom(chatRoomId, userID);
+
+        return mapToChatRoomResponse(chatRoom);
+    }
+
+    /**
+     * Validate that user has access to a chat room
+     * User must be either the learner or tutor in the room
+     */
+    public void validateUserAccessToChatRoom(Long chatRoomId, Long userID) {
+        log.debug("Validating access for user {} to chat room {}", userID, chatRoomId);
+
+        ChatRoom chatRoom = chatRoomRepository.findById(chatRoomId)
+                .orElseThrow(() -> new AppException(ErrorCode.CHAT_ROOM_NOT_FOUND));
+
+        // Verify user is either the learner or tutor in this room
+        boolean isLearner = chatRoom.getUser().getUserID().equals(userID);
+        boolean isTutor = chatRoom.getTutor().getUser().getUserID().equals(userID);
+
+        if (!isLearner && !isTutor) {
+            log.warn("User {} attempted to access chat room {} without authorization", userID, chatRoomId);
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
-        return mapToChatRoomResponse(chatRoom);
+        log.debug("User {} has valid access to chat room {}", userID, chatRoomId);
     }
 
     /**
@@ -307,6 +337,17 @@ public class ChatService {
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
 
+        // Validate that the meeting link is a Google Meet link
+        if (meetingLink == null || meetingLink.trim().isEmpty()) {
+            throw new AppException(ErrorCode.INVALID_MEETING_LINK);
+        }
+        
+        String trimmedLink = meetingLink.trim();
+        if (!trimmedLink.startsWith("https://meet.google.com/")) {
+            log.warn("Tutor {} attempted to send invalid meeting link: {}", tutorID, trimmedLink);
+            throw new AppException(ErrorCode.INVALID_MEETING_LINK);
+        }
+
         Tutor tutor = chatRoom.getTutor();
         User tutorUser = tutor.getUser();
 
@@ -314,7 +355,7 @@ public class ChatService {
         ChatRoomMessage message = ChatRoomMessage.builder()
                 .chatRoom(chatRoom)
                 .sender(tutorUser)
-                .content(meetingLink)
+                .content(trimmedLink)
                 .messageType(MessageType.Text) // Links are sent as Text type
                 .createdAt(LocalDateTime.now())
                 .build();
@@ -322,7 +363,17 @@ public class ChatService {
         message = chatRoomMessageRepository.save(message);
         log.info("Meeting link sent successfully");
 
-        return mapToChatMessageResponse(message);
+        ChatMessageResponse messageResponse = mapToChatMessageResponse(message);
+        
+        // Broadcast message via WebSocket for real-time updates
+        try {
+            webSocketChatService.broadcastMessage(messageResponse);
+        } catch (Exception e) {
+            log.error("Error broadcasting meeting link via WebSocket, but message was saved", e);
+            // Don't throw exception - message is already saved
+        }
+
+        return messageResponse;
     }
 
     /**

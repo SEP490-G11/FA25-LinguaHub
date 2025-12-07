@@ -26,7 +26,7 @@ public class CourseSectionController {
     public ApiRespond<CourseSectionResponse> createSection(
             @PathVariable Long courseID,
             @RequestBody CourseSectionRequest request,
-            @org.springframework.security.core.annotation.AuthenticationPrincipal(expression = "claims['sub']") String email
+            @AuthenticationPrincipal(expression = "claims['sub']") String email
     ) {
         return ApiRespond.<CourseSectionResponse>builder()
                 .result(courseSectionService.createSection(courseID, request, email))
@@ -38,7 +38,7 @@ public class CourseSectionController {
     @GetMapping("/{courseID}")
     public ApiRespond<List<CourseSectionResponse>> getSectionsByCourse(
             @PathVariable Long courseID,
-            @org.springframework.security.core.annotation.AuthenticationPrincipal(expression = "claims['sub']") String email
+            @AuthenticationPrincipal(expression = "claims['sub']") String email
     ) {
         return ApiRespond.<List<CourseSectionResponse>>builder()
                 .result(courseSectionService.getSectionsByCourse(courseID, email))
@@ -49,7 +49,7 @@ public class CourseSectionController {
     @GetMapping("/detail/{sectionID}")
     public ApiRespond<CourseSectionResponse> getSectionById(
             @PathVariable Long sectionID,
-            @org.springframework.security.core.annotation.AuthenticationPrincipal(expression = "claims['sub']") String email
+            @AuthenticationPrincipal(expression = "claims['sub']") String email
     ) {
         return ApiRespond.<CourseSectionResponse>builder()
                 .result(courseSectionService.getSectionById(sectionID, email))
@@ -61,7 +61,7 @@ public class CourseSectionController {
     public ApiRespond<CourseSectionResponse> updateSection(
             @PathVariable Long sectionID,
             @RequestBody CourseSectionRequest request,
-            @org.springframework.security.core.annotation.AuthenticationPrincipal(expression = "claims['sub']") String email
+            @AuthenticationPrincipal(expression = "claims['sub']") String email
     ) {
         return ApiRespond.<CourseSectionResponse>builder()
                 .result(courseSectionService.updateSection(sectionID, request, email))
@@ -73,7 +73,7 @@ public class CourseSectionController {
     @DeleteMapping("/{sectionID}")
     public ApiRespond<Void> deleteSection(
             @PathVariable Long sectionID,
-            @org.springframework.security.core.annotation.AuthenticationPrincipal(expression = "claims['sub']") String email
+            @AuthenticationPrincipal(expression = "claims['sub']") String email
     ) {
         courseSectionService.deleteSection(sectionID, email);
         return ApiRespond.<Void>builder()

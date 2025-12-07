@@ -2,6 +2,7 @@ package edu.lms.service;
 
 import edu.lms.dto.response.CourseResponse;
 import edu.lms.entity.*;
+import edu.lms.enums.EnrollmentStatus;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
 import edu.lms.repository.*;
@@ -23,6 +24,27 @@ public class WishlistService {
     WishlistRepository wishlistRepository;
     UserRepository userRepository;
     CourseRepository courseRepository;
+    EnrollmentRepository enrollmentRepository;
+    CourseReviewRepository courseReviewRepository;
+
+    // ============== Helper: Aggregated Rating ==============
+
+    private record RatingAgg(double avg, int total) {}
+
+    private RatingAgg aggregateRating(Long courseId) {
+        var reviews = courseReviewRepository.findByCourse_CourseID(courseId);
+        if (reviews == null || reviews.isEmpty()) return new RatingAgg(0.0, 0);
+
+        int total = reviews.size();
+        double sum = reviews.stream()
+                .mapToDouble(r -> r.getRating() == null ? 0 : r.getRating())
+                .sum();
+        double avg = total == 0 ? 0.0 : sum / total;
+        avg = Math.round(avg * 10.0) / 10.0; // làm tròn 1 chữ số
+        return new RatingAgg(avg, total);
+    }
+
+    // ============== Public APIs ==============
 
     public void addToWishlist(String email, Long courseId) {
         User user = userRepository.findByEmail(email)
@@ -33,7 +55,10 @@ public class WishlistService {
         wishlistRepository.findByUserAndCourse(user, course)
                 .ifPresent(w -> { throw new AppException(ErrorCode.ALREADY_IN_WISHLIST); });
 
-        wishlistRepository.save(Wishlist.builder().user(user).course(course).build());
+        wishlistRepository.save(Wishlist.builder()
+                .user(user)
+                .course(course)
+                .build());
     }
 
     public void removeFromWishlist(String email, Long courseId) {
@@ -50,21 +75,77 @@ public class WishlistService {
                 .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_FOUND));
 
         return wishlistRepository.findByUser(user).stream()
-                .map(w -> toCourseResponse(w.getCourse()))
+                .map(w -> toCourseResponse(w.getCourse(), user))
                 .toList();
     }
 
-    private CourseResponse toCourseResponse(Course course) {
+    // ============== Mapper: Course -> CourseResponse (FULL) ==============
+
+    private CourseResponse toCourseResponse(Course c, User user) {
+        Long courseId = c.getCourseID();
+
+        // Trong wishlist thì chắc chắn đã được wishlist
+        boolean isWishListed = true;
+
+        // Check purchased
+        boolean isPurchased = false;
+        if (user != null) {
+            var enrollmentOpt = enrollmentRepository
+                    .findByUser_UserIDAndCourse_CourseID(user.getUserID(), courseId);
+            if (enrollmentOpt.isPresent()) {
+                Enrollment e = enrollmentOpt.get();
+                EnrollmentStatus st = e.getStatus();
+                isPurchased = (st == EnrollmentStatus.Active || st == EnrollmentStatus.Completed);
+            }
+        }
+
+        long learnerCount = enrollmentRepository.countByCourse_CourseID(courseId);
+        RatingAgg rating = aggregateRating(courseId);
+
+        Tutor tutor = c.getTutor();
+        User tutorUser = (tutor != null) ? tutor.getUser() : null;
+
+        String categoryName = c.getCategory() != null ? c.getCategory().getName() : null;
+        String tutorName = tutorUser != null ? tutorUser.getFullName() : null;
+        String tutorAvatarURL = tutorUser != null ? tutorUser.getAvatarURL() : null;
+
+        String tutorAddress = null;
+        if (tutorUser != null) {
+            String addr = tutorUser.getAddress();
+            String country = tutorUser.getCountry();
+            if (addr != null && country != null) {
+                tutorAddress = addr + ", " + country;
+            } else if (addr != null) {
+                tutorAddress = addr;
+            } else {
+                tutorAddress = country;
+            }
+        }
+
         return CourseResponse.builder()
-                .id(course.getCourseID())
-                .title(course.getTitle())
-                .description(course.getDescription())
-                .price(course.getPrice())
-                .language(course.getLanguage())
-                .thumbnailURL(course.getThumbnailURL())
-                .categoryName(course.getCategory().getName())
-                .tutorName(course.getTutor().getUser().getFullName())
-                .status(course.getStatus().name())
+                .id(courseId)
+                .title(c.getTitle())
+                .shortDescription(c.getShortDescription())
+                .description(c.getDescription())
+                .requirement(c.getRequirement())
+                .level(c.getLevel())
+                .duration(c.getDuration())
+                .price(c.getPrice())
+                .language(c.getLanguage())
+                .thumbnailURL(c.getThumbnailURL())
+                .categoryName(categoryName)
+                .tutorName(tutorName)
+                .status(c.getStatus() != null ? c.getStatus().name() : null)
+
+                .isWishListed(isWishListed)
+                .isPurchased(isPurchased)
+                .learnerCount(learnerCount)
+
+                .tutorAvatarURL(tutorAvatarURL)
+                .tutorAddress(tutorAddress)
+                .avgRating(rating.avg())
+                .totalRatings(rating.total())
+                .createdAt(c.getCreatedAt())
                 .build();
     }
 }

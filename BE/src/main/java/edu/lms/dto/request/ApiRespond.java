@@ -14,4 +14,12 @@ public class ApiRespond<T> {
     int code = 1000;
     String message;
     T result;
+
+    public static <T> ApiRespond<T> success(T data) {
+        return ApiRespond.<T>builder()
+                .code(1000)
+                .message("SUCCESS")
+                .result(data)
+                .build();
+    }
 }

@@ -6,7 +6,7 @@ server:
 spring:
   datasource:
 
-    url: jdbc:mysql://localhost:3306/lingua_hub?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh
+    url: jdbc:mysql://localhost:3306/linguahub_test?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh
 
     username: root
     password: 123456
@@ -56,4 +56,13 @@ payos:
   return-url: "https://lavern-unbrowsing-nonadmissibly.ngrok-free.dev/api/payments/success"
   cancel-url: "https://lavern-unbrowsing-nonadmissibly.ngrok-free.dev/api/payments/cancel"
   endpoint: https://api-merchant.payos.vn/v2
+app:
+  frontend-url: "https://centralized-language-tutor.vercel.app"
 
+cloudflare:
+  turnstile:
+    secret-key: "0x4AAAAAACDzwoCLoOcK9Hu3ebIpWwM-jYw"
+    enabled: true
+
+# Cloudinary (thay API_KEY / SECRET thật của anh)
+CLOUDINARY_URL: "cloudinary://972737994276791:I28XhqOy9Mi2C4v0bblGvIuthqE@dxp2w2rrx"

@@ -858,7 +858,7 @@ public class TutorBookingPlanService {
      */
     private LocalDateTime getNextOccurrenceOfDay(String dayTitle, LocalTime time) {
         // Map title sang DayOfWeek
-        java.time.DayOfWeek targetDay = mapTitleToDayOfWeek(dayTitle);
+        DayOfWeek targetDay = mapTitleToDayOfWeek(dayTitle);
         LocalDate today = LocalDate.now();
         LocalDate nextOccurrence = today;
 
@@ -873,28 +873,28 @@ public class TutorBookingPlanService {
     /**
      * Map title (ví dụ: "Monday", "Thứ 2") sang DayOfWeek
      */
-    private java.time.DayOfWeek mapTitleToDayOfWeek(String title) {
+    private DayOfWeek mapTitleToDayOfWeek(String title) {
         String lowerTitle = title.toLowerCase().trim();
         
         // Hỗ trợ tiếng Anh
         if (lowerTitle.contains("monday") || lowerTitle.contains("thứ 2") || lowerTitle.contains("thứ hai")) {
-            return java.time.DayOfWeek.MONDAY;
+            return DayOfWeek.MONDAY;
         } else if (lowerTitle.contains("tuesday") || lowerTitle.contains("thứ 3") || lowerTitle.contains("thứ ba")) {
-            return java.time.DayOfWeek.TUESDAY;
+            return DayOfWeek.TUESDAY;
         } else if (lowerTitle.contains("wednesday") || lowerTitle.contains("thứ 4") || lowerTitle.contains("thứ tư")) {
-            return java.time.DayOfWeek.WEDNESDAY;
+            return DayOfWeek.WEDNESDAY;
         } else if (lowerTitle.contains("thursday") || lowerTitle.contains("thứ 5") || lowerTitle.contains("thứ năm")) {
-            return java.time.DayOfWeek.THURSDAY;
+            return DayOfWeek.THURSDAY;
         } else if (lowerTitle.contains("friday") || lowerTitle.contains("thứ 6") || lowerTitle.contains("thứ sáu")) {
-            return java.time.DayOfWeek.FRIDAY;
+            return DayOfWeek.FRIDAY;
         } else if (lowerTitle.contains("saturday") || lowerTitle.contains("thứ 7") || lowerTitle.contains("thứ bảy")) {
-            return java.time.DayOfWeek.SATURDAY;
+            return DayOfWeek.SATURDAY;
         } else if (lowerTitle.contains("sunday") || lowerTitle.contains("chủ nhật")) {
-            return java.time.DayOfWeek.SUNDAY;
+            return DayOfWeek.SUNDAY;
         }
         
         // Mặc định là thứ 2
-        return java.time.DayOfWeek.MONDAY;
+        return DayOfWeek.MONDAY;
     }
 
     /**

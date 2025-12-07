@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/-FA25-LinguaHub.iml" filepath="$PROJECT_DIR$/.idea/-FA25-LinguaHub.iml" />
-      <module fileurl="file://$PROJECT_DIR$/BE/LinguaHub.iml" filepath="$PROJECT_DIR$/BE/LinguaHub.iml" />
     </modules>
   </component>
 </project>
