@@ -19,6 +19,11 @@ public class TestController {
         return ResponseEntity.ok("Backend Connected Successfully!");
     }
 
+    @GetMapping("/version")
+    public ResponseEntity<String> version() {
+        return ResponseEntity.ok("v2.0-websocket-fix-20251207");
+    }
+
     @GetMapping("/email")
     public String testEmail() {
         emailService.sendOtp("your_target_email@gmail.com", "123456");

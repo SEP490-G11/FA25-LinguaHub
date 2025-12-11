@@ -16,6 +16,7 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private final WebSocketAuthInterceptor webSocketAuthInterceptor;
+    private final edu.lms.interceptor.WebSocketHandshakeInterceptor webSocketHandshakeInterceptor;
 
     /**
      * Configure STOMP message broker
@@ -54,14 +55,16 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // Register STOMP endpoint with SockJS fallback
         // SockJS provides fallback options for browsers that don't support WebSocket
+        // HandshakeInterceptor extracts token from query parameter during HTTP handshake
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns(
-                        "http://localhost:*",
-                        "http://127.0.0.1:*",
-                        "https://centralized-language-tutor.vercel.app",
-                        "https://*.henrytech.cloud",
-                        "https://*.ngrok-free.dev"
+                    "http://localhost:*",
+                    "http://127.0.0.1:*",
+                    "https://centralized-language-tutor.vercel.app",
+                    "https://*.henrytech.cloud",
+                    "https://*.ngrok-free.dev"
                 )
+                .addInterceptors(webSocketHandshakeInterceptor)
                 .withSockJS()
                 .setHeartbeatTime(25000)
                 .setDisconnectDelay(5000);
@@ -69,12 +72,13 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
         // Also register native WebSocket endpoint (without SockJS)
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns(
-                        "http://localhost:*",
-                        "http://127.0.0.1:*",
-                        "https://centralized-language-tutor.vercel.app",
-                        "https://*.henrytech.cloud",
-                        "https://*.ngrok-free.dev"
-                );
+                    "http://localhost:*",
+                    "http://127.0.0.1:*",
+                    "https://centralized-language-tutor.vercel.app",
+                    "https://*.henrytech.cloud",
+                    "https://*.ngrok-free.dev"
+                )
+                .addInterceptors(webSocketHandshakeInterceptor);
     }
 
     /**

@@ -25,8 +25,10 @@ public class LessonRequest {
     LessonType lessonType;
 
     @Size(max = 500, message = "Video URL is too long (<= 500)")
-    @Pattern(regexp = "^(|http://.+|https://.+)$",
-            message = "Video URL must be empty or start with http(s)://")
+    @Pattern(
+            regexp = "^(|http://.+|https://.+)$",
+            message = "Video URL must be empty or start with http(s)://"
+    )
     String videoURL;
 
     @Size(max = 10000, message = "Lesson content too long (max 10000 chars)")
@@ -36,19 +38,22 @@ public class LessonRequest {
     Integer orderIndex;
 
     // --- Conditional validations ---
-    @AssertTrue(message = "Video URL is required when lessonType is VIDEO")
+
+    @AssertTrue(message = "Video URL is required when lessonType is Video")
     private boolean isVideoUrlRequiredWhenTypeIsVideo() {
         if (lessonType == null) return true;
-        if (lessonType.name().equalsIgnoreCase("VIDEO")) {
+
+        if (lessonType == LessonType.Video) {
             return videoURL != null && !videoURL.isBlank();
         }
         return true;
     }
 
-    @AssertTrue(message = "Content is required when lessonType is ARTICLE")
-    private boolean isContentRequiredWhenTypeIsArticle() {
+    @AssertTrue(message = "Content is required when lessonType is Reading")
+    private boolean isContentRequiredWhenTypeIsReading() {
         if (lessonType == null) return true;
-        if (lessonType.name().equalsIgnoreCase("ARTICLE")) {
+
+        if (lessonType == LessonType.Reading) {
             return content != null && !content.isBlank();
         }
         return true;

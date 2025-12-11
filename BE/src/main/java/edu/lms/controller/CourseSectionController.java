@@ -4,6 +4,7 @@ import edu.lms.dto.request.ApiRespond;
 import edu.lms.dto.request.CourseSectionRequest;
 import edu.lms.dto.response.CourseSectionResponse;
 import edu.lms.service.CourseSectionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -25,7 +26,7 @@ public class CourseSectionController {
     @PostMapping("/{courseID}")
     public ApiRespond<CourseSectionResponse> createSection(
             @PathVariable Long courseID,
-            @RequestBody CourseSectionRequest request,
+            @RequestBody @Valid CourseSectionRequest request,
             @AuthenticationPrincipal(expression = "claims['sub']") String email
     ) {
         return ApiRespond.<CourseSectionResponse>builder()
@@ -60,7 +61,7 @@ public class CourseSectionController {
     @PutMapping("/{sectionID}")
     public ApiRespond<CourseSectionResponse> updateSection(
             @PathVariable Long sectionID,
-            @RequestBody CourseSectionRequest request,
+            @RequestBody @Valid  CourseSectionRequest request,
             @AuthenticationPrincipal(expression = "claims['sub']") String email
     ) {
         return ApiRespond.<CourseSectionResponse>builder()

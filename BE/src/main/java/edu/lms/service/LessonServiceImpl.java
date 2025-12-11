@@ -118,7 +118,7 @@ public class LessonServiceImpl implements LessonService {
         @Override
         public LessonResponse updateLesson(Long lessonId, LessonRequest request, String email) {
                 Lesson lesson = lessonRepository.findById(lessonId)
-                        .orElseThrow(() -> new AppException(ErrorCode.INVALID_KEY));
+                        .orElseThrow(() -> new AppException(ErrorCode.LESSON_NOT_FOUND));
                 Course course = lesson.getSection().getCourse();
 
                 User user = findUserByEmailOr401(email);
@@ -139,7 +139,7 @@ public class LessonServiceImpl implements LessonService {
         @Transactional
         public void deleteLesson(Long lessonId, String email) {
                 Lesson lesson = lessonRepository.findById(lessonId)
-                        .orElseThrow(() -> new AppException(ErrorCode.INVALID_KEY));
+                        .orElseThrow(() -> new AppException(ErrorCode.LESSON_NOT_FOUND));
 
                 Course course = lesson.getSection().getCourse();
 
@@ -154,14 +154,15 @@ public class LessonServiceImpl implements LessonService {
 
         //Read
 
+        // Read
         @Override
         public List<LessonResponse> getLessonsBySection(Long sectionID, String email) {
                 CourseSection section = courseSectionRepository.findById(sectionID)
-                        .orElseThrow(() -> new AppException(ErrorCode.INVALID_KEY));
+                        .orElseThrow(() -> new AppException(ErrorCode.SECTION_NOT_FOUND));
                 Course course = section.getCourse();
 
                 User user = findUserByEmailOr401(email);
-                ensureCanView(user, course);
+                ensureOwner(user, course);
 
                 return lessonRepository.findBySectionSectionID(sectionID)
                         .stream().map(this::toResponse).toList();
@@ -203,7 +204,7 @@ public class LessonServiceImpl implements LessonService {
         @Override
         public LessonResponse getLessonDetail(Long lessonId, String email) {
                 Lesson lesson = lessonRepository.findById(lessonId)
-                        .orElseThrow(() -> new AppException(ErrorCode.INVALID_KEY));
+                        .orElseThrow(() -> new AppException(ErrorCode.LESSON_NOT_FOUND));
                 Course course = lesson.getSection().getCourse();
 
                 User user = findUserByEmailOr401(email);

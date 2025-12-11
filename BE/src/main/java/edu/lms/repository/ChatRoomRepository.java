@@ -17,6 +17,16 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoom, Long> {
     List<ChatRoom> findByTutor(Tutor tutor);
     List<ChatRoom> findByUserAndTutor(User user, Tutor tutor);
     boolean existsByUserAndTutorAndChatRoomType(User user, Tutor tutor, ChatRoomType chatRoomType);
+    
+    /**
+     * Check if user has access to chat room (either as learner or tutor)
+     */
+    @org.springframework.data.jpa.repository.Query(
+        "SELECT CASE WHEN COUNT(c) > 0 THEN true ELSE false END FROM ChatRoom c " +
+        "WHERE c.chatRoomID = :chatRoomId AND (c.user.userID = :userId OR c.tutor.user.userID = :userId)"
+    )
+    boolean existsByIdAndUserAccess(@org.springframework.data.repository.query.Param("chatRoomId") Long chatRoomId, 
+                                    @org.springframework.data.repository.query.Param("userId") Long userId);
 }
 
 

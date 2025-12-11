@@ -1,7 +1,6 @@
 package edu.lms.interceptor;
 
 import edu.lms.configuration.CustomJwtDecoder;
-import edu.lms.entity.ChatRoom;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
 import edu.lms.repository.ChatRoomRepository;
@@ -33,13 +32,13 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
     private final CustomJwtDecoder jwtDecoder;
     private final ChatRoomRepository chatRoomRepository;
 
-    // Pattern to extract chatRoomID from destination like /topic/chat/123
-    private static final Pattern CHAT_ROOM_PATTERN = Pattern.compile("/topic/chat/(\\d+)");
+    // Pattern to extract chatRoomID from destination like /topic/chat/123 or /topic/chat/123/typing
+    private static final Pattern CHAT_ROOM_PATTERN = Pattern.compile("/topic/chat/(\\d+)(/typing)?");
 
     /**
      * Simple principal class to hold user information for WebSocket authentication
      */
-    private static class WebSocketPrincipal {
+    private static class WebSocketPrincipal implements java.security.Principal {
         private final Long userId;
         private final String email;
 
@@ -54,6 +53,11 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
         public String getEmail() {
             return email;
+        }
+        
+        @Override
+        public String getName() {
+            return String.valueOf(userId);
         }
     }
 
@@ -79,13 +83,23 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
             }
 
             // Also check query parameter (for SockJS fallback)
+            // SockJS passes query params via native header or session attributes
             if (token == null) {
+                // Try getting from native header "query"
                 String query = accessor.getFirstNativeHeader("query");
-                if (query != null && query.contains("token=")) {
-                    token = query.substring(query.indexOf("token=") + 6);
+                if (query != null && query.contains("access_token=")) {
+                    token = query.substring(query.indexOf("access_token=") + 13);
                     if (token.contains("&")) {
                         token = token.substring(0, token.indexOf("&"));
                     }
+                }
+            }
+            
+            // Try getting token from session attributes (set by HandshakeInterceptor)
+            if (token == null && accessor.getSessionAttributes() != null) {
+                Object sessionToken = accessor.getSessionAttributes().get("access_token");
+                if (sessionToken != null) {
+                    token = sessionToken.toString();
                 }
             }
 
@@ -151,27 +165,36 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         // Handle SUBSCRIBE command - validate user has access to chat room
         if (StompCommand.SUBSCRIBE.equals(accessor.getCommand())) {
             String destination = accessor.getDestination();
+            log.info("SUBSCRIBE request to destination: {}", destination);
 
             if (destination != null && destination.startsWith("/topic/chat/")) {
                 // Extract chatRoomID from destination
                 Matcher matcher = CHAT_ROOM_PATTERN.matcher(destination);
-                if (matcher.find()) {
+                if (matcher.matches()) {
                     try {
                         Long chatRoomID = Long.parseLong(matcher.group(1));
+                        String typingSuffix = matcher.group(2); // Will be "/typing" or null
+                        log.info("Parsed chatRoomID: {}, isTyping: {}", chatRoomID, typingSuffix != null);
+                        
                         Long userID = extractUserIdFromPrincipal(accessor.getUser());
 
                         if (userID != null) {
                             // Validate user has access to this chat room
-                            validateChatRoomAccess(chatRoomID, userID);
-                            log.debug("User {} authorized to subscribe to chat room {}", userID, chatRoomID);
+                            if (!validateChatRoomAccess(chatRoomID, userID)) {
+                                log.warn("User {} not authorized to subscribe to chat room {}", userID, chatRoomID);
+                                return null; // Reject subscription silently
+                            }
+                            log.info("User {} authorized to subscribe to destination: {}", userID, destination);
                         } else {
                             log.warn("Cannot extract user ID from principal for subscription to {}", destination);
-                            throw new AppException(ErrorCode.UNAUTHENTICATED);
+                            return null; // Reject subscription silently
                         }
                     } catch (NumberFormatException e) {
                         log.error("Invalid chat room ID in destination: {}", destination, e);
-                        throw new AppException(ErrorCode.CHAT_ROOM_NOT_FOUND);
+                        return null; // Reject subscription silently
                     }
+                } else {
+                    log.warn("Destination {} does not match expected pattern", destination);
                 }
             }
         }
@@ -184,8 +207,11 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
      */
     private Long extractUserIdFromPrincipal(java.security.Principal principal) {
         if (principal == null) {
+            log.warn("Principal is null");
             return null;
         }
+        
+        log.info("Principal type: {}, name: {}", principal.getClass().getName(), principal.getName());
 
         // Handle WebSocketPrincipal (from CONNECT)
         if (principal instanceof WebSocketPrincipal) {
@@ -196,6 +222,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         if (principal instanceof Authentication) {
             Authentication auth = (Authentication) principal;
             Object authPrincipal = auth.getPrincipal();
+            log.info("Auth principal type: {}", authPrincipal != null ? authPrincipal.getClass().getName() : "null");
 
             if (authPrincipal instanceof WebSocketPrincipal) {
                 return ((WebSocketPrincipal) authPrincipal).getUserId();
@@ -216,22 +243,24 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
             }
         }
 
+        log.warn("Could not extract userId from principal");
         return null;
     }
 
     /**
      * Validate user has access to chat room
+     * @return true if user has access, false otherwise
      */
-    private void validateChatRoomAccess(Long chatRoomID, Long userID) {
-        ChatRoom chatRoom = chatRoomRepository.findById(chatRoomID)
-                .orElseThrow(() -> new AppException(ErrorCode.CHAT_ROOM_NOT_FOUND));
-
-        boolean isLearner = chatRoom.getUser().getUserID().equals(userID);
-        boolean isTutor = chatRoom.getTutor().getUser().getUserID().equals(userID);
-
-        if (!isLearner && !isTutor) {
-            log.warn("User {} attempted to subscribe to chat room {} without authorization", userID, chatRoomID);
-            throw new AppException(ErrorCode.UNAUTHORIZED);
+    private boolean validateChatRoomAccess(Long chatRoomID, Long userID) {
+        try {
+            // Use custom query to avoid lazy loading issues
+            boolean hasAccess = chatRoomRepository.existsByIdAndUserAccess(chatRoomID, userID);
+            log.info("ChatRoom {} access check for user {}: {}", chatRoomID, userID, hasAccess);
+            return hasAccess;
+        } catch (Exception e) {
+            log.error("Error validating chat room access for user {} to room {}: {}", 
+                userID, chatRoomID, e.getMessage());
+            return false;
         }
     }
 }

@@ -82,6 +82,10 @@ public class ChatController {
     ) {
         Long senderID = getCurrentUserId();
         ChatMessageResponse message = chatService.sendMessage(senderID, request);
+        
+        // Broadcast message qua WebSocket để real-time
+        webSocketChatService.broadcastMessage(message);
+        
         return ResponseEntity.ok(ApiRespond.<ChatMessageResponse>builder()
                 .result(message)
                 .message("Message sent successfully")

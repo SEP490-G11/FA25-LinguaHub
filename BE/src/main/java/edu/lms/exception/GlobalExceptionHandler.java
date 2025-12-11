@@ -2,7 +2,6 @@ package edu.lms.exception;
 
 import edu.lms.dto.request.ApiRespond;
 import jakarta.persistence.EntityNotFoundException;
-import jakarta.validation.ConstraintViolation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,7 +13,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.Map;
-import java.util.Objects;
 
 @Slf4j
 @RestControllerAdvice
@@ -48,30 +46,26 @@ public class GlobalExceptionHandler {
     // ==================== VALIDATION ERRORS (@NotBlank, @Size, ...) ====================
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiRespond> handleValidation(MethodArgumentNotValidException ex) {
-        String enumKey = ex.getFieldError().getDefaultMessage();
-        ErrorCode errorCode = ErrorCode.INVALID_KEY;
-        Map<String, Object> attributes = null;
 
-        try {
-            errorCode = ErrorCode.valueOf(enumKey);
-            var constraintViolation = ex.getBindingResult()
-                    .getFieldErrors()
-                    .getFirst()
-                    .unwrap(ConstraintViolation.class);
-            attributes = constraintViolation.getConstraintDescriptor().getAttributes();
-            log.debug("Validation attributes: {}", attributes);
-        } catch (IllegalArgumentException ignored) {
-        }
+        // Gom tất cả lỗi validation thành map: field -> message
+        Map<String, String> errorMap = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        org.springframework.validation.FieldError::getField,
+                        org.springframework.context.support.DefaultMessageSourceResolvable::getDefaultMessage,
+                        (msg1, msg2) -> msg1 // nếu trùng field thì giữ message đầu
+                ));
 
         ApiRespond response = ApiRespond.builder()
-                .code(errorCode.getCode())
-                .message(Objects.nonNull(attributes)
-                        ? mapAttributes(errorCode.getMessage(), attributes)
-                        : errorCode.getMessage())
+                .code(ErrorCode.INVALID_KEY.getCode())   // 1001
+                .message("Validation failed")            // message chung
+                .errors(errorMap)                        // ⚠️ cần field errors trong ApiRespond
                 .build();
 
         return ResponseEntity.badRequest().body(response);
     }
+
 
     // ==================== INVALID JSON FORMAT ====================
     @ExceptionHandler(HttpMessageNotReadableException.class)
