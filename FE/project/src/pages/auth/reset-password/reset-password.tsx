@@ -11,15 +11,19 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import api from "@/config/axiosConfig";
 import { ROUTES } from "@/constants/routes";
+import { getApiErrorMessage } from "@/utils/errorMessages";
 
 //  Validate theo BE
 const resetPasswordSchema = z
     .object({
-      newPassword: z.string().min(8, "Password must be at least 8 characters"),
-      confirmPassword: z.string().min(8, "Please confirm your password"),
+      newPassword: z
+        .string()
+        .min(1, "Mật khẩu là bắt buộc")
+        .min(8, "Mật khẩu phải có ít nhất 8 ký tự"),
+      confirmPassword: z.string().min(1, "Vui lòng xác nhận mật khẩu"),
     })
     .refine((data) => data.newPassword === data.confirmPassword, {
-      message: "Passwords do not match",
+      message: "Mật khẩu không khớp",
       path: ["confirmPassword"],
     });
 
@@ -51,26 +55,18 @@ const ResetPassword = () => {
       const response = await api.post("/auth/set-new-password", data);
 
       if (response.data.code !== 0) {
-        setApiError(response.data.message ?? "Reset password failed");
+        setApiError(response.data.message ?? "Đặt lại mật khẩu thất bại");
         return;
       }
 
       setSuccess(true);
       setTimeout(() => navigate(ROUTES.SIGN_IN), 2000);
-    }  catch (err: unknown) {
-    if (err && typeof err === "object" && "response" in err) {
-      const axiosErr = err as {
-        response?: { data?: { message?: string } };
-      };
-
-      setApiError(axiosErr.response?.data?.message ?? null);
-    } else if (err instanceof Error) {
-      setApiError(err.message);
-    } else {
-      setApiError("Something went wrong");
+    } catch (err: unknown) {
+      setApiError(getApiErrorMessage(err, "Đặt lại mật khẩu thất bại"));
+    } finally {
+      setIsLoading(false);
     }
-  }
-};
+  };
 
   const fadeInUp = {
     initial: { opacity: 0, y: 60 },
@@ -100,9 +96,9 @@ const ResetPassword = () => {
                   <CheckCircle className="w-8 h-8 text-green-500" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                  Password updated successfully!
+                  Cập nhật mật khẩu thành công!
                 </h2>
-                <p className="text-gray-600">Redirecting to sign-in page...</p>
+                <p className="text-gray-600">Đang chuyển hướng đến trang đăng nhập...</p>
               </div>
             </motion.div>
           </motion.div>
@@ -123,8 +119,8 @@ const ResetPassword = () => {
                 Lingua<span className="text-blue-500">Hub</span>
               </div>
             </Link>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Reset Password</h2>
-            <p className="text-gray-600">Enter and confirm your new password below.</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Đặt lại mật khẩu</h2>
+            <p className="text-gray-600">Nhập và xác nhận mật khẩu mới của bạn bên dưới.</p>
           </div>
 
           <motion.div className="bg-white rounded-2xl shadow-xl p-8" variants={fadeInUp}>
@@ -133,7 +129,7 @@ const ResetPassword = () => {
               {/* New Password */}
               <div>
                 <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                  New Password
+                  Mật khẩu mới
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
@@ -142,7 +138,7 @@ const ResetPassword = () => {
                       id="newPassword"
                       type={showPassword ? "text" : "password"}
                       {...register("newPassword")}
-                      placeholder="Enter new password"
+                      placeholder="Nhập mật khẩu mới"
                       className="pl-10 pr-10"
                   />
                   <button type="button" className="absolute inset-y-0 right-0 pr-3 flex items-center"
@@ -159,7 +155,7 @@ const ResetPassword = () => {
               {/* Confirm Password */}
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                  Confirm Password
+                  Xác nhận mật khẩu
                 </label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
@@ -167,7 +163,7 @@ const ResetPassword = () => {
                       id="confirmPassword"
                       type={showConfirmPassword ? "text" : "password"}
                       {...register("confirmPassword")}
-                      placeholder="Confirm new password"
+                      placeholder="Xác nhận mật khẩu mới"
                       className="pl-10 pr-10"
                   />
                   <button type="button" className="absolute inset-y-0 right-0 pr-3 flex items-center"
@@ -186,7 +182,7 @@ const ResetPassword = () => {
 
               {/* Submit */}
               <Button type="submit" className="w-full" disabled={isLoading || !isValid}>
-                {isLoading ? <LoadingSpinner size="sm" /> : "Update Password"}
+                {isLoading ? <LoadingSpinner size="sm" /> : "Cập nhật mật khẩu"}
               </Button>
             </form>
           </motion.div>

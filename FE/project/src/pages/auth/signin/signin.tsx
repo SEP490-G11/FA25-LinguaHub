@@ -12,19 +12,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ErrorMessage } from "@/components/shared/ErrorMessage";
 import api from "@/config/axiosConfig";
 import { ROUTES } from "@/constants/routes";
+import { useUser } from "@/contexts/UserContext";
+import { getApiErrorMessage } from "@/utils/errorMessages";
 
 /* -------------------------------------------------------------------------- */
 /*                               VALIDATION                                   */
 /* -------------------------------------------------------------------------- */
 const signInSchema = z.object({
-  username: z.string().min(3, "Login name must be at least 3 characters"),
+  username: z.string().min(3, "Tên đăng nhập phải có ít nhất 3 ký tự"),
   password: z
       .string()
-      .min(8, "Password must be at least 8 characters")
-      .regex(
-          /(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-          "Password must contain uppercase, lowercase, and a number"
-      ),
+      .min(8, "Mật khẩu phải có ít nhất 8 ký tự"),
   rememberMe: z.boolean().optional(),
 });
 
@@ -40,6 +38,7 @@ const SignIn = () => {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const redirect = params.get("redirect") || ROUTES.HOME;
+  const { refreshUser } = useUser();
 
   const {
     register,
@@ -80,13 +79,17 @@ const SignIn = () => {
         sessionStorage.setItem("refresh_token", refreshToken);
       }
 
-      // Lấy role để redirect
+      // Dispatch event để các component khác biết user đã login
+      window.dispatchEvent(new Event("user-login"));
+
+      // Refresh user context và lấy role để redirect
       try {
+        await refreshUser(); // Refresh UserContext
         const userInfoResponse = await api.get("/users/myInfo");
         const userRole = userInfoResponse.data.result.role;
 
-        if (userRole === "Admin") navigate("/admin/dashboard", { replace: true });
-        else if (userRole === "Tutor") navigate("/dashboard", { replace: true });
+        if (userRole === "Admin") navigate(ROUTES.ADMIN_DASHBOARD, { replace: true });
+        else if (userRole === "Tutor") navigate(ROUTES.TUTOR_DASHBOARD, { replace: true });
         else navigate(redirect, { replace: true });
       } catch (error) {
         console.error("Error fetching user info:", error);
@@ -94,7 +97,8 @@ const SignIn = () => {
       }
     } catch (err) {
       console.error("Login error:", err);
-      setApiError("Username or password is incorrect.");
+      const errorMsg = getApiErrorMessage(err, "Tên đăng nhập hoặc mật khẩu không chính xác.");
+      setApiError(errorMsg);
     }
   };
 
@@ -106,7 +110,7 @@ const SignIn = () => {
 
     try {
       if (!credentialResponse.credential) {
-        setApiError("Google authentication failed: missing credential.");
+        setApiError("Xác thực Google thất bại: thiếu thông tin đăng nhập.");
         return;
       }
 
@@ -114,18 +118,23 @@ const SignIn = () => {
 
       const response = await api.post("/auth/google", { idToken });
 
-      const { token }: { token: string } = response.data;
+      // BE trả về AuthResponse trực tiếp: { token, email, fullName, avatarURL }
+      const { token } = response.data;
 
       // Lưu token mặc định vào localStorage
       localStorage.setItem("access_token", token);
 
-      // Lấy role để redirect
+      // Dispatch event để các component khác biết user đã login
+      window.dispatchEvent(new Event("user-login"));
+
+      // Refresh user context và lấy role để redirect
       try {
+        await refreshUser(); // Refresh UserContext
         const userInfoResponse = await api.get("/users/myInfo");
         const userRole = userInfoResponse.data.result.role;
 
-        if (userRole === "Admin") navigate("/admin/dashboard", { replace: true });
-        else if (userRole === "Tutor") navigate("/dashboard", { replace: true });
+        if (userRole === "Admin") navigate(ROUTES.ADMIN_DASHBOARD, { replace: true });
+        else if (userRole === "Tutor") navigate(ROUTES.TUTOR_DASHBOARD, { replace: true });
         else navigate(redirect, { replace: true });
       } catch (error) {
         console.error("Error fetching user info after Google login:", error);
@@ -133,7 +142,8 @@ const SignIn = () => {
       }
     } catch (error) {
       console.error("Google login error:", error);
-      setApiError("Google login failed. Please try again.");
+      const errorMsg = getApiErrorMessage(error, "Đăng nhập Google thất bại. Vui lòng thử lại.");
+      setApiError(errorMsg);
     }
   };
 
@@ -159,8 +169,8 @@ const SignIn = () => {
               </div>
             </Link>
 
-            <h2 className="text-3xl font-bold text-gray-900">Welcome Back!</h2>
-            <p className="text-gray-600">Log in to continue your journey</p>
+            <h2 className="text-3xl font-bold text-gray-900">Chào mừng trở lại!</h2>
+            <p className="text-gray-600">Đăng nhập để tiếp tục hành trình của bạn</p>
           </div>
 
           {/* Form Container */}
@@ -171,13 +181,13 @@ const SignIn = () => {
               {/* Username */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Username
+                  Tên đăng nhập
                 </label>
                 <div className="relative">
                   <Input
                       {...register("username")}
                       className="pl-10"
-                      placeholder="Enter your username"
+                      placeholder="Nhập tên đăng nhập"
                   />
                   <User className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                 </div>
@@ -187,14 +197,14 @@ const SignIn = () => {
               {/* Password */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Password
+                  Mật khẩu
                 </label>
                 <div className="relative">
                   <Input
                       {...register("password")}
                       type={showPassword ? "text" : "password"}
                       className="pl-10 pr-10"
-                      placeholder="Enter your password"
+                      placeholder="Nhập mật khẩu"
                   />
                   <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                   <button
@@ -215,26 +225,26 @@ const SignIn = () => {
                       checked={watch("rememberMe")}
                       onCheckedChange={(value) => setValue("rememberMe", Boolean(value))}
                   />
-                  <span>Remember me</span>
+                  <span>Ghi nhớ đăng nhập</span>
                 </label>
                 <Link
                     to={ROUTES.FORGOT_PASSWORD}
                     className="text-sm font-medium text-blue-600 hover:text-blue-500 hover:underline"
                 >
-                  Forgot Password?
+                  Quên mật khẩu?
                 </Link>
               </div>
 
               {/* Submit button */}
               <Button type="submit" className="w-full" disabled={!isValid}>
-                Sign In
+                Đăng nhập
               </Button>
             </form>
 
             {/* Divider */}
             <div className="my-6 flex items-center">
               <div className="flex-1 h-px bg-gray-300" />
-              <span className="px-3 text-gray-500 text-sm">or</span>
+              <span className="px-3 text-gray-500 text-sm">hoặc</span>
               <div className="flex-1 h-px bg-gray-300" />
             </div>
 
@@ -242,7 +252,7 @@ const SignIn = () => {
             <div className="flex justify-center">
               <GoogleLogin
                   onSuccess={handleGoogleSuccess}
-                  onError={() => setApiError("Google login failed.")}
+                  onError={() => setApiError("Đăng nhập Google thất bại.")}
               />
             </div>
 
@@ -254,7 +264,7 @@ const SignIn = () => {
                     to={ROUTES.SIGN_UP}
                     className="font-medium text-blue-600 hover:text-blue-500 hover:underline"
                 >
-                  Sign up now
+                  Đăng ký ngay
                 </Link>
               </p>
             </div>

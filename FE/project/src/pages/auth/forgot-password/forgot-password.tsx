@@ -11,10 +11,15 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { ErrorMessage } from '@/components/shared/ErrorMessage.tsx';
 import api from "@/config/axiosConfig";
+import { getApiErrorMessage } from "@/utils/errorMessages";
 
 // ✅ Schema validate email
 const emailVerificationSchema = z.object({
-  email: z.string().email('Invalid email format'),
+  email: z
+    .string()
+    .min(1, "Email là bắt buộc")
+    .email("Định dạng email không hợp lệ")
+    .max(100, "Email không được quá 100 ký tự"),
 });
 type EmailVerificationForm = z.infer<typeof emailVerificationSchema>;
 
@@ -48,8 +53,8 @@ const ForgotPassword = () => {
         state: { email: data.email },
       });
       localStorage.setItem("temp_forgot_password_email", data.email);
-    } catch (err) {
-      console.error(" Error sending OTP:", err);
+    } catch (err: unknown) {
+      setApiError(getApiErrorMessage(err, "Gửi OTP thất bại. Vui lòng thử lại."));
     } finally {
       setIsLoading(false);
     }
@@ -73,8 +78,8 @@ const ForgotPassword = () => {
                 Lingua<span className="text-blue-500">Hub</span>
               </div>
             </div>
-            <h2 className="text-3xl font-bold text-gray-900 mb-2">Forgot Password?</h2>
-            <p className="text-gray-600">Enter your email to receive a reset code</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Quên mật khẩu?</h2>
+            <p className="text-gray-600">Nhập email của bạn để nhận mã đặt lại</p>
           </div>
 
           {/* Form */}
@@ -90,7 +95,7 @@ const ForgotPassword = () => {
               {/* Email */}
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address
+                  Địa chỉ Email
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -103,7 +108,7 @@ const ForgotPassword = () => {
                       required
                       autoComplete="email"
                       className="pl-10"
-                      placeholder="Enter your email address"
+                      placeholder="Nhập địa chỉ email của bạn"
                       aria-invalid={errors.email ? 'true' : 'false'}
                   />
                 </div>
@@ -112,7 +117,7 @@ const ForgotPassword = () => {
 
               {/* Submit Button */}
               <Button type="submit" className="w-full" disabled={isLoading || !isValid}>
-                {isLoading ? <LoadingSpinner size="sm" /> : 'Send Reset Link'}
+                {isLoading ? <LoadingSpinner size="sm" /> : 'Gửi mã xác nhận'}
               </Button>
             </form>
 
@@ -123,7 +128,7 @@ const ForgotPassword = () => {
                   className="inline-flex items-center space-x-2 text-sm font-medium text-blue-600 hover:text-blue-500"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>Back to Sign In</span>
+                <span>Quay lại Đăng nhập</span>
               </Link>
             </div>
           </motion.div>

@@ -41,15 +41,15 @@ const CompleteForgotPassword = () => {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
               <CheckCircle className="w-8 h-8 text-green-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">Password Reset Complete!</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Đặt lại mật khẩu hoàn tất!</h2>
             <p className="text-gray-600">
-              Your password has been successfully reset. You can now sign in with your new password.
+              Mật khẩu của bạn đã được đặt lại thành công. Bây giờ bạn có thể đăng nhập bằng mật khẩu mới.
             </p>
           </div>
 
           <Button asChild className="w-full">
             <Link to="/auth/signin">
-              Sign In Now
+              Đăng nhập ngay
             </Link>
           </Button>
         </motion.div>
