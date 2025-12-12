@@ -9,7 +9,6 @@ import {
   Award,
   Clock,
 } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export interface Tutor {
   tutorId: number;
@@ -35,9 +34,9 @@ export interface Tutor {
 export interface BookingPlan {
   booking_planid: number;
   tutor_id: number;
-  title: string; // e.g., "T2", "T3"
-  start_hours: string; // HH:mm
-  end_hours: string;   // HH:mm
+  title: string;
+  start_hours: string; 
+  end_hours: string;   
   is_open: boolean;
   is_active: boolean;
 }
@@ -57,20 +56,6 @@ const weekdayMap: Record<string, string> = {
 };
 
 const TutorInfo = ({ tutor }: TutorInfoProps) => {
-  const initials = tutor.name
-      ? tutor.name
-          .split(" ")
-          .map((n) => n[0]?.toUpperCase())
-          .join("")
-      : "T";
-
-  const avatarSrc =
-      tutor.avatarUrl && tutor.avatarUrl.trim() !== ""
-          ? tutor.avatarUrl
-          : `https://ui-avatars.com/api/?name=${encodeURIComponent(
-              tutor?.name || "Tutor"
-          )}&background=random&size=256`;
-
   /* ---------------------- STATE FOR SCHEDULE ---------------------- */
   const [schedule, setSchedule] = useState<
       { day: string; start: string; end: string }[]
@@ -111,17 +96,21 @@ const TutorInfo = ({ tutor }: TutorInfoProps) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* LEFT SIDE */}
           <div className="col-span-2 flex items-start gap-4">
-            <Avatar className="w-20 h-20 rounded-full border shadow-sm">
-              <AvatarImage src={avatarSrc} alt={tutor.name} />
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
+            <img
+              src={tutor.avatarUrl || "https://placehold.co/200x200?text=No+Image"}
+              alt={tutor.name}
+              className="w-32 h-32 flex-shrink-0 rounded-full object-cover border-4 border-white shadow-lg"
+              onError={(e) => {
+                e.currentTarget.src = "https://placehold.co/200x200?text=No+Image";
+              }}
+            />
 
             <div className="flex-1">
               <h1 className="text-2xl font-bold">{tutor.name}</h1>
 
               {tutor.language || tutor.teachingLanguage ? (
                   <p className="mt-1 text-gray-600">
-                    🌐 Teaching Language: <b>{tutor.language || tutor.teachingLanguage}</b>
+                    🌐 Ngôn ngữ giảng dạy: <b>{tutor.language || tutor.teachingLanguage}</b>
                   </p>
               ) : null}
 
@@ -143,16 +132,17 @@ const TutorInfo = ({ tutor }: TutorInfoProps) => {
                 {typeof tutor.rating === "number" && (
                     <p className="flex items-center gap-1">
                       <Star className="w-4 h-4 text-yellow-500" />
-                      Rating: {tutor.rating.toFixed(1)}/5.0
+                      Đánh giá: {tutor.rating.toFixed(1)}/5.0
                     </p>
                 )}
 
                 {tutor.pricePerHour && tutor.pricePerHour > 0 && (
                     <p>
-                      💰 Price per hour:{" "}
+                      💰 Giá/slot:{" "}
                       <span className="font-semibold">
                     {tutor.pricePerHour.toLocaleString()} VND
                   </span>
+                      <span className="text-xs text-gray-500 ml-1">(1 slot = 1 giờ)</span>
                     </p>
                 )}
               </div>
@@ -167,35 +157,35 @@ const TutorInfo = ({ tutor }: TutorInfoProps) => {
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 shadow-sm">
             <h3 className="font-semibold text-blue-900 text-lg mb-3 flex items-center gap-2">
               <Award className="w-5 h-5 text-blue-600" />
-              Tutor Summary
+              Tóm tắt gia sư
             </h3>
 
             <div className="space-y-3 text-sm text-gray-700">
               {tutor.specialization && (
                   <p className="flex items-center gap-2">
                     <BookOpen className="w-4 h-4 text-purple-600" />
-                    <b>Specialization:</b> {tutor.specialization}
+                    <b>Chuyên môn:</b> {tutor.specialization}
                   </p>
               )}
 
               {tutor.experience && (
                   <p className="flex items-center gap-2">
                     <Award className="w-4 h-4 text-orange-500" />
-                    <b>Experience:</b> {tutor.experience}
+                    <b>Kinh nghiệm:</b> {tutor.experience} năm
                   </p>
               )}
 
               {typeof tutor.studentsCount === "number" && (
                   <p className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-green-700" />
-                    <b>Students taught:</b> {tutor.studentsCount}
+                    <b>Học viên đã dạy:</b> {tutor.studentsCount}
                   </p>
               )}
 
               {typeof tutor.lessonsCount === "number" && (
                   <p className="flex items-center gap-2">
                     <BookOpen className="w-4 h-4 text-blue-600" />
-                    <b>Lessons completed:</b> {tutor.lessonsCount}
+                    <b>Bài học đã hoàn thành:</b> {tutor.lessonsCount}
                   </p>
               )}
 
@@ -203,12 +193,12 @@ const TutorInfo = ({ tutor }: TutorInfoProps) => {
               <div className="pt-2 border-t border-blue-200">
                 <p className="flex items-center gap-2 text-blue-900 font-semibold mb-1">
                   <Clock className="w-4 h-4 text-blue-700" />
-                  Weekly Schedule
+                  Lịch hàng tuần
                 </p>
 
                 <div className="text-sm space-y-1">
                   {schedule.length === 0 && (
-                      <p className="text-gray-500 italic">No schedule available</p>
+                      <p className="text-gray-500 italic">Không có lịch</p>
                   )}
 
                   {schedule.map((s, idx) => (

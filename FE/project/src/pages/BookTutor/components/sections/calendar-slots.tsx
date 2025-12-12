@@ -106,13 +106,11 @@ const CalendarSlots = ({
   const canGoPrev = currentWeekStart.getTime() !== firstAllowedWeek.getTime();
   const canGoNext = currentWeekStart.getTime() !== fourthAllowedWeek.getTime();
 
-  const weekdayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const weekdayLabels = ["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "CN"];
   
-  // Generate time slots: 30-minute intervals from 0:00 to 23:30 (48 slots total)
-  const timeSlots = Array.from({ length: 48 }).map((_, i) => {
-    const hour = Math.floor(i / 2);
-    const minute = (i % 2) * 30;
-    return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+  // Generate time slots: 1-hour intervals from 0:00 to 23:00 (24 slots total)
+  const timeSlots = Array.from({ length: 24 }).map((_, i) => {
+    return `${String(i).padStart(2, '0')}:00`;
   });
   
   const weekDates = Array.from({ length: 7 }).map((_, i) => {
@@ -156,6 +154,37 @@ const CalendarSlots = ({
   }, []);
 
 
+  // ===== Helper to extract datetime string from various formats =====
+  const extractDateTimeString = (value: unknown): string | null => {
+    if (!value) return null;
+    
+    // If it's already a string in ISO format
+    if (typeof value === 'string') {
+      return value;
+    }
+    
+    // If it's an object (LocalDateTime from Java serialized as object)
+    if (typeof value === 'object' && value !== null) {
+      const obj = value as Record<string, unknown>;
+      // Handle Java LocalDateTime serialized as array [year, month, day, hour, minute, second]
+      if (Array.isArray(value) && value.length >= 5) {
+        const [year, month, day, hour, minute] = value;
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      }
+      // Handle object with date/time properties
+      if ('year' in obj && 'monthValue' in obj && 'dayOfMonth' in obj) {
+        const year = obj.year;
+        const month = obj.monthValue;
+        const day = obj.dayOfMonth;
+        const hour = obj.hour ?? 0;
+        const minute = obj.minute ?? 0;
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+      }
+    }
+    
+    return null;
+  };
+
   // ===== Fetch booked slots with polling =====
   useEffect(() => {
     if (!userId) return;
@@ -164,41 +193,77 @@ const CalendarSlots = ({
 
     const fetchBookedSlots = async () => {
       try {
-        const res = await api.get("/booking-slots/my-slots");
-        const slots: { 
+        // Fetch my slots - supports both camelCase (local) and snake_case (production)
+        const myRes = await api.get("/booking-slots/my-slots");
+        const mySlots: { 
           status: string;
-          slotid: number;
-          booking_planid: number;
-          tutor_id: number;
-          user_id: number;
-          start_time: string;
-          end_time: string;
-          payment_id: number;
-          locked_at: string;
-          expires_at: string;
-          learner_name: string | null;
-          meeting_url: string | null;
-        }[] = res?.data?.result || [];
+          slotid?: number; slotID?: number;
+          booking_planid?: number; bookingPlanID?: number;
+          tutor_id?: number; tutorID?: number;
+          user_id?: number; userID?: number;
+          start_time?: unknown; startTime?: unknown;
+          end_time?: unknown; endTime?: unknown;
+          payment_id?: number; paymentID?: number;
+          locked_at?: unknown; lockedAt?: unknown;
+          expires_at?: unknown; expiresAt?: unknown;
+          meeting_url?: string | null; meetingUrl?: string | null;
+          tutor_fullname?: string | null; tutorFullName?: string | null;
+        }[] = myRes?.data?.result || [];
+
+        // Fetch all paid slots for this tutor (public endpoint)
+        const paidRes = await api.get(`/booking-slots/public/tutors/${tutorId}/slots/paid`);
+        const paidSlots: {
+          status: string;
+          slotid?: number; slotID?: number;
+          booking_planid?: number; bookingPlanID?: number;
+          tutor_id?: number; tutorID?: number;
+          user_id?: number; userID?: number;
+          start_time?: unknown; startTime?: unknown;
+          end_time?: unknown; endTime?: unknown;
+          payment_id?: number; paymentID?: number;
+          locked_at?: unknown; lockedAt?: unknown;
+          expires_at?: unknown; expiresAt?: unknown;
+          meeting_url?: string | null; meetingUrl?: string | null;
+          tutor_fullname?: string; tutorFullName?: string;
+        }[] = paidRes?.data || [];
 
         const mine: Record<string, boolean> = {};
         const others: Record<string, boolean> = {};
         const locked: Record<string, boolean> = {};
 
-        slots.forEach((s) => {
-          const date = s.start_time.substring(0, 10);
-          const hour = s.start_time.substring(11, 13);
-          const key = `${date}T${hour}:00_plan_${s.booking_planid}`;
+        // Process my slots (includes locked and paid)
+        mySlots.forEach((s) => {
+          const startTimeRaw = s.start_time ?? s.startTime;
+          const startTime = extractDateTimeString(startTimeRaw);
+          if (!startTime || startTime.length < 13) return;
+          
+          const bookingPlanId = s.booking_planid ?? s.bookingPlanID ?? 0;
+          const date = startTime.substring(0, 10);
+          const hour = startTime.substring(11, 13);
+          const key = `${date}T${hour}:00_plan_${bookingPlanId}`;
 
           if (s.status === "Locked") {
-            // Slot đang bị khóa (chưa thanh toán)
             locked[key] = true;
           } else if (s.status === "Paid") {
-            // Slot đã thanh toán
-            if (s.user_id === userId) {
-              mine[key] = true;
-            } else {
-              others[key] = true;
-            }
+            mine[key] = true;
+          }
+        });
+
+        // Process all paid slots from tutor (mark others' slots)
+        paidSlots.forEach((s) => {
+          const startTimeRaw = s.start_time ?? s.startTime;
+          const startTime = extractDateTimeString(startTimeRaw);
+          if (!startTime || startTime.length < 13) return;
+          
+          const bookingPlanId = s.booking_planid ?? s.bookingPlanID ?? 0;
+          const slotUserId = s.user_id ?? s.userID ?? 0;
+          const date = startTime.substring(0, 10);
+          const hour = startTime.substring(11, 13);
+          const key = `${date}T${hour}:00_plan_${bookingPlanId}`;
+
+          // If it's paid and not mine, mark as booked by others
+          if (slotUserId !== userId) {
+            others[key] = true;
           }
         });
 
@@ -222,7 +287,7 @@ const CalendarSlots = ({
       mounted = false;
       if (intervalId) clearInterval(intervalId);
     };
-  }, [userId]);
+  }, [userId, tutorId]);
 
 
   useEffect(() => {
@@ -274,33 +339,34 @@ const CalendarSlots = ({
   const getStatus = (
       plan: BookingPlan,
       timeSlot: string
-  ): "Available" | "Selected" | "Booked" | "Your Slot" | "Locked" | null => {
+  ): "Trống" | "Đã chọn" | "Đã đặt" | "Của bạn" | "Đang khóa" | null => {
     const slotMinutes = timeToMinutes(timeSlot);
     const startMinutes = timeToMinutes(plan.start_hours);
     const endMinutes = timeToMinutes(plan.end_hours);
     
-    // Check if this time slot falls within the plan's time range
-    if (!(slotMinutes >= startMinutes && slotMinutes < endMinutes)) return null;
+    // Check if this 1-hour slot falls within the plan's time range
+    // Slot is valid if it starts within range and has room for 1 hour
+    if (!(slotMinutes >= startMinutes && slotMinutes + 60 <= endMinutes)) return null;
 
     const slotKey = `${plan.date}T${timeSlot}_plan_${plan.booking_planid}`;
 
     // Check locked slots first
-    if (lockedSlotsMap[slotKey]) return "Locked";
+    if (lockedSlotsMap[slotKey]) return "Đang khóa";
     
     // Check if it's my slot
-    if (bookedByMeMap[slotKey]) return "Your Slot";
+    if (bookedByMeMap[slotKey]) return "Của bạn";
     
     // Check if booked by others
-    if (bookedByOthersMap[slotKey]) return "Booked"; 
+    if (bookedByOthersMap[slotKey]) return "Đã đặt"; 
 
     const exists = selectedSlots.some(
         (s) => s.bookingPlanId === plan.booking_planid && s.time === timeSlot && s.date === plan.date
     );
 
-    if (exists) return "Selected";
-    if (isSlotLimitReached) return "Booked";
+    if (exists) return "Đã chọn";
+    if (isSlotLimitReached) return "Đã đặt";
 
-    return "Available";
+    return "Trống";
   };
 
   // ===== Handle open detail modal =====
@@ -314,11 +380,11 @@ const CalendarSlots = ({
       <div className="bg-blue-50/50 p-6 rounded-xl shadow-md border border-blue-100">
         {/* PACKAGE SELECTOR */}
         <h2 className="text-xl font-bold mb-5 flex items-center gap-2 text-blue-900">
-          <Package className="w-5 h-5 text-blue-600" /> Select a Learning Package
+          <Package className="w-5 h-5 text-blue-600" /> Chọn gói học
         </h2>
 
         {activePackages.length === 0 ? (
-            <p className="text-gray-500 italic">No active packages available</p>
+            <p className="text-gray-500 italic">Không có gói học khả dụng</p>
         ) : (
             <div className="relative w-full">
               <button
@@ -329,13 +395,13 @@ const CalendarSlots = ({
                 <ChevronLeft />
               </button>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
                 {pagePackages.map((pkg) => {
                   const active = selectedPackage?.packageId === pkg.packageId;
                   return (
                       <div
                           key={pkg.packageId}
-                          className={`p-6 rounded-2xl border shadow-md transition ${
+                          className={`p-6 rounded-2xl border shadow-md transition flex flex-col h-full ${
                               active
                                   ? "border-blue-600 bg-blue-100"
                                   : "border-gray-200 bg-white hover:bg-blue-50"
@@ -344,7 +410,7 @@ const CalendarSlots = ({
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
                             <Sparkles className="w-4 h-4 text-yellow-500" />
-                            <h3 className="font-bold">{pkg.name}</h3>
+                            <h3 className="font-bold line-clamp-1">{pkg.name}</h3>
                           </div>
 
                           <Button
@@ -352,20 +418,20 @@ const CalendarSlots = ({
                               size="sm"
                               onClick={() => handleOpenDetail(pkg)}
                           >
-                            Detail
+                            Chi tiết
                           </Button>
                         </div>
 
-                        <p className="text-sm text-gray-600 mt-2 mb-4">
-                          {pkg.requirement || "No requirement"}
+                        <p className="text-sm text-gray-600 mt-2 mb-4 line-clamp-2 min-h-[40px] overflow-hidden">
+                          {pkg.requirement || "Không có yêu cầu"}
                         </p>
 
-                        <div className="space-y-2 text-sm text-gray-700">
-                          <p>
-                            <b>Objectives:</b> {pkg.objectives || "No objectives provided"}
+                        <div className="space-y-2 text-sm text-gray-700 flex-1">
+                          <p className="line-clamp-2 overflow-hidden">
+                            <b>Mục tiêu:</b> {pkg.objectives || "Chưa có mục tiêu"}
                           </p>
                           <p>
-                            <b>Max Sessions:</b> {pkg.maxSlot}
+                            <b>Số buổi tối đa:</b> {pkg.maxSlot}
                           </p>
                         </div>
 
@@ -373,7 +439,7 @@ const CalendarSlots = ({
                             className="w-full mt-4"
                             onClick={() => onSelectPackage(active ? null : pkg)}
                         >
-                          {active ? "Unselect" : "Select"}
+                          {active ? "Bỏ chọn" : "Chọn"}
                         </Button>
                       </div>
                   );
@@ -401,11 +467,11 @@ const CalendarSlots = ({
                 setCurrentWeekStart(d);
               }}
           >
-            <ChevronLeft /> Previous
+            <ChevronLeft /> Trước
           </Button>
 
           <div className="text-lg font-semibold text-blue-900">
-            Week of {formatDateFixed(currentWeekStart)}
+            Tuần {formatDateFixed(currentWeekStart)}
           </div>
 
           <Button
@@ -417,18 +483,18 @@ const CalendarSlots = ({
                 setCurrentWeekStart(d);
               }}
           >
-            Next <ChevronRight />
+            Sau <ChevronRight />
           </Button>
         </div>
 
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold flex items-center gap-2 text-blue-900">
-            <Calendar className="text-blue-600" /> Select Time Slots
+            <Calendar className="text-blue-600" /> Chọn buổi học
           </h2>
           {lastUpdate && (
             <div className="text-xs text-gray-500 flex items-center gap-1">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              Updated {lastUpdate.toLocaleTimeString()}
+              Cập nhật {lastUpdate.toLocaleTimeString()}
             </div>
           )}
         </div>
@@ -438,13 +504,28 @@ const CalendarSlots = ({
           <table className="w-full border-collapse relative">
             <thead className="sticky top-0 z-30">
             <tr className="bg-blue-100 text-blue-900">
-              <th className="border p-2 sticky left-0 bg-blue-100 z-40 min-w-[70px]">Time</th>
-              {weekDates.map((d, i) => (
-                  <th key={i} className="border p-2 text-center min-w-[100px] bg-blue-100">
+              <th className="border p-2 sticky left-0 bg-blue-100 z-40 min-w-[70px]">Giờ</th>
+              {weekDates.map((d, i) => {
+                const dateStr = formatDateFixed(d);
+                const hasPlans = (planByDate[dateStr] || []).length > 0;
+                
+                // Check if this date is in the past
+                const now = new Date();
+                const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                const thisDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                const isPastDate = thisDay < todayDate;
+                
+                // Only show "Có lịch" indicator for current and future dates
+                const showIndicator = hasPlans && !isPastDate;
+                
+                return (
+                  <th key={i} className={`border p-2 text-center min-w-[100px] ${showIndicator ? 'bg-yellow-100 border-yellow-400' : 'bg-blue-100'}`}>
                     <div className="font-semibold">{weekdayLabels[i]}</div>
                     <div className="text-xs">{formatDateFixed(d)}</div>
+                    {showIndicator && <div className="text-[10px] text-yellow-700 font-bold mt-1">● Có lịch</div>}
                   </th>
-              ))}
+                );
+              })}
             </tr>
             </thead>
 
@@ -473,9 +554,10 @@ const CalendarSlots = ({
                     const currentMinutes = now.getHours() * 60 + now.getMinutes();
                     const slotMinutes = slotHour * 60 + slotMinute;
 
+                    // Ẩn các ngày đã qua và các slot đã qua giờ hiện tại (không tô màu vàng)
                     if (
                         thisDay < todayDate ||
-                        (thisDay.getTime() === todayDate.getTime() && slotMinutes <= currentMinutes)
+                        (thisDay.getTime() === todayDate.getTime() && slotMinutes < currentMinutes)
                     ) {
                       return (
                           <td
@@ -499,34 +581,34 @@ const CalendarSlots = ({
                     }
 
                     return (
-                        <td key={col} className="border p-1 text-center">
+                        <td key={col} className="border p-1 text-center bg-yellow-50">
                           {plans.map((p) => {
                             const status = getStatus(p, timeSlot);
                             if (!status) return null;
 
                             const styleMap: Record<string, string> = {
-                              Available:
+                              "Trống":
                                   "bg-green-500/20 text-green-900 border-green-400 hover:bg-green-500/30",
-                              Selected:
+                              "Đã chọn":
                                   "bg-blue-500/30 text-blue-900 border-blue-500",
-                              Booked:
+                              "Đã đặt":
                                   "bg-red-400/20 text-red-700 border-red-300 cursor-not-allowed",
-                              "Your Slot":
+                              "Của bạn":
                                   "bg-yellow-500/30 text-yellow-900 border-yellow-500 cursor-not-allowed",
-                              Locked:
+                              "Đang khóa":
                                   "bg-orange-400/20 text-orange-700 border-orange-300 cursor-not-allowed",
                             };
 
                             return (
                                 <button
                                     key={p.booking_planid}
-                                    disabled={status === "Booked" || status === "Your Slot" || status === "Locked"}
+                                    disabled={status === "Đã đặt" || status === "Của bạn" || status === "Đang khóa"}
                                     onClick={() => {
-                                      if (status === "Booked" || status === "Your Slot" || status === "Locked")
+                                      if (status === "Đã đặt" || status === "Của bạn" || status === "Đang khóa")
                                         return;
 
                                       onSlotsChange((prev) => {
-                                        if (status === "Selected") {
+                                        if (status === "Đã chọn") {
                                           return prev.filter(
                                               (x) =>
                                                   !(
@@ -553,7 +635,7 @@ const CalendarSlots = ({
                                     className={`w-full h-8 rounded text-[10px] border transition ${styleMap[status!]}`}
                                     title={`${timeSlot} - ${status}`}
                                 >
-                                  {status === "Available" ? "✓" : status === "Selected" ? "✓" : status.substring(0, 1)}
+                                  {status === "Trống" ? "✓" : status === "Đã chọn" ? "✓" : status.substring(0, 1)}
                                 </button>
                             );
                           })}
@@ -568,8 +650,8 @@ const CalendarSlots = ({
 
         {selectedPackage && (
             <div className="mt-6 p-4 bg-blue-100 border border-blue-300 rounded-xl text-sm text-blue-900 shadow-sm">
-              <b>{selectedPackage.name}</b> — Selected{" "}
-              <b>{selectedSlots.length}</b>/<b>{selectedPackage.maxSlot}</b> slots
+              <b>{selectedPackage.name}</b> — Đã chọn{" "}
+              <b>{selectedSlots.length}</b>/<b>{selectedPackage.maxSlot}</b> buổi
             </div>
         )}
 
@@ -587,40 +669,40 @@ const CalendarSlots = ({
             </DialogHeader>
             <div className="mt-4 space-y-4 text-gray-700">
               <p className="text-sm">
-                <b>Description:</b> {selectedDetailPackage?.description || "No description provided"}
+                <b>Mô tả:</b> {selectedDetailPackage?.description || "Chưa có mô tả"}
               </p>
               <p className="text-sm">
-                <b>Requirement:</b> {selectedDetailPackage?.requirement || "No requirement"}
+                <b>Yêu cầu:</b> {selectedDetailPackage?.requirement || "Không có yêu cầu"}
               </p>
               <p className="text-sm">
-                <b>Objectives:</b> {selectedDetailPackage?.objectives || "No objectives provided"}
+                <b>Mục tiêu:</b> {selectedDetailPackage?.objectives || "Chưa có mục tiêu"}
               </p>
               <p className="text-sm">
-                <b>Number of Lessons:</b> {selectedDetailPackage?.numberOfLessons}
+                <b>Số bài học:</b> {selectedDetailPackage?.numberOfLessons}
               </p>
               <p className="text-sm">
-                <b>Max Slots:</b> {selectedDetailPackage?.maxSlot}
+                <b>Số buổi tối đa:</b> {selectedDetailPackage?.maxSlot}
               </p>
               {selectedDetailPackage?.discountPercent !== 0 && (
                   <p className="text-sm">
-                    <b>Discount Percent:</b> {selectedDetailPackage?.discountPercent}%
+                    <b>Giảm giá:</b> {selectedDetailPackage?.discountPercent}%
                   </p>
               )}
               <p className="text-sm">
-                <b>Min Booking Price per Hour:</b> {formatVND(selectedDetailPackage?.minBookingPricePerHour || 0)}
+                <b>Giá tối thiểu mỗi giờ:</b> {formatVND(selectedDetailPackage?.minBookingPricePerHour || 0)}
               </p>
               <div className="text-sm">
-                <b>Lesson Content:</b>
+                <b>Nội dung bài học:</b>
                 {selectedDetailPackage?.lessonContent?.length ? (
                     <ul className="list-disc pl-5 mt-2 space-y-1">
                       {selectedDetailPackage.lessonContent.map((lesson) => (
                           <li key={lesson.slot_number}>
-                            Slot {lesson.slot_number}: {lesson.content}
+                            Buổi {lesson.slot_number}: {lesson.content}
                           </li>
                       ))}
                     </ul>
                 ) : (
-                    <p className="text-gray-500 italic">No lesson content available</p>
+                    <p className="text-gray-500 italic">Chưa có nội dung bài học</p>
                 )}
               </div>
             </div>
