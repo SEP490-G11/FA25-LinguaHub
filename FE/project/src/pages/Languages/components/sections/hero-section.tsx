@@ -35,9 +35,9 @@ const HeroSection = ({ setSearchTerm }: HeroSectionProps) => {
               animate="animate"
               variants={fadeInUp}
           >
-            <h1 className="text-5xl font-bold mb-4">Choose Your Language Journey</h1>
+            <h1 className="text-5xl font-bold mb-4">Chọn hành trình ngôn ngữ của bạn</h1>
             <p className="text-xl text-blue-100 mb-10">
-              Explore our comprehensive language programs designed to help you achieve certification
+              Khám phá các chương trình ngôn ngữ toàn diện được thiết kế để giúp bạn đạt chứng chỉ
             </p>
 
             {/* 🔎 Search Bar */}
@@ -46,7 +46,7 @@ const HeroSection = ({ setSearchTerm }: HeroSectionProps) => {
                 <input
                     type="text"
                     value={localSearch}
-                    placeholder="Search languages..."
+                    placeholder="Tìm kiếm ngôn ngữ..."
                     onChange={(e) => setLocalSearch(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                     className="flex-1 px-6 py-4 text-gray-900 text-base focus:outline-none"
@@ -65,15 +65,15 @@ const HeroSection = ({ setSearchTerm }: HeroSectionProps) => {
             <div className="flex justify-center space-x-8 text-center">
               <div>
                 <div className="text-3xl font-bold">50+</div>
-                <div className="text-blue-200">Languages</div>
+                <div className="text-blue-200">Ngôn ngữ</div>
               </div>
               <div>
                 <div className="text-3xl font-bold">5000+</div>
-                <div className="text-blue-200">Native Tutors</div>
+                <div className="text-blue-200">Gia sư bản ngữ</div>
               </div>
               <div>
                 <div className="text-3xl font-bold">100K+</div>
-                <div className="text-blue-200">Students</div>
+                <div className="text-blue-200">Học viên</div>
               </div>
             </div>
           </motion.div>

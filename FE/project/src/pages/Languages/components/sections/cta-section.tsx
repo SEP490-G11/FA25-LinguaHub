@@ -30,14 +30,14 @@ const CTASection = () => {
                 className="text-4xl font-bold text-white mb-6"
                 variants={fadeInUp}
             >
-              Ready to Start Your Language Journey?
+              Sẵn sàng bắt đầu hành trình ngôn ngữ của bạn?
             </motion.h2>
 
             <motion.p
                 className="text-xl text-blue-100 mb-8"
                 variants={fadeInUp}
             >
-              Choose your language and get matched with the perfect native speaker tutor
+              Chọn ngôn ngữ của bạn và được kết nối với gia sư bản ngữ hoàn hảo
             </motion.p>
 
             <motion.div variants={fadeInUp}>
@@ -45,7 +45,7 @@ const CTASection = () => {
                   to={ROUTES.TUTORS}
                   className="bg-white text-blue-600 px-8 py-4 rounded-full font-semibold text-lg hover:bg-gray-100 transition-colors inline-block"
               >
-                Find Your Tutor
+                Tìm gia sư của bạn
               </Link>
             </motion.div>
           </motion.div>
