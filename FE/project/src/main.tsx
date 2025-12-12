@@ -15,6 +15,7 @@ import App from './App';
 import './index.css';
 
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import { UserProvider } from '@/contexts/UserContext';
 
 // Create a query client
 const queryClient = new QueryClient({
@@ -29,11 +30,13 @@ const queryClient = new QueryClient({
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <StrictMode>
-      <GoogleOAuthProvider clientId="638401878385-gh2n42j1vc8dmbcnrfgtu094omv5qha0.apps.googleusercontent.com">
+      <GoogleOAuthProvider clientId="42781484149-pel6vfv7rb7ih298ru93t6vq1fg8q3sq.apps.googleusercontent.com">
         <QueryClientProvider client={queryClient}>
           <BrowserRouter>
-            <ScrollToTop />
-            <App />
+            <UserProvider>
+              <ScrollToTop />
+              <App />
+            </UserProvider>
           </BrowserRouter>
         </QueryClientProvider>
       </GoogleOAuthProvider>

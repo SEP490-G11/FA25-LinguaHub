@@ -48,7 +48,7 @@ export const getUrlErrorMessage = (url: string, fieldName: string = 'URL'): stri
   if (!url || url.trim() === '') return '';
   
   if (!isValidUrl(url)) {
-    return `${fieldName} must be a valid URL starting with http:// or https://`;
+    return `${fieldName} phải là URL hợp lệ bắt đầu bằng http:// hoặc https://`;
   }
   
   return '';
@@ -59,15 +59,15 @@ export const getUrlErrorMessage = (url: string, fieldName: string = 'URL'): stri
  */
 export const getYouTubeUrlErrorMessage = (url: string, isRequired: boolean = false): string => {
   if (!url || url.trim() === '') {
-    return isRequired ? 'Video URL is required' : '';
+    return isRequired ? 'URL video là bắt buộc' : '';
   }
   
   if (!isValidUrl(url)) {
-    return 'Video URL must be a valid URL starting with http:// or https://';
+    return 'URL video phải là URL hợp lệ bắt đầu bằng http:// hoặc https://';
   }
   
   if (!isValidYouTubeUrl(url)) {
-    return 'Video URL must be a valid YouTube link (youtube.com or youtu.be)';
+    return 'URL video phải là link YouTube hợp lệ (youtube.com hoặc youtu.be)';
   }
   
   return '';
@@ -78,11 +78,11 @@ export const getYouTubeUrlErrorMessage = (url: string, isRequired: boolean = fal
  */
 export const getResourceUrlErrorMessage = (url: string, isRequired: boolean = false): string => {
   if (!url || url.trim() === '') {
-    return isRequired ? 'Resource URL is required' : '';
+    return isRequired ? 'URL tài nguyên là bắt buộc' : '';
   }
   
   if (!isValidUrl(url)) {
-    return 'Resource URL must be a valid URL starting with http:// or https://';
+    return 'URL tài nguyên phải là URL hợp lệ bắt đầu bằng http:// hoặc https://';
   }
   
   return '';

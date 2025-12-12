@@ -1,21 +1,54 @@
 import { AppRoutes } from '@/routes/AppRoutes';
 import Header from '@/components/Header';
+import TutorHeader from '@/components/layout/tutor/TutorHeader';
+import HeaderSkeleton from '@/components/HeaderSkeleton';
 import Footer from '@/components/Footer';
+import FloatingChat from '@/components/FloatingChat';
 import { SidebarProvider } from '@/contexts/SidebarContext';
 import { ScrollToTop } from "@/hooks/ScrollToTop";
 import { Toaster } from "@/components/ui/toaster.tsx";
+import { useLocation } from 'react-router-dom';
+import { useUser } from '@/contexts/UserContext';
 
 function App() {
+    const location = useLocation();
+    const { user, loading } = useUser();
+
+    // Hide footer for admin and tutor routes
+    const tutorRoutes = [
+        '/dashboard',
+        '/students',
+        '/schedule',
+        '/booked-slots',
+        '/packages',
+        '/tutor/courses',
+        '/create-course',
+        '/payments',
+        '/withdrawal',
+        '/tutor/messages'
+    ];
+
+    const hideFooter = location.pathname.startsWith('/admin') ||
+        tutorRoutes.some(route => location.pathname.startsWith(route));
+
+    // Determine which header to show based on user role
+    const isTutor = user?.role === 'Tutor';
+
     return (
         <SidebarProvider>
             <ScrollToTop />
             <div className="min-h-screen bg-background">
-                <Header />
+                {loading ? (
+                    <HeaderSkeleton />
+                ) : (
+                    isTutor ? <TutorHeader /> : <Header />
+                )}
                 <main>
                     <AppRoutes />
                     <Toaster />
                 </main>
-                <Footer />
+                {!hideFooter && <Footer />}
+                <FloatingChat />
             </div>
         </SidebarProvider>
     );
