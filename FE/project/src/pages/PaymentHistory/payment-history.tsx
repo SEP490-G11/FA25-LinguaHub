@@ -113,9 +113,9 @@ const PaymentHistory = () => {
 
     // Status Badge Mapping
     const statusBadgeMap: Record<string, JSX.Element> = {
-        PAID: <Badge className="bg-green-100 text-green-700 px-3 py-1">Paid</Badge>,
-        EXPIRED: <Badge className="bg-orange-100 text-orange-700 px-3 py-1">Expired</Badge>,
-        FAILED: <Badge className="bg-red-100 text-red-700 px-3 py-1">Failed</Badge>,
+        PAID: <Badge className="bg-green-100 text-green-700 px-3 py-1">Đã thanh toán</Badge>,
+        EXPIRED: <Badge className="bg-orange-100 text-orange-700 px-3 py-1">Hết hạn</Badge>,
+        FAILED: <Badge className="bg-red-100 text-red-700 px-3 py-1">Thất bại</Badge>,
     };
 
     const statusIconMap: Record<string, JSX.Element> = {
@@ -182,7 +182,7 @@ const PaymentHistory = () => {
     if (loading) {
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <p className="text-xl">Loading payment history...</p>
+                <p className="text-xl">Đang tải lịch sử thanh toán...</p>
             </div>
         );
     }
@@ -191,11 +191,11 @@ const PaymentHistory = () => {
         <div className="min-h-screen bg-gray-50 p-8">
 
             {/* TITLE */}
-            <h1 className="text-3xl font-bold mb-6">Payment History</h1>
+            <h1 className="text-3xl font-bold mb-6">Lịch sử thanh toán</h1>
 
             {/* STATS */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                {[{ label: "Total Paid", value: stats.totalPaid }, { label: "Total Spent", value: formatCurrency(stats.totalAmount) }, { label: "Expired", value: stats.expired }, { label: "Failed", value: stats.failed }].map((item) => (
+                {[{ label: "Đã thanh toán", value: stats.totalPaid }, { label: "Tổng chi tiêu", value: formatCurrency(stats.totalAmount) }, { label: "Hết hạn", value: stats.expired }, { label: "Thất bại", value: stats.failed }].map((item) => (
                     <Card key={item.label} className="shadow-sm rounded-xl">
                         <CardContent className="pt-6">
                             <p className="text-gray-600">{item.label}</p>
@@ -209,14 +209,14 @@ const PaymentHistory = () => {
             <Card className="mb-6 shadow-md rounded-xl">
                 <CardHeader>
                     <div className="flex justify-between items-center">
-                        <CardTitle className="text-lg font-semibold">Transactions</CardTitle>
+                        <CardTitle className="text-lg font-semibold">Giao dịch</CardTitle>
                         <div className="flex gap-3">
 
                             {/* Search */}
                             <div className="relative">
                                 <Search className="w-5 h-5 absolute left-3 top-3 text-gray-400" />
                                 <Input
-                                    placeholder="Search by course name or order code..."
+                                    placeholder="Tìm kiếm theo tên khóa học hoặc mã đơn hàng..."
                                     className="pl-12"
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -246,19 +246,19 @@ const PaymentHistory = () => {
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline" className="gap-2">
                                         <ArrowUpDown className="w-4 h-4" />
-                                        Price
+                                        Giá
                                     </Button>
                                 </DropdownMenuTrigger>
 
                                 <DropdownMenuContent>
                                     <DropdownMenuItem onClick={() => setPriceSort("high-low")}>
-                                        High → Low
+                                        Cao → Thấp
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => setPriceSort("low-high")}>
-                                        Low → High
+                                        Thấp → Cao
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => setPriceSort("")}>
-                                        Default
+                                        Mặc định
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -268,16 +268,16 @@ const PaymentHistory = () => {
                                 <DropdownMenuTrigger asChild>
                                     <Button variant="outline" className="gap-2">
                                         <Clock className="w-4 h-4" />
-                                        Date
+                                        Ngày
                                     </Button>
                                 </DropdownMenuTrigger>
 
                                 <DropdownMenuContent>
                                     <DropdownMenuItem onClick={() => setDateSort("newest")}>
-                                        Newest First
+                                        Mới nhất
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => setDateSort("oldest")}>
-                                        Oldest First
+                                        Cũ nhất
                                     </DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
@@ -308,35 +308,35 @@ const PaymentHistory = () => {
                                         {/* TITLE */}
                                         {!isBooking ? (
                                             <h3 className="font-bold text-lg text-gray-800">
-                                                {course?.title || "Unknown Course"}
+                                                {course?.title || "Khóa học không xác định"}
                                             </h3>
                                         ) : (
                                             <h3 className="font-bold text-lg text-blue-600 flex items-center gap-2">
                                                 <Bookmark className="w-4 h-4" />
-                                                Booking Slot #{p.targetId}
+                                                Đặt lịch #{p.targetId}
                                             </h3>
                                         )}
 
                                         {/* SUB INFO */}
                                         <p className="text-gray-600 text-sm flex gap-2 items-center">
                                             <Calendar className="w-4 h-4" />
-                                            Created: {new Date(p.createdAt).toLocaleString("vi-VN")}
+                                            Tạo lúc: {new Date(p.createdAt).toLocaleString("vi-VN")}
                                         </p>
 
                                         <p className="text-gray-600 text-sm flex gap-2 items-center">
                                             <Clock className="w-4 h-4" />
-                                            Expires: {new Date(p.expiresAt).toLocaleString("vi-VN")}
+                                            Hết hạn: {new Date(p.expiresAt).toLocaleString("vi-VN")}
                                         </p>
 
                                         {!isBooking && (
                                             <p className="text-gray-600 text-sm">
-                                                Tutor: {course?.tutorName || "N/A"}
+                                                Gia sư: {course?.tutorName || "N/A"}
                                             </p>
                                         )}
 
                                         {!isBooking && (
                                             <p className="text-gray-600 text-sm">
-                                                Order Code: {p.orderCode}
+                                                Mã đơn hàng: {p.orderCode}
                                             </p>
                                         )}
 
@@ -362,7 +362,7 @@ const PaymentHistory = () => {
                                             <Button variant="outline" size="sm" asChild>
                                                 <Link to={`/courses/${p.targetId}`}>
                                                     <FileText className="mr-2 w-4 h-4" />
-                                                    View Course
+                                                    Xem khóa học
                                                 </Link>
                                             </Button>
                                         )}
@@ -377,7 +377,7 @@ const PaymentHistory = () => {
                         <div className="text-center py-14">
                             <CreditCard className="w-16 h-16 mx-auto text-gray-400" />
                             <p className="text-xl font-semibold mt-4 text-gray-600">
-                                No payments found
+                                Không tìm thấy giao dịch
                             </p>
                         </div>
                     )}
@@ -390,11 +390,11 @@ const PaymentHistory = () => {
                                 disabled={page === 1}
                                 onClick={() => setPage((p) => p - 1)}
                             >
-                                Prev
+                                Trước
                             </Button>
 
                             <span className="px-4 py-2">
-                                Page {page} / {totalPages}
+                                Trang {page} / {totalPages}
                             </span>
 
                             <Button
@@ -402,7 +402,7 @@ const PaymentHistory = () => {
                                 disabled={page === totalPages}
                                 onClick={() => setPage((p) => p + 1)}
                             >
-                                Next
+                                Sau
                             </Button>
                         </div>
                     )}

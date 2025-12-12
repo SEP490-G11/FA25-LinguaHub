@@ -24,19 +24,20 @@ const PrivacyPolicy = () => {
       content: [
         'Thông tin cá nhân: Họ tên, email, số điện thoại, địa chỉ',
         'Thông tin tài khoản: Tên đăng nhập, mật khẩu (được mã hóa)',
-        'Thông tin học tập: Tiến độ khóa học, điểm số, lịch sử học tập',
-        'Thông tin thanh toán: Thông tin thẻ tín dụng (được xử lý bởi bên thứ ba)'
+        'Thông tin học tập: Tiến độ khóa học, lịch học, lịch sử đặt lịch với gia sư',
+        'Thông tin thanh toán: Được xử lý an toàn qua PayOS',
+        'Thông tin ngân hàng: Chỉ lưu khi bạn yêu cầu hoàn tiền'
       ]
     },
     {
       icon: Eye,
       title: 'Cách chúng tôi sử dụng thông tin',
       content: [
-        'Cung cấp và cải thiện dịch vụ giáo dục',
-        'Xử lý thanh toán và giao dịch',
-        'Gửi thông báo về khóa học và cập nhật',
-        'Phân tích và cải thiện trải nghiệm người dùng',
-        'Tuân thủ các yêu cầu pháp lý'
+        'Kết nối học viên với gia sư phù hợp',
+        'Quản lý lịch học và buổi học 1-1',
+        'Xử lý thanh toán, hoàn tiền và giao dịch',
+        'Gửi thông báo về lịch học, khóa học và tin nhắn',
+        'Cải thiện chất lượng dịch vụ và trải nghiệm người dùng'
       ]
     },
     {

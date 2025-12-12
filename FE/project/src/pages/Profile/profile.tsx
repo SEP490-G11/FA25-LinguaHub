@@ -17,8 +17,8 @@ const Profile = () => {
         if (!token) {
             toast({
                 variant: "destructive",
-                title: "You are not logged in",
-                description: "Please log in to access your profile.",
+                title: "Bạn chưa đăng nhập",
+                description: "Vui lòng đăng nhập để truy cập hồ sơ của bạn.",
             });
 
             navigate(ROUTES.SIGN_IN);
