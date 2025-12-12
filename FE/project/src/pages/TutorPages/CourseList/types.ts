@@ -13,16 +13,6 @@ export interface StatusConfig {
   className: string;
 }
 
-export interface CourseFiltersProps {
-  searchTerm: string;
-  selectedStatus: string;
-  selectedCategory: string;
-  categories: string[];
-  onSearchChange: (value: string) => void;
-  onStatusChange: (value: string) => void;
-  onCategoryChange: (value: string) => void;
-}
-
 export interface CoursePaginationProps {
   currentPage: number;
   totalPages: number;

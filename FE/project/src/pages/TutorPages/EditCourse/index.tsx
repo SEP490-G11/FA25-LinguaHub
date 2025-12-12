@@ -56,6 +56,7 @@ import { CourseDetail, Section, Lesson, Resource } from './types';
 import { EditCourseInfo, EditCourseStructure } from './components';
 import EditCourseObjectives, { ObjectiveEditItem } from './components/edit-course-objectives';
 import { getCourseListRoute } from '@/utils/course-routes';
+import { StandardPageHeading } from '@/components/shared';
 
 const EditCourse = () => {
   const { courseId, draftId } = useParams<{ courseId: string; draftId?: string }>();
@@ -88,16 +89,16 @@ const EditCourse = () => {
       ...courseData,
       section: Array.isArray(courseData?.section)
         ? courseData.section.map(section => ({
-            ...section,
-            lessons: Array.isArray(section.lessons)
-              ? section.lessons.map(lesson => ({
-                  ...lesson,
-                  resources: Array.isArray(lesson.resources)
-                    ? lesson.resources
-                    : [],
-                }))
-              : [],
-          }))
+          ...section,
+          lessons: Array.isArray(section.lessons)
+            ? section.lessons.map(lesson => ({
+              ...lesson,
+              resources: Array.isArray(lesson.resources)
+                ? lesson.resources
+                : [],
+            }))
+            : [],
+        }))
         : [],
     };
   };
@@ -117,36 +118,36 @@ const EditCourse = () => {
       thumbnailURL: draftData.thumbnailURL,
       categoryName: draftData.categoryName,
       status: draftData.status,
-      section: Array.isArray(draftData.section) 
+      section: Array.isArray(draftData.section)
         ? draftData.section.map((section: any) => ({
-            sectionID: section.sectionID,  // Backend returns sectionID (draft ID)
-            courseID: section.courseID || originalCourseId,
-            title: section.title,
-            description: section.description || '',
-            orderIndex: section.orderIndex,
-            lessons: Array.isArray(section.lessons)
-              ? section.lessons.map((lesson: any) => ({
-                  lessonID: lesson.lessonID,  // Backend returns lessonID (draft ID)
-                  title: lesson.title,
-                  duration: lesson.duration || 0,
-                  lessonType: lesson.lessonType || 'Reading',
-                  videoURL: lesson.videoURL || '',
-                  content: lesson.content || '',
-                  orderIndex: lesson.orderIndex,
-                  createdAt: lesson.createdAt || new Date().toISOString(),
-                  resources: Array.isArray(lesson.resources)
-                    ? lesson.resources.map((resource: any) => ({
-                        resourceID: resource.resourceID,  // Backend returns resourceID (draft ID)
-                        resourceType: resource.resourceType || 'ExternalLink',
-                        resourceTitle: resource.resourceTitle,
-                        resourceURL: resource.resourceURL,
-                        uploadedAt: new Date().toISOString(),
-                        orderIndex: resource.orderIndex || 0,
-                      }))
-                    : [],
+          sectionID: section.sectionID,  // Backend returns sectionID (draft ID)
+          courseID: section.courseID || originalCourseId,
+          title: section.title,
+          description: section.description || '',
+          orderIndex: section.orderIndex,
+          lessons: Array.isArray(section.lessons)
+            ? section.lessons.map((lesson: any) => ({
+              lessonID: lesson.lessonID,  // Backend returns lessonID (draft ID)
+              title: lesson.title,
+              duration: lesson.duration || 0,
+              lessonType: lesson.lessonType || 'Reading',
+              videoURL: lesson.videoURL || '',
+              content: lesson.content || '',
+              orderIndex: lesson.orderIndex,
+              createdAt: lesson.createdAt || new Date().toISOString(),
+              resources: Array.isArray(lesson.resources)
+                ? lesson.resources.map((resource: any) => ({
+                  resourceID: resource.resourceID,  // Backend returns resourceID (draft ID)
+                  resourceType: resource.resourceType || 'ExternalLink',
+                  resourceTitle: resource.resourceTitle,
+                  resourceURL: resource.resourceURL,
+                  uploadedAt: new Date().toISOString(),
+                  orderIndex: resource.orderIndex || 0,
                 }))
-              : [],
-          }))
+                : [],
+            }))
+            : [],
+        }))
         : [],
     };
   };
@@ -163,7 +164,7 @@ const EditCourse = () => {
       const urlParams = new URLSearchParams(location.search);
       const draftIdParam = urlParams.get('draftId');
       const isDraftParam = urlParams.get('isDraft') === 'true';
-      
+
       // Check location state for draft data (passed from CourseCard)
       const locationState = location.state as any;
       const draftData = locationState?.draftData;
@@ -195,12 +196,12 @@ const EditCourse = () => {
         setError(null);
 
         let courseData: CourseDetail;
-        
+
         if (isDraftMode && currentDraftId) {
           // DRAFT MODE: Always fetch fresh draft course data from API
           const draftData = await getDraftCourseDetail(currentDraftId);
           courseData = convertDraftToCourseDetail(draftData, parseInt(courseId));
-          
+
           // Fetch draft objectives only
           try {
             const objectivesData = await getDraftObjectives(currentDraftId);
@@ -221,7 +222,7 @@ const EditCourse = () => {
         } else if (isDraftMode === false) {
           // REGULAR MODE: Fetch regular course data only
           courseData = await getCourseDetail(parseInt(courseId));
-          
+
           // Fetch regular objectives only
           try {
             const objectivesData = await getObjectives(parseInt(courseId));
@@ -249,7 +250,7 @@ const EditCourse = () => {
         setCourse(normalizedCourse);
       } catch (err: any) {
         console.error('Error fetching course:', err);
-        setError(err.message || 'Unable to load course information');
+        setError(err.message || 'Không thể tải thông tin khóa học');
         setCourse(null);
       } finally {
         setIsLoading(false);
@@ -287,7 +288,7 @@ const EditCourse = () => {
       if (isDraftMode && currentDraftId) {
         // Update draft course
         await updateCourseDraft(currentDraftId, updateData);
-        
+
         // Update local state with the new data
         setCourse({
           ...course,
@@ -304,18 +305,18 @@ const EditCourse = () => {
       }
 
       toast({
-        title: 'Success',
-        description: 'Course information has been updated',
+        title: 'Thành công',
+        description: 'Thông tin khóa học đã được cập nhật',
       });
 
       setCurrentStep(2);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to update course';
+        err instanceof Error ? err.message : 'Không thể cập nhật khóa học';
       setError(message);
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'Lỗi',
         description: message,
       });
     } finally {
@@ -341,7 +342,7 @@ const EditCourse = () => {
       if (isDraftMode && currentDraftId) {
         // Update draft section
         await updateDraftSection(sectionData.sectionID, updateData);
-        
+
         // Update local state
         const newSections = [...course.section];
         newSections[sectionIndex] = { ...sectionData };
@@ -349,22 +350,22 @@ const EditCourse = () => {
       } else {
         // Update regular section
         const updated = await updateSection(sectionData.sectionID, updateData);
-        
+
         const newSections = [...course.section];
         newSections[sectionIndex] = updated;
         setCourse({ ...course, section: newSections });
       }
 
       toast({
-        title: 'Success',
-        description: 'Chapter has been updated',
+        title: 'Thành công',
+        description: 'Chương đã được cập nhật',
       });
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to update chapter';
+        err instanceof Error ? err.message : 'Không thể cập nhật chương';
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'Lỗi',
         description: message,
       });
     } finally {
@@ -393,22 +394,22 @@ const EditCourse = () => {
       if (isDraftMode && currentDraftId) {
         // Update draft lesson
         await updateDraftLesson(lessonData.lessonID, lessonUpdateData);
-        
+
         // Handle resources for draft mode
         const originalResources = course.section[sectionIndex].lessons[lessonIndex].resources || [];
         const updatedResources = lessonData.resources || [];
 
         // Find new resources
         const newResources = updatedResources.filter(r => !originalResources.some(or => or.resourceID === r.resourceID));
-        
+
         // Find deleted resources
         const deletedResources = originalResources.filter(or => !updatedResources.some(r => r.resourceID === or.resourceID));
-        
+
         // Find updated resources
-        const changedResources = updatedResources.filter(r => 
+        const changedResources = updatedResources.filter(r =>
           originalResources.some(or => or.resourceID === r.resourceID && (
-            or.resourceTitle !== r.resourceTitle || 
-            or.resourceURL !== r.resourceURL || 
+            or.resourceTitle !== r.resourceTitle ||
+            or.resourceURL !== r.resourceURL ||
             or.resourceType !== r.resourceType
           ))
         );
@@ -463,15 +464,15 @@ const EditCourse = () => {
 
         // Find new resources (no resourceID from server means it's newly created)
         const newResources = updatedResources.filter(r => !originalResources.some(or => or.resourceID === r.resourceID));
-        
+
         // Find deleted resources
         const deletedResources = originalResources.filter(or => !updatedResources.some(r => r.resourceID === or.resourceID));
-        
+
         // Find updated resources
-        const changedResources = updatedResources.filter(r => 
+        const changedResources = updatedResources.filter(r =>
           originalResources.some(or => or.resourceID === r.resourceID && (
-            or.resourceTitle !== r.resourceTitle || 
-            or.resourceURL !== r.resourceURL || 
+            or.resourceTitle !== r.resourceTitle ||
+            or.resourceURL !== r.resourceURL ||
             or.resourceType !== r.resourceType
           ))
         );
@@ -523,15 +524,15 @@ const EditCourse = () => {
       }
 
       toast({
-        title: 'Success',
-        description: 'Lesson has been updated',
+        title: 'Thành công',
+        description: 'Bài học đã được cập nhật',
       });
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to update lesson';
+        err instanceof Error ? err.message : 'Không thể cập nhật bài học';
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'Lỗi',
         description: message,
       });
     } finally {
@@ -559,7 +560,7 @@ const EditCourse = () => {
       if (isDraftMode && currentDraftId) {
         // Update draft resource
         await updateDraftResource(resourceData.resourceID, resourceUpdateData);
-        
+
         // Update local state
         const newSections = [...course.section];
         newSections[sectionIndex].lessons[lessonIndex].resources[resourceIndex] = resourceData;
@@ -578,15 +579,15 @@ const EditCourse = () => {
       }
 
       toast({
-        title: 'Success',
-        description: 'Resource has been updated',
+        title: 'Thành công',
+        description: 'Tài nguyên đã được cập nhật',
       });
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to update resource';
+        err instanceof Error ? err.message : 'Không thể cập nhật tài nguyên';
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'Lỗi',
         description: message,
       });
     } finally {
@@ -615,15 +616,15 @@ const EditCourse = () => {
       setCourse({ ...course, section: newSections });
 
       toast({
-        title: 'Success',
-        description: 'Chapter has been deleted',
+        title: 'Thành công',
+        description: 'Chương đã được xóa',
       });
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to delete chapter';
+        err instanceof Error ? err.message : 'Không thể xóa chương';
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'Lỗi',
         description: message,
       });
     } finally {
@@ -657,15 +658,15 @@ const EditCourse = () => {
       setCourse({ ...course, section: newSections });
 
       toast({
-        title: 'Success',
-        description: 'Lesson has been deleted',
+        title: 'Thành công',
+        description: 'Bài học đã được xóa',
       });
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to delete lesson';
+        err instanceof Error ? err.message : 'Không thể xóa bài học';
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'Lỗi',
         description: message,
       });
     } finally {
@@ -684,7 +685,7 @@ const EditCourse = () => {
       course.section[sectionIndex].lessons[lessonIndex].resources[
         resourceIndex
       ].resourceID;
-    
+
     setIsSaving(true);
 
     try {
@@ -704,15 +705,15 @@ const EditCourse = () => {
       setCourse({ ...course, section: newSections });
 
       toast({
-        title: 'Success',
-        description: 'Resource has been deleted',
+        title: 'Thành công',
+        description: 'Tài nguyên đã được xóa',
       });
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to delete resource';
+        err instanceof Error ? err.message : 'Không thể xóa tài nguyên';
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'Lỗi',
         description: message,
       });
     } finally {
@@ -733,7 +734,7 @@ const EditCourse = () => {
         if (objective.isNew || objective.id < 0) {
           // Create new objective
           let response;
-          
+
           if (isDraftMode && currentDraftId) {
             response = await createDraftObjective(currentDraftId, {
               objectiveText: objective.objectiveText,
@@ -745,7 +746,7 @@ const EditCourse = () => {
               orderIndex: objective.orderIndex,
             });
           }
-          
+
           // Update the objective with the returned ID
           const newId = response.objectiveDraftID || response.objectiveID || response.id;
           objective.id = newId;
@@ -766,40 +767,24 @@ const EditCourse = () => {
         }
       }
 
-      // Handle deleted objectives
-      const oldObjectivesValid = objectives.filter(o => o.id > 0 && !o.isNew);
-      const newObjectivesValid = objectivesList.filter(o => o.id > 0);
-      
-      const oldObjectiveIds = new Set(oldObjectivesValid.map(o => o.id));
-      const newObjectiveIds = new Set(newObjectivesValid.map(o => o.id));
-      
-      const objectivesToDelete = Array.from(oldObjectiveIds).filter(id => !newObjectiveIds.has(id));
-      
-      for (const oldId of objectivesToDelete) {
-        if (oldId && typeof oldId === 'number' && oldId > 0) {
-          if (isDraftMode && currentDraftId) {
-            await deleteDraftObjective(oldId);
-          } else {
-            await deleteObjective(oldId);
-          }
-        }
-      }
+      // Note: Deleted objectives are already handled by onDeleteObjective callback
+      // in EditCourseObjectives component, so no need to handle them here again
 
       setObjectives(objectivesList);
 
       toast({
-        title: 'Success',
-        description: 'Objectives have been updated',
+        title: 'Thành công',
+        description: 'Mục tiêu đã được cập nhật',
       });
 
       setCurrentStep(3);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to save objectives';
+        err instanceof Error ? err.message : 'Không thể lưu mục tiêu';
       setError(message);
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'Lỗi',
         description: message,
       });
     } finally {
@@ -811,12 +796,36 @@ const EditCourse = () => {
   const handleSubmitCourse = async () => {
     if (!courseId || !course) return;
 
+    // Validate: Must have at least 1 section
+    if (!course.section || course.section.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Lỗi',
+        description: 'Khóa học phải có ít nhất một chương',
+      });
+      return;
+    }
+
+    // Validate: At least one section must have lessons
+    const hasLessons = course.section.some(section =>
+      section.lessons && section.lessons.length > 0
+    );
+
+    if (!hasLessons) {
+      toast({
+        variant: 'destructive',
+        title: 'Lỗi',
+        description: 'Khóa học phải có ít nhất một bài học',
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       if (isDraftMode && currentDraftId) {
         // Submit draft course for approval
         await submitCourseDraft(currentDraftId);
-        
+
         // Update course status to PENDING_REVIEW after successful submission
         setCourse({
           ...course,
@@ -825,18 +834,18 @@ const EditCourse = () => {
       } else {
         // Submit regular course for approval
         const updatedCourse = await submitCourseForApproval(parseInt(courseId));
-        
+
         // Update course with response from API (includes updated status)
         setCourse(updatedCourse);
       }
-      
+
       setShowSuccessModal(true);
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to submit course';
+        err instanceof Error ? err.message : 'Không thể gửi khóa học';
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'Lỗi',
         description: message,
       });
     } finally {
@@ -890,15 +899,15 @@ const EditCourse = () => {
       });
 
       toast({
-        title: 'Success',
-        description: 'Chapter created successfully',
+        title: 'Thành công',
+        description: 'Chương đã được tạo thành công',
       });
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to create chapter';
+        err instanceof Error ? err.message : 'Không thể tạo chương';
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'Lỗi',
         description: message,
       });
     } finally {
@@ -965,15 +974,15 @@ const EditCourse = () => {
       setCourse({ ...course, section: newSections });
 
       toast({
-        title: 'Success',
-        description: 'Lesson created successfully',
+        title: 'Thành công',
+        description: 'Bài học đã được tạo thành công',
       });
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to create lesson';
+        err instanceof Error ? err.message : 'Không thể tạo bài học';
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'Lỗi',
         description: message,
       });
     } finally {
@@ -1038,15 +1047,15 @@ const EditCourse = () => {
       setCourse({ ...course, section: newSections });
 
       toast({
-        title: 'Success',
-        description: 'Resource created successfully',
+        title: 'Thành công',
+        description: 'Tài nguyên đã được tạo thành công',
       });
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Failed to create resource';
+        err instanceof Error ? err.message : 'Không thể tạo tài nguyên';
       toast({
         variant: 'destructive',
-        title: 'Error',
+        title: 'Lỗi',
         description: message,
       });
     } finally {
@@ -1114,52 +1123,35 @@ const EditCourse = () => {
       <div className="max-w-5xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          {/* Breadcrumb Navigation */}
-          <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-4">
-            <button
-              onClick={handleBackToCourseList}
-              className="hover:text-blue-600 transition-colors"
-            >
-              Courses
-            </button>
-            <span>/</span>
-            <span className="text-gray-900 font-medium">
-              {isDraftMode ? 'Edit Draft' : 'Edit Course'}
-            </span>
-            {isDraftMode && (
+          <StandardPageHeading
+            title={isDraftMode ? 'Chỉnh sửa bản nháp' : 'Chỉnh sửa khóa học'}
+            description={
               <>
-                <span>/</span>
-                <span className="text-orange-600 font-medium">
-                  Draft #{currentDraftId}
+                <span className="block mb-2 text-blue-100">
+                  {course.title}
                 </span>
-              </>
-            )}
-          </nav>
-
-          <Button
-            variant="outline"
-            onClick={handleBackToCourseList}
-            className="mb-4 gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Course List
-          </Button>
-
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                {isDraftMode ? 'Edit Course Draft' : 'Edit Course'}
-              </h1>
-              <p className="text-gray-600">
-                {course.title}
                 {isDraftMode && (
-                  <span className="ml-2 px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded-full">
-                    Draft Mode
+                  <span className="px-2 py-1 text-xs bg-orange-100/90 text-orange-800 rounded-full backdrop-blur-sm border border-orange-200">
+                    Bản nháp #{currentDraftId}
                   </span>
                 )}
-              </p>
-            </div>
-          </div>
+              </>
+            }
+            icon={CheckCircle2}
+            gradientFrom="from-blue-600"
+            gradientVia="via-indigo-600"
+            gradientTo="to-purple-600"
+            actionButtons={
+              <Button
+                variant="secondary"
+                onClick={handleBackToCourseList}
+                className="gap-2 bg-white/20 hover:bg-white/30 text-white border-none"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Quay lại
+              </Button>
+            }
+          />
         </div>
 
         {/* Step Indicator */}
@@ -1169,11 +1161,10 @@ const EditCourse = () => {
               {/* Step 1: Course Information */}
               <div className="flex flex-col items-center flex-1">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-                    currentStep === 1
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-green-500 text-white'
-                  }`}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${currentStep === 1
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-green-500 text-white'
+                    }`}
                 >
                   {currentStep > 1 ? (
                     <CheckCircle2 className="w-6 h-6" />
@@ -1182,27 +1173,25 @@ const EditCourse = () => {
                   )}
                 </div>
                 <span className="mt-2 text-sm font-medium">
-                  Information
+                  Thông tin
                 </span>
               </div>
 
               {/* Line 1 */}
               <div
-                className={`h-1 flex-1 mx-4 ${
-                  currentStep > 1 ? 'bg-green-500' : 'bg-gray-300'
-                }`}
+                className={`h-1 flex-1 mx-4 ${currentStep > 1 ? 'bg-green-500' : 'bg-gray-300'
+                  }`}
               />
 
               {/* Step 2: Learning Objectives */}
               <div className="flex flex-col items-center flex-1">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-                    currentStep === 2
-                      ? 'bg-blue-500 text-white'
-                      : currentStep > 2
-                        ? 'bg-green-500 text-white'
-                        : 'bg-gray-300 text-gray-600'
-                  }`}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${currentStep === 2
+                    ? 'bg-blue-500 text-white'
+                    : currentStep > 2
+                      ? 'bg-green-500 text-white'
+                      : 'bg-gray-300 text-gray-600'
+                    }`}
                 >
                   {currentStep > 2 ? (
                     <CheckCircle2 className="w-6 h-6" />
@@ -1211,30 +1200,28 @@ const EditCourse = () => {
                   )}
                 </div>
                 <span className="mt-2 text-sm font-medium">
-                  Objectives
+                  Mục tiêu
                 </span>
               </div>
 
               {/* Line 2 */}
               <div
-                className={`h-1 flex-1 mx-4 ${
-                  currentStep > 2 ? 'bg-green-500' : 'bg-gray-300'
-                }`}
+                className={`h-1 flex-1 mx-4 ${currentStep > 2 ? 'bg-green-500' : 'bg-gray-300'
+                  }`}
               />
 
               {/* Step 3: Course Content */}
               <div className="flex flex-col items-center flex-1">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${
-                    currentStep === 3
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-300 text-gray-600'
-                  }`}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold ${currentStep === 3
+                    ? 'bg-blue-500 text-white'
+                    : 'bg-gray-300 text-gray-600'
+                    }`}
                 >
                   3
                 </div>
                 <span className="mt-2 text-sm font-medium">
-                  Content
+                  Nội dung
                 </span>
               </div>
             </div>
@@ -1274,26 +1261,44 @@ const EditCourse = () => {
                   objectives={objectives}
                   isLoading={isSaving}
                   onChange={setObjectives}
+                  onDeleteObjective={async (objectiveId: number) => {
+                    if (isDraftMode && currentDraftId) {
+                      await deleteDraftObjective(objectiveId);
+                    } else {
+                      await deleteObjective(objectiveId);
+                    }
+                  }}
+                  isDraftMode={isDraftMode}
                 />
                 <div className="flex gap-3 justify-between pt-6 ">
                   <Button
                     variant="outline"
                     onClick={() => setCurrentStep(1)}
                   >
-                    Back
+                    Quay lại
                   </Button>
                   <Button
-                    onClick={() => handleStep1aSaveObjectives(objectives)}
-                    disabled={isSaving}
+                    onClick={() => {
+                      if (objectives.length === 0) {
+                        toast({
+                          variant: 'destructive',
+                          title: 'Lỗi',
+                          description: 'Vui lòng thêm ít nhất một mục tiêu trước khi tiếp tục',
+                        });
+                        return;
+                      }
+                      handleStep1aSaveObjectives(objectives);
+                    }}
+                    disabled={isSaving || objectives.length === 0}
                     className="gap-2"
                   >
                     {isSaving ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Saving...
+                        Đang lưu...
                       </>
                     ) : (
-                      'Continue'
+                      'Tiếp tục'
                     )}
                   </Button>
                 </div>
@@ -1315,6 +1320,7 @@ const EditCourse = () => {
                 onBack={() => setCurrentStep(2)}
                 onSubmit={handleSubmitCourse}
                 isSubmitting={isSaving}
+                isDraft={isDraftMode}
               />
             )}
           </CardContent>
@@ -1329,37 +1335,41 @@ const EditCourse = () => {
         <DialogContent className="sm:max-w-md border-0 shadow-lg">
           <DialogHeader className="text-center space-y-3">
             <div className="flex justify-center">
-              <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-green-50 rounded-full flex items-center justify-center shadow-md">
-                <CheckCircle2 className="w-8 h-8 text-green-600" />
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center shadow-md">
+                <CheckCircle2 className="w-8 h-8 text-blue-600" />
               </div>
             </div>
             <DialogTitle className="text-2xl font-bold text-gray-900">
-              🎉 {isDraftMode ? 'Draft Submitted!' : 'Update Successful!'}
+              🎉 {isDraftMode ? 'Đã gửi bản nháp!' : 'Cập nhật thành công!'}
             </DialogTitle>
             <DialogDescription className="text-base text-gray-600">
-              {isDraftMode 
-                ? 'Your course draft has been submitted for review successfully.'
-                : 'Your course has been updated and submitted successfully.'
+              {isDraftMode
+                ? 'Bản nháp khóa học của bạn đã được gửi để xem xét thành công.'
+                : 'Khóa học của bạn đã được cập nhật và gửi thành công.'
               }
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 py-4">
-            <div className="bg-gradient-to-r from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
               <p className="text-sm text-gray-600 mb-1">
-                📚 Course Name
+                📚 Tên khóa học
               </p>
               <p className="font-semibold text-gray-900 text-lg">
                 {course.title}
               </p>
             </div>
 
-            <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
+            <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
               <p className="text-sm text-gray-600 mb-1">
-                📊 Status
+                📊 Trạng thái
               </p>
-              <p className="font-semibold text-orange-600">
-                {course.status}
+              <p className="font-semibold text-blue-600">
+                {course.status === 'PENDING_REVIEW' || course.status === 'Pending'
+                  ? 'Đang chờ duyệt'
+                  : course.status === 'DRAFT' || course.status === 'Draft'
+                    ? 'Bản nháp'
+                    : course.status}
               </p>
             </div>
           </div>
@@ -1369,7 +1379,7 @@ const EditCourse = () => {
               onClick={handleCloseSuccessModal}
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold"
             >
-              Back to List
+              Quay lại danh sách
             </Button>
           </DialogFooter>
         </DialogContent>

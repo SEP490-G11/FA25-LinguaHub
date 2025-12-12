@@ -1,25 +1,22 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Loader2, CreditCard, Filter, DollarSign, History } from 'lucide-react';
+import { AlertCircle, Loader2, CreditCard, Filter } from 'lucide-react';
 import { tutorPaymentApi } from './api';
-import { Payment, PaymentFilters } from './types';
+import { Payment } from './types';
 import { calculateStats } from './utils';
 import { Filters, PaymentTable, PaymentStats } from './components';
+import { StandardPageHeading } from '@/components/shared';
 
 export default function TutorPaymentPage() {
-  const navigate = useNavigate();
-
   // State management
   const [payments, setPayments] = useState<Payment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
-  const [selectedMethod, setSelectedMethod] = useState<string>('all');
 
   /**
    * Fetch payments from API
@@ -53,17 +50,15 @@ export default function TutorPaymentPage() {
     setSearchQuery('');
     setSelectedType('all');
     setSelectedStatus('all');
-    setSelectedMethod('all');
   };
 
   /**
    * Check if any filters are active
    */
-  const hasActiveFilters = 
-    searchQuery.trim() !== '' || 
-    selectedType !== 'all' || 
-    selectedStatus !== 'all' || 
-    selectedMethod !== 'all';
+  const hasActiveFilters =
+    searchQuery.trim() !== '' ||
+    selectedType !== 'all' ||
+    selectedStatus !== 'all';
 
   // Fetch payments on mount
   useEffect(() => {
@@ -76,11 +71,11 @@ export default function TutorPaymentPage() {
       // Search filter
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
-        const matchesSearch = 
+        const matchesSearch =
           payment.orderCode.toLowerCase().includes(query) ||
           payment.userId.toString().includes(query) ||
           payment.description.toLowerCase().includes(query);
-        
+
         if (!matchesSearch) return false;
       }
 
@@ -94,14 +89,9 @@ export default function TutorPaymentPage() {
         return false;
       }
 
-      // Method filter
-      if (selectedMethod !== 'all' && payment.paymentMethod !== selectedMethod) {
-        return false;
-      }
-
       return true;
     });
-  }, [payments, searchQuery, selectedType, selectedStatus, selectedMethod]);
+  }, [payments, searchQuery, selectedType, selectedStatus]);
 
   // Calculate statistics from filtered payments
   const stats = calculateStats(filteredPayments);
@@ -109,43 +99,18 @@ export default function TutorPaymentPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ========== STICKY HEADER ========== */}
-      <div className="sticky top-0 z-10 bg-white shadow-md">
-        {/* Gradient Top Bar with Stats */}
-        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700">
-          <div className="max-w-[1600px] mx-auto px-6 py-5">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center border border-white/30">
-                  <CreditCard className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-white">Thu nhập của tôi</h1>
-                  <p className="text-blue-100 text-sm">Theo dõi các giao dịch thanh toán</p>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => navigate('/withdrawal-history')}
-                  className="bg-white text-gray-700 hover:bg-gray-50 font-semibold shadow-lg"
-                >
-                  <History className="w-4 h-4 mr-2" />
-                  Lịch sử rút tiền
-                </Button>
-                <Button
-                  onClick={() => navigate('/withdrawal')}
-                  className="bg-white text-blue-600 hover:bg-blue-50 font-semibold shadow-lg"
-                >
-                  <DollarSign className="w-4 h-4 mr-2" />
-                  Rút tiền
-                </Button>
-              </div>
-            </div>
-            
-            {/* Payment Statistics */}
-            <PaymentStats stats={stats} isLoading={isLoading} />
-          </div>
-        </div>
+      <div>
+        {/* Page Heading with Stats */}
+        <StandardPageHeading
+          title="Thu nhập của tôi"
+          description="Theo dõi các giao dịch thanh toán"
+          icon={CreditCard}
+          gradientFrom="from-blue-600"
+          gradientVia="via-blue-700"
+          gradientTo="to-indigo-700"
+        >
+          <PaymentStats stats={stats} isLoading={isLoading} />
+        </StandardPageHeading>
 
         {/* Filters Bar */}
         <div className="bg-white border-t border-gray-100">
@@ -160,8 +125,6 @@ export default function TutorPaymentPage() {
                   onTypeChange={setSelectedType}
                   selectedStatus={selectedStatus}
                   onStatusChange={setSelectedStatus}
-                  selectedMethod={selectedMethod}
-                  onMethodChange={setSelectedMethod}
                 />
               </div>
               <Button

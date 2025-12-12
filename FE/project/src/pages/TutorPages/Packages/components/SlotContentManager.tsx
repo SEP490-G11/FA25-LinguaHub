@@ -79,7 +79,7 @@ const SlotContentManager: React.FC<SlotContentManagerProps> = ({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Label className="text-sm font-medium">
-          Nội Dung Các Buổi Học <span className="text-red-500">*</span>
+          Nội dung các buổi học <span className="text-red-500">*</span>
           {maxSlots && (
             <span className="ml-2 text-xs text-gray-500 font-normal">
               ({slots.length}/{maxSlots} slots)
@@ -95,7 +95,7 @@ const SlotContentManager: React.FC<SlotContentManagerProps> = ({
           className="flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
-          Thêm Slot
+          Thêm slot
         </Button>
       </div>
 
@@ -104,7 +104,7 @@ const SlotContentManager: React.FC<SlotContentManagerProps> = ({
           <CardContent className="flex flex-col items-center justify-center py-8 text-center">
             <AlertCircle className="w-12 h-12 text-gray-400 mb-3" />
             <p className="text-sm text-gray-500 mb-4">
-              Chưa có nội dung buổi học nào. Nhấn "Thêm Slot" để bắt đầu.
+              Chưa có nội dung buổi học nào. Nhấn "Thêm slot" để bắt đầu.
             </p>
           </CardContent>
         </Card>

@@ -138,7 +138,7 @@ export interface Lesson {
   lessonID: number;
   title: string;
   duration: number;
-  lessonType: 'Video' | 'Reading';
+  lessonType: 'Video' | 'Reading' | 'Quiz';
   videoURL?: string;
   content?: string;
   orderIndex: number;
@@ -148,7 +148,7 @@ export interface Lesson {
 export interface CreateLessonRequest {
   title: string;
   duration: number;
-  lessonType: 'Video' | 'Reading';
+  lessonType: 'Video' | 'Reading' | 'Quiz';
   videoURL?: string;
   content?: string;
   orderIndex: number;
@@ -157,7 +157,7 @@ export interface CreateLessonRequest {
 export interface UpdateLessonRequest {
   title: string;
   duration: number;
-  lessonType: 'Video' | 'Reading';
+  lessonType: 'Video' | 'Reading' | 'Quiz';
   videoURL?: string;
   content?: string;
   orderIndex: number;

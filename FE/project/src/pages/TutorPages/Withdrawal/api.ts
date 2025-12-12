@@ -25,8 +25,6 @@ export const withdrawalApi = {
       // Handle different response structures
       const result = response.data?.result ?? response.data;
       
-      console.log('Withdrawal response:', result);
-      
       return result;
     } catch (error: any) {
       // Handle backend error responses

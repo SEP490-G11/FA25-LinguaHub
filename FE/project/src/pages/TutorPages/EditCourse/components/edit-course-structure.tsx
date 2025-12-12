@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { RichTextEditor } from '@/components/ui/rich-text-editor';
-import { isValidUrl, getUrlErrorMessage, getYouTubeUrlErrorMessage, getResourceUrlErrorMessage } from '@/utils/url-validation';
+import { getYouTubeUrlErrorMessage, getResourceUrlErrorMessage } from '@/utils/url-validation';
 import {
   Dialog,
   DialogContent,
@@ -41,6 +41,15 @@ import {
   Plus,
 } from 'lucide-react';
 import { CourseDetail, Section, Lesson, Resource } from '../types';
+import {
+  CreateQuestionDialog,
+  EditQuestionDialog,
+  DeleteQuestionDialog,
+  QuizQuestionList,
+  ImportQuizQuestionsExcel,
+} from '@/components/shared/QuizManagement';
+import { toast } from 'sonner';
+import { FileUploadField } from '@/components/shared/FileUploadField';
 
 interface EditCourseStructureProps {
   course: CourseDetail;
@@ -69,6 +78,7 @@ interface EditCourseStructureProps {
   onBack: () => void;
   onSubmit: () => void;
   isSubmitting: boolean;
+  isDraft?: boolean;
 }
 
 interface SectionFormData {
@@ -79,7 +89,7 @@ interface SectionFormData {
 interface LessonFormData {
   title: string;
   duration: number;
-  lessonType: 'Video' | 'Reading';
+  lessonType: 'Video' | 'Reading' | 'Quiz';
   videoURL: string;
   content: string;
 }
@@ -104,6 +114,7 @@ export default function EditCourseStructure({
   onBack,
   onSubmit,
   isSubmitting,
+  isDraft = false,
 }: EditCourseStructureProps) {
   const [expandedSections, setExpandedSections] = useState<Set<number>>(
     new Set([0])
@@ -112,37 +123,7 @@ export default function EditCourseStructure({
     new Map()
   );
 
-  // Debug logging
-  useEffect(() => {
-    console.log('=== EditCourseStructure DEBUG ===');
-    console.log('Course:', course);
-    console.log('Section data:', course.section);
-    console.log('Section length:', course.section?.length);
-    
-    if (course.section && course.section.length > 0) {
-      console.log('First section:', course.section[0]);
-      console.log('First section lessons:', course.section[0].lessons);
-      
-      if (course.section[0].lessons && course.section[0].lessons.length > 0) {
-        console.log('First lesson:', course.section[0].lessons[0]);
-        console.log('First lesson resources:', course.section[0].lessons[0].resources);
-        console.log('Resources length:', course.section[0].lessons[0].resources?.length);
-        
-        // Log all lessons with their resources
-        course.section.forEach((section, sIdx) => {
-          console.log(`\n=== Section ${sIdx}: ${section.title} ===`);
-          section.lessons?.forEach((lesson, lIdx) => {
-            console.log(`  Lesson ${lIdx}: ${lesson.title}`);
-            console.log(`    - Resources array exists: ${!!lesson.resources}`);
-            console.log(`    - Resources length: ${lesson.resources?.length || 0}`);
-            if (lesson.resources && lesson.resources.length > 0) {
-              console.log(`    - Resources:`, lesson.resources);
-            }
-          });
-        });
-      }
-    }
-  }, [course]);
+
 
   // Edit section dialog
   const [editingSectionIndex, setEditingSectionIndex] = useState<number | null>(
@@ -190,20 +171,22 @@ export default function EditCourseStructure({
     content: '',
   });
 
-  // Create resource state (for lesson creation)
-  const [showNewResourceDialog, setShowNewResourceDialog] = useState(false);
-  const [newResourceData, setNewResourceData] = useState<ResourceFormData>({
-    resourceType: 'PDF',
-    resourceTitle: '',
-    resourceURL: '',
-  });
-  const [lessonResources, setLessonResources] = useState<ResourceFormData[]>([]);
+  // Quiz question management state
+  const [isCreatingQuestion, setIsCreatingQuestion] = useState<string | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<any>(null);
+  const [deletingQuestionId, setDeletingQuestionId] = useState<string | null>(null);
+  const [questionRefreshKey, setQuestionRefreshKey] = useState<number>(0);
+  const [questionCounts, setQuestionCounts] = useState<Record<string, number>>({});
+  const [cachedQuestions, setCachedQuestions] = useState<Record<string, any[]>>({});
+  const [isImportingQuestions, setIsImportingQuestions] = useState<string | null>(null);
+
+  // Note: Resources are added separately after lesson creation, not during creation
 
   // Validation error states
   const [videoUrlError, setVideoUrlError] = useState<string>('');
-  const [resourceUrlError, setResourceUrlError] = useState<string>('');
   const [editVideoUrlError, setEditVideoUrlError] = useState<string>('');
   const [editResourceUrlError, setEditResourceUrlError] = useState<string>('');
+  const [resourceUrlError, setResourceUrlError] = useState<string>('');
 
   // Edit resource state (for lesson editing)
   const [showEditResourceDialog, setShowEditResourceDialog] = useState(false);
@@ -250,27 +233,10 @@ export default function EditCourseStructure({
   };
 
   // Create lesson
-  // Add resource to lesson during creation
-  const addResourceToLesson = () => {
-    if (!newResourceData.resourceTitle.trim() || !newResourceData.resourceURL.trim()) {
-      alert('Please fill in resource title and URL');
-      return;
-    }
-
-    setLessonResources([...lessonResources, newResourceData]);
-    setNewResourceData({ resourceType: 'PDF', resourceTitle: '', resourceURL: '' });
-    setShowNewResourceDialog(false);
-  };
-
-  // Remove resource from lesson during creation
-  const removeResourceFromLesson = (index: number) => {
-    setLessonResources(lessonResources.filter((_, i) => i !== index));
-  };
-
   const createLesson = async () => {
     if (isCreatingLesson !== null && newLessonData && newLessonData.title.trim()) {
       // No need to validate here - button is already disabled if invalid
-      
+
       setIsSaving(true);
       try {
         const lessonCount = course.section[isCreatingLesson].lessons?.length || 0;
@@ -284,13 +250,7 @@ export default function EditCourseStructure({
           content: newLessonData.content,
           orderIndex: lessonCount,
           createdAt: new Date().toISOString(),
-          resources: lessonResources.map((res) => ({
-            resourceID: Math.floor(Math.random() * 10000),
-            resourceType: res.resourceType,
-            resourceTitle: res.resourceTitle,
-            resourceURL: res.resourceURL,
-            uploadedAt: new Date().toISOString(),
-          })),
+          resources: [], // Resources will be added separately after lesson creation
         };
 
         onCreateLesson(isCreatingLesson, newLesson);
@@ -302,8 +262,6 @@ export default function EditCourseStructure({
           videoURL: '',
           content: '',
         });
-        setLessonResources([]);
-        setShowNewResourceDialog(false);
       } catch (error) {
         console.error('Error creating lesson:', error);
         alert('Failed to create lesson');
@@ -409,21 +367,7 @@ export default function EditCourseStructure({
     setShowEditResourceDialog(false);
   };
 
-  // Remove resource from edit lesson
-  const removeResourceFromEditLesson = (index: number) => {
-    setEditLessonResources(editLessonResources.filter((_, i) => i !== index));
-  };
 
-  // Start editing resource in edit lesson
-  const startEditingEditLessonResource = (index: number) => {
-    setEditResourceData({
-      resourceType: editLessonResources[index].resourceType,
-      resourceTitle: editLessonResources[index].resourceTitle,
-      resourceURL: editLessonResources[index].resourceURL,
-    });
-    setEditingResourceIndex(index);
-    setShowEditResourceDialog(true);
-  };
 
   // Open edit section dialog
   const openEditSection = (sectionIndex: number) => {
@@ -464,7 +408,7 @@ export default function EditCourseStructure({
     const lesson = course.section[sectionIndex].lessons[lessonIndex];
     const lessonType = lesson.lessonType as 'Video' | 'Reading';
     const videoURL = lesson.videoURL || '';
-    
+
     setEditingLessonKey(`${sectionIndex}-${lessonIndex}`);
     setEditingLessonData({
       title: lesson.title,
@@ -474,7 +418,7 @@ export default function EditCourseStructure({
       content: lesson.content || '',
     });
     setEditLessonResources(lesson.resources || []);
-    
+
     // Validate video URL if lesson type is Video
     if (lessonType === 'Video') {
       setEditVideoUrlError(getYouTubeUrlErrorMessage(videoURL, true));
@@ -487,7 +431,7 @@ export default function EditCourseStructure({
   const saveLesson = async () => {
     if (editingLessonKey && editingLessonData && editingLessonData.title.trim()) {
       // No need to validate here - button is already disabled if invalid
-      
+
       setIsSaving(true);
       try {
         const [sectionIndex, lessonIndex] = editingLessonKey
@@ -526,7 +470,7 @@ export default function EditCourseStructure({
       resourceTitle: resource.resourceTitle,
       resourceURL: resource.resourceURL,
     });
-    
+
     // Validate existing resource URL
     const urlError = getResourceUrlErrorMessage(resource.resourceURL, true);
     setEditResourceUrlError(urlError);
@@ -591,10 +535,10 @@ export default function EditCourseStructure({
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">
-              Course Content
+              Nội dung khóa học
             </h2>
             <p className="text-gray-600 mt-1">
-              Manage sections, lessons, and resources for your course
+              Quản lý các chương, bài học và tài nguyên cho khóa học của bạn
             </p>
           </div>
           <Button
@@ -602,7 +546,7 @@ export default function EditCourseStructure({
             className="gap-2 bg-blue-600 hover:bg-blue-700"
           >
             <Plus className="w-4 h-4" />
-            Add Section
+            Thêm chương
           </Button>
         </div>
 
@@ -624,10 +568,10 @@ export default function EditCourseStructure({
                   )}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold text-gray-900 truncate">
-                      Section {sectionIndex + 1}: {section.title}
+                      Chương {sectionIndex + 1}: {section.title}
                     </h3>
                     <p className="text-sm text-gray-600 mt-1">
-                      {section.lessons?.length || 0} lessons
+                      {section.lessons?.length || 0} bài học
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -688,14 +632,13 @@ export default function EditCourseStructure({
                                   {lesson.title}
                                 </p>
                                 <p className="text-xs text-gray-500 mt-1">
-                                  {lesson.duration} minutes •{' '}
+                                  {lesson.duration} phút •{' '}
                                   {lesson.lessonType}
                                 </p>
                               </div>
                               <div className="flex gap-2">
                                 <Button
-                                  size="sm"
-                                  variant="outline"
+                                  variant="ghost"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     openEditLesson(sectionIndex, lessonIndex);
@@ -704,8 +647,7 @@ export default function EditCourseStructure({
                                   <Edit2 className="w-4 h-4" />
                                 </Button>
                                 <Button
-                                  size="sm"
-                                  variant="destructive"
+                                  variant="ghost"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setDeleteConfirm({
@@ -714,6 +656,7 @@ export default function EditCourseStructure({
                                       lessonIndex,
                                     });
                                   }}
+                                  className="text-red-500 hover:text-red-700"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
@@ -724,92 +667,87 @@ export default function EditCourseStructure({
                             {expandedLessons.get(
                               `${sectionIndex}-${lessonIndex}`
                             ) && (
-                              <div className="mt-4 space-y-3 pl-7 border-l-2 border-gray-200">
-                                {/* Lesson Content */}
-                                <div>
-                                  <p className="text-xs font-semibold text-gray-600 uppercase">
-                                    Lesson Content
-                                  </p>
-                                  <p className="text-sm text-gray-700 mt-1">
-                                    {lesson.content || 'No content'}
-                                  </p>
-                                </div>
-
-                                {lesson.videoURL && (
-                                  <div>
-                                    <p className="text-xs font-semibold text-gray-600 uppercase">
-                                      Video
-                                    </p>
-                                    <a
-                                      href={lesson.videoURL}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-sm text-blue-600 hover:underline mt-1 flex items-center gap-2"
-                                    >
-                                      <Link2 className="w-3 h-3" />
-                                      Watch Video
-                                    </a>
-                                  </div>
-                                )}
-
-                                {/* Resources */}
-                                {lesson.resources &&
-                                  lesson.resources.length > 0 && (
+                                <div className="mt-4 space-y-3 pl-7 border-l-2 border-gray-200">
+                                  {lesson.lessonType === 'Video' && lesson.videoURL && (
                                     <div>
-                                      <p className="text-xs font-semibold text-gray-600 uppercase mb-2">
-                                        Resources ({lesson.resources.length})
+                                      <p className="text-xs font-semibold text-gray-600 uppercase">
+                                        Video
                                       </p>
-                                      <div className="space-y-2">
-                                        {lesson.resources.map(
-                                          (resource, resourceIndex) => (
-                                            <div
-                                              key={resource.resourceID}
-                                              className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200"
-                                            >
-                                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                <FileText className="w-4 h-4 text-orange-500 flex-shrink-0" />
-                                                <div className="min-w-0">
-                                                  <p className="text-sm font-medium text-gray-900 truncate">
-                                                    {resource.resourceTitle}
-                                                  </p>
-                                                  <p className="text-xs text-gray-500">
-                                                    {resource.resourceType}
-                                                  </p>
+                                      <a
+                                        href={lesson.videoURL}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-blue-600 hover:underline mt-1 flex items-center gap-2"
+                                      >
+                                        <Link2 className="w-3 h-3" />
+                                        Xem video
+                                      </a>
+                                    </div>
+                                  )}
+
+                                  {/* Resources (for Video and Reading lessons) */}
+                                  {lesson.lessonType !== 'Quiz' && (
+                                    <div>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <p className="text-xs font-semibold text-gray-600 uppercase">
+                                          Tài nguyên ({lesson.resources?.length || 0})
+                                        </p>
+                                      </div>
+                                      {lesson.resources && lesson.resources.length > 0 && (
+                                        <div className="space-y-2 mb-2">
+                                          {lesson.resources.map(
+                                            (resource, resourceIndex) => (
+                                              <div
+                                                key={resource.resourceID}
+                                                className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200"
+                                              >
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                  <FileText className="w-4 h-4 text-orange-500 flex-shrink-0" />
+                                                  <div className="min-w-0">
+                                                    <p className="text-sm font-medium text-gray-900 truncate">
+                                                      {resource.resourceTitle}
+                                                    </p>
+                                                    <p className="text-xs text-gray-500">
+                                                      {resource.resourceType}
+                                                    </p>
+                                                  </div>
+                                                </div>
+                                                <div className="flex gap-1 flex-shrink-0">
+                                                  <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() =>
+                                                      openEditResource(
+                                                        sectionIndex,
+                                                        lessonIndex,
+                                                        resourceIndex
+                                                      )
+                                                    }
+                                                    className="h-8 w-8 p-0"
+                                                  >
+                                                    <Edit2 className="w-3 h-3" />
+                                                  </Button>
+                                                  <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    onClick={() =>
+                                                      setDeleteConfirm({
+                                                        type: 'resource',
+                                                        sectionIndex,
+                                                        lessonIndex,
+                                                        resourceIndex,
+                                                      })
+                                                    }
+                                                    className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                                  >
+                                                    <Trash2 className="w-3 h-3" />
+                                                  </Button>
                                                 </div>
                                               </div>
-                                              <div className="flex gap-2 flex-shrink-0">
-                                                <Button
-                                                  size="sm"
-                                                  variant="outline"
-                                                  onClick={() =>
-                                                    openEditResource(
-                                                      sectionIndex,
-                                                      lessonIndex,
-                                                      resourceIndex
-                                                    )
-                                                  }
-                                                >
-                                                  <Edit2 className="w-3 h-3" />
-                                                </Button>
-                                                <Button
-                                                  size="sm"
-                                                  variant="destructive"
-                                                  onClick={() =>
-                                                    setDeleteConfirm({
-                                                      type: 'resource',
-                                                      sectionIndex,
-                                                      lessonIndex,
-                                                      resourceIndex,
-                                                    })
-                                                  }
-                                                >
-                                                  <Trash2 className="w-3 h-3" />
-                                                </Button>
-                                              </div>
-                                            </div>
-                                          )
-                                        )}
-                                      </div>
+                                            )
+                                          )}
+                                        </div>
+                                      )}
                                       <Button
                                         size="sm"
                                         variant="outline"
@@ -818,20 +756,136 @@ export default function EditCourseStructure({
                                             `${sectionIndex}-${lessonIndex}`
                                           )
                                         }
-                                        className="w-full mt-2 gap-2"
+                                        className="w-full gap-2 border-dashed"
                                       >
                                         <Plus className="w-3 h-3" />
-                                        Add Resource
+                                        Thêm tài nguyên
                                       </Button>
                                     </div>
                                   )}
-                              </div>
-                            )}
+
+                                  {/* Quiz Questions (for Quiz lessons) */}
+                                  {lesson.lessonType === 'Quiz' && (
+                                    <div>
+                                      <div className="flex items-center justify-between mb-2">
+                                        <p className="text-xs font-semibold text-gray-600 uppercase">
+                                          Câu hỏi ({questionCounts[lesson.lessonID?.toString() || ''] || 0})
+                                        </p>
+                                      </div>
+                                      {lesson.lessonID ? (
+                                        <>
+                                          <QuizQuestionList
+                                            key={`${lesson.lessonID}-${questionRefreshKey}`}
+                                            lessonId={lesson.lessonID.toString()}
+                                            isDraft={isDraft}
+                                            readOnly={false}
+                                            initialQuestions={cachedQuestions[lesson.lessonID.toString()]}
+                                            onQuestionsChange={(questions) => {
+                                              const lessonIdStr = lesson.lessonID!.toString();
+                                              setQuestionCounts((prev) => ({
+                                                ...prev,
+                                                [lessonIdStr]: questions.length,
+                                              }));
+                                              setCachedQuestions((prev) => ({
+                                                ...prev,
+                                                [lessonIdStr]: questions,
+                                              }));
+                                            }}
+                                          />
+                                          <div className="flex gap-2 mt-2">
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() => setIsCreatingQuestion(lesson.lessonID.toString())}
+                                              className="flex-1 gap-2 border-dashed"
+                                            >
+                                              <Plus className="w-3 h-3" />
+                                              Tạo câu hỏi
+                                            </Button>
+                                            <ImportQuizQuestionsExcel
+                                              sectionIndex={sectionIndex}
+                                              lessonIndex={lessonIndex}
+                                              currentQuestionCount={questionCounts[lesson.lessonID?.toString() || ''] || 0}
+                                              disabled={isImportingQuestions === lesson.lessonID?.toString()}
+                                              onImport={async (questions) => {
+                                                // Handle imported questions - need to save to API
+                                                const lessonIdStr = lesson.lessonID!.toString();
+
+                                                setIsImportingQuestions(lessonIdStr);
+
+                                                try {
+                                                  // Import quizApi
+                                                  const { quizApi } = await import('@/pages/TutorPages/CreateCourse/quiz-api');
+
+                                                  // Show progress toast
+                                                  toast.info(`Đang import ${questions.length} câu hỏi...`);
+
+                                                  // Create each question via API
+                                                  let successCount = 0;
+                                                  for (const question of questions) {
+                                                    try {
+                                                      await quizApi.createQuestion(
+                                                        lessonIdStr,
+                                                        {
+                                                          questionText: question.questionText,
+                                                          explanation: question.explanation,
+                                                          score: question.score,
+                                                          orderIndex: question.orderIndex,
+                                                          options: question.options.map((opt) => ({
+                                                            optionText: opt.optionText,
+                                                            isCorrect: opt.isCorrect,
+                                                            orderIndex: opt.orderIndex,
+                                                          })),
+                                                        },
+                                                        isDraft
+                                                      );
+                                                      successCount++;
+                                                    } catch (err) {
+                                                      console.error('Error creating question:', err);
+                                                    }
+                                                  }
+
+                                                  // Clear cache to force refresh
+                                                  setCachedQuestions((prev) => {
+                                                    const newCache = { ...prev };
+                                                    delete newCache[lessonIdStr];
+                                                    return newCache;
+                                                  });
+
+                                                  // Refresh the question list
+                                                  setQuestionRefreshKey((prev) => prev + 1);
+
+                                                  if (successCount === questions.length) {
+                                                    toast.success(`Đã import thành công ${successCount} câu hỏi`);
+                                                  } else {
+                                                    toast.warning(`Đã import ${successCount}/${questions.length} câu hỏi`);
+                                                  }
+                                                } catch (error) {
+                                                  console.error('Error importing questions:', error);
+                                                  toast.error('Không thể import câu hỏi. Vui lòng thử lại');
+                                                } finally {
+                                                  setIsImportingQuestions(null);
+                                                }
+                                              }}
+                                            />
+                                          </div>
+                                        </>
+                                      ) : (
+                                        <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                                          <p className="text-sm text-yellow-800">
+                                            Vui lòng lưu bài học trước khi thêm câu hỏi. Nhấn nút "Lưu thay đổi" ở cuối trang để lưu.
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                           </div>
                         ))
                       ) : (
                         <div className="p-4 text-center text-gray-500">
-                          This Section has no lessons yet
+                          Chương này chưa có bài học nào
                         </div>
                       )}
                     </div>
@@ -843,13 +897,12 @@ export default function EditCourseStructure({
                         variant="outline"
                         onClick={() => {
                           setIsCreatingLesson(sectionIndex);
-                          // Set initial validation error for empty video URL (required for video lessons)
-                          setVideoUrlError('Video URL is required');
+                          setVideoUrlError('');
                         }}
                         className="w-full gap-2"
                       >
                         <Plus className="w-4 h-4" />
-                        Add Lesson
+                        Thêm bài học
                       </Button>
                     </div>
                   </CardContent>
@@ -858,7 +911,7 @@ export default function EditCourseStructure({
             ))
           ) : (
             <Card className="p-8 text-center text-gray-500">
-              <p>Course has no Sections yet</p>
+              <p>Khóa học chưa có chương nào</p>
             </Card>
           )}
         </div>
@@ -870,7 +923,7 @@ export default function EditCourseStructure({
             onClick={onBack}
             disabled={isSubmitting}
           >
-            Back
+            Quay lại
           </Button>
           <Button
             onClick={onSubmit}
@@ -880,12 +933,12 @@ export default function EditCourseStructure({
             {isSubmitting ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Submitting...
+                Đang gửi...
               </>
             ) : (
               <>
                 <CheckCircle2 className="w-4 h-4" />
-                Submit
+                Gửi
               </>
             )}
           </Button>
@@ -904,14 +957,14 @@ export default function EditCourseStructure({
       >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit Section</DialogTitle>
+            <DialogTitle>Chỉnh sửa chương</DialogTitle>
           </DialogHeader>
 
           {editingSectionData && (
             <div className="space-y-4">
               <div>
                 <Label htmlFor="section-title" className="text-base">
-                  Section Title
+                  Tiêu đề chương
                 </Label>
                 <Input
                   id="section-title"
@@ -927,7 +980,7 @@ export default function EditCourseStructure({
               </div>
               <div>
                 <Label htmlFor="section-description" className="text-base">
-                  Section Description
+                  Mô tả chương
                 </Label>
                 <Textarea
                   id="section-description"
@@ -954,10 +1007,10 @@ export default function EditCourseStructure({
               }}
               disabled={isSaving}
             >
-              Cancel
+              Hủy
             </Button>
             <Button onClick={saveSection} disabled={isSaving}>
-              {isSaving ? 'Saving...' : 'Save'}
+              {isSaving ? 'Đang lưu...' : 'Lưu'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -975,14 +1028,14 @@ export default function EditCourseStructure({
       >
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Lesson</DialogTitle>
+            <DialogTitle>Chỉnh sửa bài học</DialogTitle>
           </DialogHeader>
 
           {editingLessonData && (
             <div className="space-y-4">
               <div>
                 <Label htmlFor="lesson-title" className="text-base">
-                  Lesson Title
+                  Tiêu đề bài học
                 </Label>
                 <Input
                   id="lesson-title"
@@ -1000,7 +1053,7 @@ export default function EditCourseStructure({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label htmlFor="lesson-duration" className="text-sm">
-                    Duration (minutes)
+                    Thời lượng (phút)
                   </Label>
                   <Input
                     id="lesson-duration"
@@ -1019,14 +1072,14 @@ export default function EditCourseStructure({
 
                 <div>
                   <Label htmlFor="lesson-type" className="text-sm">
-                    Lesson Type
+                    Loại bài học
                   </Label>
                   <Select
                     value={editingLessonData.lessonType}
                     onValueChange={(value) =>
                       setEditingLessonData({
                         ...editingLessonData,
-                        lessonType: value as 'Video' | 'Reading',
+                        lessonType: value as 'Video' | 'Reading' | 'Quiz',
                       })
                     }
                     disabled
@@ -1036,11 +1089,12 @@ export default function EditCourseStructure({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Video">Video</SelectItem>
-                      <SelectItem value="Reading">Reading</SelectItem>
+                      <SelectItem value="Reading">Đọc</SelectItem>
+                      <SelectItem value="Quiz">Quiz</SelectItem>
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-gray-500 mt-1">
-                    Lesson type cannot be changed after creation
+                    Không thể thay đổi loại bài học sau khi tạo
                   </p>
                 </div>
               </div>
@@ -1078,7 +1132,7 @@ export default function EditCourseStructure({
               {editingLessonData.lessonType === 'Reading' && (
                 <div>
                   <Label htmlFor="lesson-content" className="text-base">
-                    Lesson Content
+                    Nội dung bài học
                   </Label>
                   <RichTextEditor
                     value={editingLessonData.content}
@@ -1088,72 +1142,11 @@ export default function EditCourseStructure({
                         content: value,
                       })
                     }
-                    placeholder="Enter your lesson content here. You can format text, add images, videos, and more..."
+                    placeholder="Nhập nội dung bài học tại đây. Bạn có thể định dạng văn bản, thêm hình ảnh, video và nhiều hơn nữa..."
                     disabled={isSaving}
                   />
                 </div>
               )}
-
-              {/* Resources Section */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <Label className="text-base">
-                    Resources ({editLessonResources.length})
-                  </Label>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setEditResourceData({ resourceType: 'PDF', resourceTitle: '', resourceURL: '' });
-                      setEditingResourceIndex(null);
-                      // Set initial validation error for empty URL
-                      setEditResourceUrlError('Resource URL is required');
-                      setShowEditResourceDialog(true);
-                    }}
-                    className="gap-2"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Add Resource
-                  </Button>
-                </div>
-
-                {editLessonResources.length > 0 && (
-                  <div className="space-y-2 mb-3">
-                    {editLessonResources.map((resource, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200"
-                      >
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-gray-900">
-                            {resource.resourceTitle}
-                          </p>
-                          <p className="text-xs text-gray-500">{resource.resourceType}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => startEditingEditLessonResource(index)}
-                          >
-                            <Edit2 className="w-3 h-3" />
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => removeResourceFromEditLesson(index)}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           )}
 
@@ -1167,19 +1160,19 @@ export default function EditCourseStructure({
               }}
               disabled={isSaving}
             >
-              Cancel
+              Hủy
             </Button>
-            <Button 
-              onClick={saveLesson} 
+            <Button
+              onClick={saveLesson}
               disabled={
-                isSaving || 
+                isSaving ||
                 !editingLessonData?.title.trim() ||
                 (editingLessonData?.duration || 0) <= 0 ||
                 (editingLessonData?.lessonType === 'Video' && (!!editVideoUrlError || !editingLessonData?.videoURL?.trim())) ||
                 (editingLessonData?.lessonType === 'Reading' && !editingLessonData?.content?.trim())
               }
             >
-              {isSaving ? 'Saving...' : 'Save'}
+              {isSaving ? 'Đang lưu...' : 'Lưu'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1190,12 +1183,12 @@ export default function EditCourseStructure({
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>
-              {editingResourceIndex !== null ? 'Edit Resource' : 'Add Resource'}
+              {editingResourceIndex !== null ? 'Chỉnh sửa tài nguyên' : 'Thêm tài nguyên'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="edit-lesson-resource-type">Resource Type</Label>
+              <Label htmlFor="edit-lesson-resource-type">Loại tài nguyên</Label>
               <Select
                 value={editResourceData.resourceType}
                 onValueChange={(value) =>
@@ -1210,12 +1203,12 @@ export default function EditCourseStructure({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="PDF">PDF</SelectItem>
-                  <SelectItem value="ExternalLink">External Link</SelectItem>
+                  <SelectItem value="ExternalLink">Liên kết ngoài</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label htmlFor="edit-lesson-resource-title">Resource Name</Label>
+              <Label htmlFor="edit-lesson-resource-title">Tên tài nguyên</Label>
               <Input
                 id="edit-lesson-resource-title"
                 value={editResourceData.resourceTitle}
@@ -1226,32 +1219,48 @@ export default function EditCourseStructure({
                   })
                 }
                 disabled={isSaving}
-                placeholder="e.g., Grammar Guide"
+                placeholder="VD: Hướng dẫn ngữ pháp"
               />
             </div>
             <div>
-              <Label htmlFor="edit-lesson-resource-url">Resource URL</Label>
-              <Input
-                id="edit-lesson-resource-url"
-                value={editResourceData.resourceURL}
-                onChange={(e) => {
-                  const newValue = e.target.value;
-                  setEditResourceData({
-                    ...editResourceData,
-                    resourceURL: newValue,
-                  });
-                  // Validate resource URL
-                  setEditResourceUrlError(getResourceUrlErrorMessage(newValue, true));
-                }}
-                onBlur={(e) => {
-                  // Re-validate on blur
-                  setEditResourceUrlError(getResourceUrlErrorMessage(e.target.value, true));
-                }}
-                disabled={isSaving}
-                placeholder="https://example.com/resource"
-                className={editResourceUrlError ? 'border-red-500' : ''}
-              />
-              {editResourceUrlError && (
+              <Label htmlFor="edit-lesson-resource-url">
+                {editResourceData.resourceType === 'PDF' ? 'File tài nguyên' : 'URL tài nguyên'}
+              </Label>
+              {editResourceData.resourceType === 'PDF' ? (
+                <FileUploadField
+                  value={editResourceData.resourceURL}
+                  onChange={(url) => {
+                    setEditResourceData({
+                      ...editResourceData,
+                      resourceURL: url,
+                    });
+                    setEditResourceUrlError('');
+                  }}
+                  allowedTypes={['application/pdf']}
+                  accept=".pdf"
+                  error={editResourceUrlError}
+                />
+              ) : (
+                <Input
+                  id="edit-lesson-resource-url"
+                  value={editResourceData.resourceURL}
+                  onChange={(e) => {
+                    const newValue = e.target.value;
+                    setEditResourceData({
+                      ...editResourceData,
+                      resourceURL: newValue,
+                    });
+                    setEditResourceUrlError(getResourceUrlErrorMessage(newValue, true));
+                  }}
+                  onBlur={(e) => {
+                    setEditResourceUrlError(getResourceUrlErrorMessage(e.target.value, true));
+                  }}
+                  disabled={isSaving}
+                  placeholder="https://example.com/resource"
+                  className={editResourceUrlError ? 'border-red-500' : ''}
+                />
+              )}
+              {editResourceUrlError && editResourceData.resourceType !== 'PDF' && (
                 <p className="text-sm text-red-600 mt-1">{editResourceUrlError}</p>
               )}
             </div>
@@ -1265,7 +1274,7 @@ export default function EditCourseStructure({
               }}
               disabled={isSaving}
             >
-              Cancel
+              Hủy
             </Button>
             <Button
               onClick={
@@ -1280,7 +1289,7 @@ export default function EditCourseStructure({
                 !!editResourceUrlError
               }
             >
-              {editingResourceIndex !== null ? 'Update' : 'Add'}
+              {editingResourceIndex !== null ? 'Cập nhật' : 'Thêm'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1349,29 +1358,43 @@ export default function EditCourseStructure({
 
               <div>
                 <Label htmlFor="resource-url" className="text-base">
-                  Resource URL
+                  {editingResourceData.resourceType === 'PDF' ? 'Resource File' : 'Resource URL'}
                 </Label>
-                <Input
-                  id="resource-url"
-                  value={editingResourceData.resourceURL}
-                  onChange={(e) => {
-                    const newValue = e.target.value;
-                    setEditingResourceData({
-                      ...editingResourceData,
-                      resourceURL: newValue,
-                    });
-                    // Validate resource URL
-                    setEditResourceUrlError(getResourceUrlErrorMessage(newValue, true));
-                  }}
-                  onBlur={(e) => {
-                    // Re-validate on blur
-                    setEditResourceUrlError(getResourceUrlErrorMessage(e.target.value, true));
-                  }}
-                  disabled={isSaving}
-                  placeholder="https://example.com/resource"
-                  className={editResourceUrlError ? 'border-red-500' : ''}
-                />
-                {editResourceUrlError && (
+                {editingResourceData.resourceType === 'PDF' ? (
+                  <FileUploadField
+                    value={editingResourceData.resourceURL}
+                    onChange={(url) => {
+                      setEditingResourceData({
+                        ...editingResourceData,
+                        resourceURL: url,
+                      });
+                      setEditResourceUrlError('');
+                    }}
+                    allowedTypes={['application/pdf']}
+                    accept=".pdf"
+                    error={editResourceUrlError}
+                  />
+                ) : (
+                  <Input
+                    id="resource-url"
+                    value={editingResourceData.resourceURL}
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      setEditingResourceData({
+                        ...editingResourceData,
+                        resourceURL: newValue,
+                      });
+                      setEditResourceUrlError(getResourceUrlErrorMessage(newValue, true));
+                    }}
+                    onBlur={(e) => {
+                      setEditResourceUrlError(getResourceUrlErrorMessage(e.target.value, true));
+                    }}
+                    disabled={isSaving}
+                    placeholder="https://example.com/resource"
+                    className={editResourceUrlError ? 'border-red-500' : ''}
+                  />
+                )}
+                {editResourceUrlError && editingResourceData.resourceType !== 'PDF' && (
                   <p className="text-sm text-red-600 mt-1">{editResourceUrlError}</p>
                 )}
               </div>
@@ -1389,8 +1412,8 @@ export default function EditCourseStructure({
             >
               Hủy
             </Button>
-            <Button 
-              onClick={saveResource} 
+            <Button
+              onClick={saveResource}
               disabled={
                 isSaving ||
                 !editingResourceData?.resourceTitle.trim() ||
@@ -1440,12 +1463,12 @@ export default function EditCourseStructure({
       >
         <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create New Section</DialogTitle>
+            <DialogTitle>Tạo chương mới</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label htmlFor="new-section-title" className="text-base">
-                Section Title
+                Tên chương
               </Label>
               <Input
                 id="new-section-title"
@@ -1457,11 +1480,12 @@ export default function EditCourseStructure({
                   })
                 }
                 disabled={isSaving}
+                placeholder="VD: Giới thiệu về ngữ pháp"
               />
             </div>
             <div>
               <Label htmlFor="new-section-description" className="text-base">
-                Section Description
+                Mô tả chương
               </Label>
               <Textarea
                 id="new-section-description"
@@ -1474,6 +1498,7 @@ export default function EditCourseStructure({
                 }
                 disabled={isSaving}
                 rows={3}
+                placeholder="Mô tả ngắn gọn về nội dung chương này..."
               />
             </div>
           </div>
@@ -1483,10 +1508,10 @@ export default function EditCourseStructure({
               onClick={() => setIsCreatingSection(false)}
               disabled={isSaving}
             >
-              Cancel
+              Hủy
             </Button>
             <Button onClick={createSection} disabled={isSaving}>
-              {isSaving ? 'Creating...' : 'Create'}
+              {isSaving ? 'Đang tạo...' : 'Tạo'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1501,12 +1526,12 @@ export default function EditCourseStructure({
       >
         <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Lesson</DialogTitle>
+            <DialogTitle>Tạo bài học mới</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label htmlFor="new-lesson-title" className="text-base">
-                Lesson Title
+                Tên bài học
               </Label>
               <Input
                 id="new-lesson-title"
@@ -1518,12 +1543,13 @@ export default function EditCourseStructure({
                   })
                 }
                 disabled={isSaving}
+                placeholder="VD: Giới thiệu về ngữ pháp cơ bản"
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="new-lesson-duration" className="text-sm">
-                  Duration (minutes)
+                  Thời lượng (phút)
                 </Label>
                 <Input
                   id="new-lesson-duration"
@@ -1541,23 +1567,28 @@ export default function EditCourseStructure({
               </div>
               <div>
                 <Label htmlFor="new-lesson-type" className="text-sm">
-                  Lesson Type
+                  Loại bài học
                 </Label>
                 <Select
                   value={newLessonData.lessonType}
-                  onValueChange={(value) =>
+                  onValueChange={(value) => {
                     setNewLessonData({
                       ...newLessonData,
-                      lessonType: value as 'Video' | 'Reading',
-                    })
-                  }
+                      lessonType: value as 'Video' | 'Reading' | 'Quiz',
+                    });
+                    // Clear video URL error when switching lesson type
+                    if (value === 'Reading' || value === 'Quiz') {
+                      setVideoUrlError('');
+                    }
+                  }}
                 >
                   <SelectTrigger disabled={isSaving}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Video">Video</SelectItem>
-                    <SelectItem value="Reading">Reading</SelectItem>
+                    <SelectItem value="Reading">Đọc</SelectItem>
+                    <SelectItem value="Quiz">Quiz</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1565,7 +1596,7 @@ export default function EditCourseStructure({
             {newLessonData.lessonType === 'Video' && (
               <div>
                 <Label htmlFor="new-lesson-video" className="text-base">
-                  Video URL
+                  URL Video
                 </Label>
                 <Input
                   id="new-lesson-video"
@@ -1576,12 +1607,21 @@ export default function EditCourseStructure({
                       ...newLessonData,
                       videoURL: url,
                     });
-                    // Validate URL on change (required for video lessons)
-                    setVideoUrlError(getYouTubeUrlErrorMessage(url, true));
+                    // Only validate if user has typed something
+                    if (url.trim()) {
+                      setVideoUrlError(getYouTubeUrlErrorMessage(url, false));
+                    } else {
+                      setVideoUrlError('');
+                    }
                   }}
                   onBlur={(e) => {
-                    // Re-validate on blur to ensure required check
-                    setVideoUrlError(getYouTubeUrlErrorMessage(e.target.value, true));
+                    // Only show required error on blur if field is empty
+                    const url = e.target.value;
+                    if (!url.trim()) {
+                      setVideoUrlError('');
+                    } else {
+                      setVideoUrlError(getYouTubeUrlErrorMessage(url, false));
+                    }
                   }}
                   disabled={isSaving}
                   placeholder="https://www.youtube.com/watch?v=..."
@@ -1595,7 +1635,7 @@ export default function EditCourseStructure({
             {newLessonData.lessonType === 'Reading' && (
               <div>
                 <Label htmlFor="new-lesson-content" className="text-base">
-                  Lesson Content
+                  Nội dung bài học
                 </Label>
                 <RichTextEditor
                   value={newLessonData.content}
@@ -1605,195 +1645,72 @@ export default function EditCourseStructure({
                       content: value,
                     })
                   }
-                  placeholder="Enter your lesson content here. You can format text, add images, videos, and more..."
+                  placeholder="Nhập nội dung bài học tại đây. Bạn có thể định dạng văn bản, thêm hình ảnh, video và nhiều hơn nữa..."
                   disabled={isSaving}
                 />
               </div>
             )}
-
-            {/* Resources Section */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <Label className="text-base">
-                  Resources ({lessonResources.length})
-                </Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    // Set initial validation errors for empty fields
-                    setResourceUrlError('Resource URL is required');
-                    setShowNewResourceDialog(true);
-                  }}
-                  className="gap-2"
-                >
-                  <Plus className="w-3 h-3" />
-                  Add Resource
-                </Button>
+            {newLessonData.lessonType === 'Quiz' && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-800">
+                  Sau khi tạo bài học Quiz, bạn có thể thêm câu hỏi.
+                </p>
               </div>
-
-              {lessonResources.length > 0 && (
-                <div className="space-y-2 mb-3">
-                  {lessonResources.map((resource, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-2 bg-gray-50 rounded border border-gray-200"
-                    >
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">
-                          {resource.resourceTitle}
-                        </p>
-                        <p className="text-xs text-gray-500">{resource.resourceType}</p>
-                      </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => removeResourceFromLesson(index)}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            )}
           </div>
           <DialogFooter>
             <Button
               variant="outline"
               onClick={() => {
                 setIsCreatingLesson(null);
-                setLessonResources([]);
-                setShowNewResourceDialog(false);
+                setVideoUrlError('');
               }}
               disabled={isSaving}
             >
-              Cancel
+              Hủy
             </Button>
-            <Button 
-              onClick={createLesson} 
+            <Button
+              onClick={() => {
+                // Validate before creating
+                if (newLessonData.lessonType === 'Video' && !newLessonData.videoURL?.trim()) {
+                  setVideoUrlError('URL video là bắt buộc');
+                  return;
+                }
+                createLesson();
+              }}
               disabled={
-                isSaving || 
+                isSaving ||
                 !newLessonData.title.trim() ||
                 newLessonData.duration <= 0 ||
-                (newLessonData.lessonType === 'Video' && (!!videoUrlError || !newLessonData.videoURL?.trim())) ||
+                (newLessonData.lessonType === 'Video' && !!videoUrlError) ||
                 (newLessonData.lessonType === 'Reading' && !newLessonData.content?.trim())
+                // Quiz lessons don't require videoURL or content
               }
             >
-              {isSaving ? 'Creating...' : 'Create'}
+              {isSaving ? 'Đang tạo...' : 'Tạo'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Add Resource to Lesson Dialog (during lesson creation) */}
-      <Dialog open={showNewResourceDialog} onOpenChange={setShowNewResourceDialog}>
-        <DialogContent className="sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>Add Resource</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="lesson-resource-type">Resource Type</Label>
-              <Select
-                value={newResourceData.resourceType}
-                onValueChange={(value) =>
-                  setNewResourceData({
-                    ...newResourceData,
-                    resourceType: value as 'PDF' | 'ExternalLink',
-                  })
-                }
-              >
-                <SelectTrigger disabled={isSaving}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PDF">PDF</SelectItem>
-                  <SelectItem value="ExternalLink">External Link</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="lesson-resource-title">Resource Name</Label>
-              <Input
-                id="lesson-resource-title"
-                value={newResourceData.resourceTitle}
-                onChange={(e) =>
-                  setNewResourceData({
-                    ...newResourceData,
-                    resourceTitle: e.target.value,
-                  })
-                }
-                disabled={isSaving}
-                placeholder="e.g., Grammar Guide"
-              />
-            </div>
-            <div>
-              <Label htmlFor="lesson-resource-url">Resource URL</Label>
-              <Input
-                id="lesson-resource-url"
-                value={newResourceData.resourceURL}
-                onChange={(e) => {
-                  const newValue = e.target.value;
-                  setNewResourceData({
-                    ...newResourceData,
-                    resourceURL: newValue,
-                  });
-                  // Validate resource URL
-                  setResourceUrlError(getResourceUrlErrorMessage(newValue, true));
-                }}
-                onBlur={(e) => {
-                  // Re-validate on blur
-                  setResourceUrlError(getResourceUrlErrorMessage(e.target.value, true));
-                }}
-                disabled={isSaving}
-                placeholder="https://example.com/resource"
-                className={resourceUrlError ? 'border-red-500' : ''}
-              />
-              {resourceUrlError && (
-                <p className="text-sm text-red-600 mt-1">{resourceUrlError}</p>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowNewResourceDialog(false)}
-              disabled={isSaving}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={addResourceToLesson}
-              disabled={
-                isSaving ||
-                !newResourceData.resourceTitle.trim() ||
-                !newResourceData.resourceURL.trim() ||
-                !!resourceUrlError
-              }
-            >
-              Add
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
       {/* Create Resource Dialog (Standalone) */}
       <Dialog
         open={isCreatingResource !== null}
         onOpenChange={(open) => {
-          if (!open) setIsCreatingResource(null);
+          if (!open) {
+            setIsCreatingResource(null);
+            setResourceUrlError('');
+          }
         }}
       >
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Create New Resource</DialogTitle>
+            <DialogTitle>Tạo tài nguyên mới</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label htmlFor="new-resource-type" className="text-base">
-                Resource Type
+                Loại tài nguyên
               </Label>
               <Select
                 value={standaloneResourceData.resourceType}
@@ -1809,13 +1726,13 @@ export default function EditCourseStructure({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="PDF">PDF</SelectItem>
-                  <SelectItem value="ExternalLink">External Link</SelectItem>
+                  <SelectItem value="ExternalLink">Liên kết ngoài</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
               <Label htmlFor="new-resource-title" className="text-base">
-                Resource Name
+                Tên tài nguyên
               </Label>
               <Input
                 id="new-resource-title"
@@ -1827,40 +1744,125 @@ export default function EditCourseStructure({
                   })
                 }
                 disabled={isSaving}
+                placeholder="VD: Tài liệu ngữ pháp"
               />
             </div>
             <div>
               <Label htmlFor="new-resource-url" className="text-base">
-                Resource URL
+                {standaloneResourceData.resourceType === 'PDF' ? 'File tài nguyên' : 'URL tài nguyên'}
               </Label>
-              <Input
-                id="new-resource-url"
-                value={standaloneResourceData.resourceURL}
-                onChange={(e) =>
-                  setStandaloneResourceData({
-                    ...standaloneResourceData,
-                    resourceURL: e.target.value,
-                  })
-                }
-                disabled={isSaving}
-                placeholder="https://example.com/resource"
-              />
+              {standaloneResourceData.resourceType === 'PDF' ? (
+                <FileUploadField
+                  value={standaloneResourceData.resourceURL}
+                  onChange={(url) => {
+                    setStandaloneResourceData({ ...standaloneResourceData, resourceURL: url });
+                    setResourceUrlError('');
+                  }}
+                  allowedTypes={['application/pdf']}
+                  accept=".pdf"
+                  error={resourceUrlError}
+                />
+              ) : (
+                <Input
+                  id="new-resource-url"
+                  value={standaloneResourceData.resourceURL}
+                  onChange={(e) => {
+                    const url = e.target.value;
+                    setStandaloneResourceData({ ...standaloneResourceData, resourceURL: url });
+                    setResourceUrlError(getResourceUrlErrorMessage(url, true));
+                  }}
+                  disabled={isSaving}
+                  placeholder="https://example.com/resource"
+                  className={resourceUrlError ? 'border-red-500' : ''}
+                />
+              )}
+              {resourceUrlError && standaloneResourceData.resourceType !== 'PDF' && (
+                <p className="text-sm text-red-600 mt-1">{resourceUrlError}</p>
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsCreatingResource(null)}
+              onClick={() => {
+                setIsCreatingResource(null);
+                setResourceUrlError('');
+              }}
               disabled={isSaving}
             >
-              Cancel
+              Hủy
             </Button>
             <Button onClick={createResource} disabled={isSaving}>
-              {isSaving ? 'Creating...' : 'Create'}
+              {isSaving ? 'Đang tạo...' : 'Tạo'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Create Question Dialog */}
+      {isCreatingQuestion && (
+        <CreateQuestionDialog
+          open={true}
+          lessonId={isCreatingQuestion}
+          isDraft={isDraft}
+          initialOrderIndex={(() => {
+            const questions = cachedQuestions[isCreatingQuestion] || [];
+            if (questions.length === 0) return 0;
+            // Find max orderIndex and add 1
+            const maxOrderIndex = Math.max(...questions.map((q) => q.orderIndex));
+            return maxOrderIndex + 1;
+          })()}
+          onClose={() => setIsCreatingQuestion(null)}
+          onSuccess={() => {
+            // Invalidate cache for this lesson
+            setCachedQuestions((prev) => {
+              const newCache = { ...prev };
+              delete newCache[isCreatingQuestion];
+              return newCache;
+            });
+            setQuestionRefreshKey((prev) => prev + 1);
+          }}
+        />
+      )}
+
+      {/* Edit Question Dialog */}
+      {editingQuestion && (
+        <EditQuestionDialog
+          open={true}
+          question={editingQuestion}
+          isDraft={isDraft}
+          onClose={() => setEditingQuestion(null)}
+          onSuccess={() => {
+            // Invalidate cache for this lesson
+            const lessonId = editingQuestion.lessonID?.toString();
+            if (lessonId) {
+              setCachedQuestions((prev) => {
+                const newCache = { ...prev };
+                delete newCache[lessonId];
+                return newCache;
+              });
+            }
+            setQuestionRefreshKey((prev) => prev + 1);
+            setEditingQuestion(null);
+          }}
+        />
+      )}
+
+      {/* Delete Question Dialog */}
+      {deletingQuestionId && (
+        <DeleteQuestionDialog
+          open={true}
+          questionId={deletingQuestionId}
+          isDraft={isDraft}
+          onClose={() => setDeletingQuestionId(null)}
+          onSuccess={() => {
+            // Clear all cache to be safe
+            setCachedQuestions({});
+            setQuestionRefreshKey((prev) => prev + 1);
+            setDeletingQuestionId(null);
+          }}
+        />
+      )}
     </>
   );
 }

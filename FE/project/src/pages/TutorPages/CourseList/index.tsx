@@ -1,15 +1,32 @@
+/**
+ * CourseList Page - Tutor Course Management
+ * 
+ * Migration Notes:
+ * - Migrated to use StandardPageHeading with blue-purple gradient
+ * - Migrated to use StandardStatisticsCards with default variant (4 stats)
+ * - Migrated to use StandardFilters for search and select dropdowns
+ * - Removed custom StatsCards and CourseFilters components
+ * - All functionality preserved: filtering, pagination, course actions
+ * 
+ * @see .kiro/specs/tutor-pages-migration/design.md
+ */
+
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, AlertCircle, Loader2, Plus } from 'lucide-react';
+import { BookOpen, AlertCircle, Loader2, Plus, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/components/ui/use-toast';
-import { getAllCourses, deleteCourse, CourseListItem } from './course-list-api';
-import { CourseCard, StatsCards, CourseFilters, CoursePagination } from './components';
+import { useLanguages } from '@/hooks/useLanguages';
+import { getAllCourses, CourseListItem } from './course-list-api';
+import { CourseCard, CoursePagination } from './components';
 import { CourseStats } from './types';
+import { StandardPageHeading } from '@/components/shared/StandardPageHeading';
+import { StandardStatisticsCards } from '@/components/shared/StandardStatisticsCards';
+import { StandardFilters } from '@/components/shared/StandardFilters';
+import { StatCardData, FilterConfig } from '@/components/shared/types/standard-components';
 
 const CourseList = () => {
-  const { toast } = useToast();
+  const { languages } = useLanguages();
   
   // State for filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -22,7 +39,6 @@ const CourseList = () => {
   const [allCourses, setAllCourses] = useState<CourseListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState<number | null>(null);
 
   // Fetch courses from API
   const fetchCourses = async () => {
@@ -37,32 +53,6 @@ const CourseList = () => {
       setAllCourses([]);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // Handle delete course
-  const handleDeleteCourse = async (courseId: number) => {
-    try {
-      setIsDeleting(courseId);
-      
-      await deleteCourse(courseId);
-      
-      // Remove course from local state
-      setAllCourses(prev => prev.filter(course => course.id !== courseId));
-      
-      toast({
-        title: "Thành công",
-        description: "Khóa học đã được xóa thành công",
-      });
-    } catch (error: any) {
-      console.error('Error deleting course:', error);
-      toast({
-        title: "Lỗi",
-        description: error.message || "Không thể xóa khóa học",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(null);
     }
   };
 
@@ -99,44 +89,105 @@ const CourseList = () => {
     rejected: allCourses.filter(c => c.status === 'Rejected').length,
   };
 
+  // Map stats data to StatCardData interface for StandardStatisticsCards
+  const statsData: StatCardData[] = [
+    {
+      label: 'Tổng khóa học',
+      value: stats.total,
+      icon: BookOpen,
+      iconColor: '#3b82f6', // blue-500
+    },
+    {
+      label: 'Đã duyệt',
+      value: stats.approved,
+      icon: CheckCircle,
+      iconColor: '#10b981', // green-500
+    },
+    {
+      label: 'Chờ duyệt',
+      value: stats.pending,
+      icon: Clock,
+      iconColor: '#f59e0b', // amber-500
+    },
+    {
+      label: 'Từ chối',
+      value: stats.rejected,
+      icon: XCircle,
+      iconColor: '#ef4444', // red-500
+    },
+  ];
+
   // Get unique categories from courses
   const categories = Array.from(new Set(allCourses.map(c => c.categoryName)));
 
+  // Configure filters for StandardFilters component
+  const filtersConfig: FilterConfig[] = [
+    {
+      id: 'search',
+      type: 'search',
+      placeholder: 'Tìm kiếm khóa học...',
+      value: searchTerm,
+      onChange: setSearchTerm,
+    },
+    {
+      id: 'status',
+      type: 'select',
+      placeholder: 'Trạng thái',
+      value: selectedStatus,
+      onChange: setSelectedStatus,
+      options: [
+        { value: 'all', label: 'Tất cả trạng thái' },
+        { value: 'Draft', label: 'Bản nháp' },
+        { value: 'Pending', label: 'Chờ duyệt' },
+        { value: 'Approved', label: 'Đã duyệt' },
+        { value: 'Rejected', label: 'Từ chối' },
+      ],
+    },
+    {
+      id: 'category',
+      type: 'select',
+      placeholder: 'Danh mục',
+      value: selectedCategory,
+      onChange: setSelectedCategory,
+      options: [
+        { value: 'all', label: 'Tất cả danh mục' },
+        ...categories.map(cat => ({ value: cat, label: cat })),
+      ],
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      {/* Migrated from custom header to StandardPageHeading */}
+      {/* Gradient colors match the original design */}
+      <StandardPageHeading
+        title="Quản lý khóa học"
+        description="Quản lý và theo dõi tất cả các khóa học của bạn"
+        icon={BookOpen}
+        gradientFrom="from-blue-600"
+        gradientVia="via-purple-600"
+        gradientTo="to-purple-600"
+        actionButtons={
+          <Button asChild size="lg" className="gap-2 shadow-lg hover:shadow-xl transition-all">
+            <Link to="/create-courses">
+              <Plus className="w-5 h-5" />
+              Tạo khóa học mới
+            </Link>
+          </Button>
+        }
+      />
+
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-                Quản lý khóa học
-              </h1>
-              <p className="text-gray-600">
-                Quản lý và theo dõi tất cả các khóa học của bạn
-              </p>
-            </div>
-            <Button asChild size="lg" className="gap-2 shadow-lg hover:shadow-xl transition-all">
-              <Link to="/create-courses">
-                <Plus className="w-5 h-5" />
-                Tạo khóa học mới
-              </Link>
-            </Button>
+          {/* Migrated from custom StatsCards to StandardStatisticsCards */}
+          {/* Using default variant with 4 stat cards */}
+          <StandardStatisticsCards stats={statsData} variant="default" />
+
+          {/* Migrated from custom CourseFilters to StandardFilters */}
+          {/* Configured with search and select dropdowns */}
+          <div className="mt-6">
+            <StandardFilters filters={filtersConfig} />
           </div>
-
-          {/* Stats Cards */}
-          <StatsCards stats={stats} />
-
-          {/* Filters */}
-          <CourseFilters
-            searchTerm={searchTerm}
-            selectedStatus={selectedStatus}
-            selectedCategory={selectedCategory}
-            categories={categories}
-            onSearchChange={setSearchTerm}
-            onStatusChange={setSelectedStatus}
-            onCategoryChange={setSelectedCategory}
-          />
         </div>
 
         {/* Error State */}
@@ -200,7 +251,7 @@ const CourseList = () => {
                   key={course.id} 
                   course={course} 
                   index={index}
-                  onDelete={handleDeleteCourse}
+                  languages={languages}
                 />
               ))}
             </div>

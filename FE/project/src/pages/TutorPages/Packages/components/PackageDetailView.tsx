@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Edit, 
-  Trash2, 
-  Users, 
-  Calendar, 
-  Clock, 
-  DollarSign,
+import {
+  Edit,
+  Trash2,
+  Users,
+  Calendar,
+  Clock,
   FileText,
   Target,
   CheckCircle,
   AlertCircle,
-  Loader2
+  Loader2,
+  ArrowLeft
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { tutorPackageApi } from '../api';
 import { Package } from '../types';
 import BackButton from './BackButton';
+import { StandardPageHeading } from '@/components/shared';
 
 interface PackageDetailViewProps {
   packageId: number;
@@ -48,7 +49,7 @@ const PackageDetailView: React.FC<PackageDetailViewProps> = ({
       const data = await tutorPackageApi.getPackageById(packageId);
       setPackageData(data);
     } catch (err: any) {
-      setError(err.message || 'Không thể tải thông tin package');
+      setError(err.message || 'Không thể tải thông tin gói dịch vụ');
       console.error('Error fetching package details:', err);
     } finally {
       setIsLoading(false);
@@ -66,14 +67,6 @@ const PackageDetailView: React.FC<PackageDetailViewProps> = ({
     });
   };
 
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(amount);
-  };
-
   // Loading state
   if (isLoading) {
     return (
@@ -82,7 +75,7 @@ const PackageDetailView: React.FC<PackageDetailViewProps> = ({
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <Loader2 className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
-            <p className="text-gray-600">Đang tải thông tin package...</p>
+            <p className="text-gray-600">Đang tải thông tin gói dịch vụ...</p>
           </div>
         </div>
       </div>
@@ -124,35 +117,41 @@ const PackageDetailView: React.FC<PackageDetailViewProps> = ({
       >
         {/* Header Section */}
         <div className="mb-6">
-          <div className="flex items-start justify-between mb-4">
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                {packageData.name}
-              </h1>
-              <Badge 
+          <StandardPageHeading
+            title={packageData.name}
+            children={
+              <Badge
                 variant={packageData.is_active ? "default" : "secondary"}
-                className={packageData.is_active ? "bg-green-500 hover:bg-green-600" : "bg-gray-500 hover:bg-gray-600"}
+                className={packageData.is_active ? "bg-green-500 hover:bg-green-600 mt-2" : "bg-gray-500 hover:bg-gray-600 mt-2"}
               >
                 {packageData.is_active ? "Hoạt động" : "Không hoạt động"}
               </Badge>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => onEdit(packageData.packageid)}
-                className="bg-blue-600 hover:bg-blue-700"
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Chỉnh sửa
-              </Button>
-              <Button
-                onClick={() => onDelete(packageData.packageid)}
-                variant="destructive"
-              >
-                <Trash2 className="w-4 h-4 mr-2" />
-                Xóa
-              </Button>
-            </div>
-          </div>
+            }
+            icon={FileText}
+            gradientFrom="from-blue-600"
+            gradientVia="via-indigo-600"
+            gradientTo="to-purple-600"
+            actionButtons={
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => onEdit(packageData.packageid)}
+                  className="bg-white/20 hover:bg-white/30 text-white border-none"
+                  variant="secondary"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Chỉnh sửa
+                </Button>
+                <Button
+                  onClick={() => onDelete(packageData.packageid)}
+                  className="bg-red-500/80 hover:bg-red-600/90 text-white border-none"
+                  variant="secondary"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Xóa
+                </Button>
+              </div>
+            }
+          />
         </div>
 
         {/* Main Content Grid */}
@@ -258,18 +257,7 @@ const PackageDetailView: React.FC<PackageDetailViewProps> = ({
                   </span>
                 </div>
 
-                {/* Min Booking Price */}
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-5 h-5 text-green-600" />
-                    <span className="text-sm font-medium text-gray-700">
-                      Giá tối thiểu/giờ
-                    </span>
-                  </div>
-                  <span className="text-lg font-bold text-green-600">
-                    {formatCurrency(packageData.min_booking_price_per_hour)}
-                  </span>
-                </div>
+
               </CardContent>
             </Card>
 

@@ -1,9 +1,22 @@
+/**
+ * Schedule Page - Tutor Schedule Management
+ * 
+ * Migration Notes:
+ * - Migrated to use StandardPageHeading with blue-purple gradient
+ * - Kept existing 3-column layout intact (config, schedule table, booking plans list)
+ * - All functionality preserved: CRUD operations, time slot generation
+ * - No changes to complex state management
+ * 
+ * @see .kiro/specs/tutor-pages-migration/design.md
+ */
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
+import { Calendar } from 'lucide-react';
 import { DaySchedule, TimeSlot, BookingPlanRequest, BookingPlan, BookingPlanRaw } from '@/pages/TutorPages/Schedule/type';
 import { bookingPlanApi } from '@/pages/TutorPages/Schedule/booking-plan-api';
 import { ScheduleConfig } from './components/ScheduleConfig';
@@ -11,6 +24,7 @@ import { DaySelection } from './components/DaySelection';
 import { DayTimeCustomization } from './components/DayTimeCustomization';
 import { ScheduleTable } from './components/ScheduleTable';
 import { BookingPlansList } from './components/BookingPlansList';
+import { StandardPageHeading } from '@/components/shared';
 
 const TutorSchedule: React.FC = () => {
   // Add error state for component-level error handling
@@ -590,12 +604,19 @@ const TutorSchedule: React.FC = () => {
   }
 
   return (
-    <div className="p-4 h-screen flex flex-col overflow-hidden">
-      <div className="mb-3 flex-shrink-0">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">Schedule</h1>
-      </div>
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Migrated from custom header to StandardPageHeading */}
+      {/* Gradient colors match the original design */}
+      <StandardPageHeading
+        title="Lịch làm việc"
+        description="Quản lý lịch làm việc và booking plans"
+        icon={Calendar}
+        gradientFrom="from-blue-600"
+        gradientVia="via-purple-600"
+        gradientTo="to-purple-600"
+      />
 
-      <div className="grid grid-cols-1 xl:grid-cols-[320px,1fr,300px] gap-3 flex-1 overflow-hidden min-h-0">
+      <div className="p-4 grid grid-cols-1 xl:grid-cols-[320px,1fr,300px] gap-3 flex-1 overflow-hidden min-h-0">
         {/* Left Panel - Configuration */}
         <Card className="flex flex-col overflow-hidden">
           <CardHeader className="pb-2 flex-shrink-0">

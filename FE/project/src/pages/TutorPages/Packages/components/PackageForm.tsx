@@ -89,7 +89,7 @@ const PackageForm: React.FC<PackageFormProps> = ({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Package className="w-5 h-5" />
-            {mode === 'create' ? 'Tạo Package Mới' : 'Chỉnh Sửa Package'}
+            {mode === 'create' ? 'Tạo gói dịch vụ mới' : 'Chỉnh sửa gói dịch vụ'}
           </CardTitle>
         </CardHeader>
         
@@ -98,7 +98,7 @@ const PackageForm: React.FC<PackageFormProps> = ({
             {/* Package Name */}
             <div className="space-y-2">
               <Label htmlFor="name" className="text-sm font-medium">
-                Tên Package <span className="text-red-500">*</span>
+                Tên gói dịch vụ <span className="text-red-500">*</span>
               </Label>
               <Controller
                 name="name"
@@ -108,7 +108,7 @@ const PackageForm: React.FC<PackageFormProps> = ({
                     {...field}
                     id="name"
                     type="text"
-                    placeholder="Nhập tên package (ví dụ: Khóa học tiếng Anh giao tiếp cơ bản)"
+                    placeholder="Nhập tên gói dịch vụ (ví dụ: Khóa học tiếng Anh giao tiếp cơ bản)"
                     className={errors.name ? 'border-red-500 focus-visible:ring-red-500' : ''}
                     disabled={isLoading}
                   />
@@ -125,7 +125,7 @@ const PackageForm: React.FC<PackageFormProps> = ({
             {/* Package Description */}
             <div className="space-y-2">
               <Label htmlFor="description" className="text-sm font-medium">
-                Mô Tả Package <span className="text-red-500">*</span>
+                Mô tả gói dịch vụ <span className="text-red-500">*</span>
               </Label>
               <Controller
                 name="description"
@@ -134,7 +134,7 @@ const PackageForm: React.FC<PackageFormProps> = ({
                   <Textarea
                     {...field}
                     id="description"
-                    placeholder="Nhập mô tả chi tiết về package, bao gồm nội dung, phương pháp giảng dạy..."
+                    placeholder="Nhập mô tả chi tiết về gói dịch vụ, bao gồm nội dung, phương pháp giảng dạy..."
                     className={errors.description ? 'border-red-500 focus-visible:ring-red-500' : ''}
                     rows={4}
                     disabled={isLoading}
@@ -152,7 +152,7 @@ const PackageForm: React.FC<PackageFormProps> = ({
             {/* Requirement */}
             <div className="space-y-2">
               <Label htmlFor="requirement" className="text-sm font-medium">
-                Yêu Cầu <span className="text-red-500">*</span>
+                Yêu cầu <span className="text-red-500">*</span>
               </Label>
               <Controller
                 name="requirement"
@@ -179,7 +179,7 @@ const PackageForm: React.FC<PackageFormProps> = ({
             {/* Objectives */}
             <div className="space-y-2">
               <Label htmlFor="objectives" className="text-sm font-medium">
-                Mục Tiêu <span className="text-red-500">*</span>
+                Mục tiêu <span className="text-red-500">*</span>
               </Label>
               <Controller
                 name="objectives"
@@ -206,7 +206,7 @@ const PackageForm: React.FC<PackageFormProps> = ({
             {/* Max Slots */}
             <div className="space-y-2">
               <Label htmlFor="max_slots" className="text-sm font-medium">
-                Số Slot Tối Đa <span className="text-red-500">*</span>
+                Số slot tối đa <span className="text-red-500">*</span>
               </Label>
               <Controller
                 name="max_slots"
@@ -229,7 +229,7 @@ const PackageForm: React.FC<PackageFormProps> = ({
                 <p className="text-sm text-red-500">{errors.max_slots.message}</p>
               )}
               <p className="text-xs text-gray-500">
-                Số lượng học viên tối đa có thể tham gia package này
+                Số lượng học viên tối đa có thể tham gia gói dịch vụ này
               </p>
             </div>
 
@@ -273,7 +273,7 @@ const PackageForm: React.FC<PackageFormProps> = ({
                 className="flex-1"
               >
                 {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                {mode === 'create' ? 'Tạo Package' : 'Cập Nhật Package'}
+                {mode === 'create' ? 'Tạo gói dịch vụ' : 'Cập nhật gói dịch vụ'}
               </Button>
             </div>
           </form>

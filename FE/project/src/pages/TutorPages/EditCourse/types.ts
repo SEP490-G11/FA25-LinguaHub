@@ -20,12 +20,13 @@ export interface Lesson {
   lessonID: number;
   title: string;
   duration: number;
-  lessonType: 'Video' | 'Reading';
+  lessonType: 'Video' | 'Reading' | 'Quiz';
   videoURL?: string;
   content?: string;
   orderIndex: number;
   createdAt: string;
   resources: Resource[];
+  questionCount?: number;
 }
 
 // Section types
@@ -86,7 +87,7 @@ export interface UpdateSectionRequest {
 export interface UpdateLessonRequest {
   title: string;
   duration: number;
-  lessonType: 'Video' | 'Reading';
+  lessonType: 'Video' | 'Reading' | 'Quiz';
   videoURL?: string;
   content?: string;
   orderIndex: number;

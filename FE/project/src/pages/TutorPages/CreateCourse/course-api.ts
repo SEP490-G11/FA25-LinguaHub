@@ -1,7 +1,31 @@
 ﻿import axios from '@/config/axiosConfig';
-import { CATEGORIES, LANGUAGES, type Category, type Language } from '@/constants/categories';
+import { getCurrentLocale } from '@/utils/locale';
 
-export type { Category, Language };
+// Language type matching API response
+export interface LanguageResponse {
+  id: number;
+  nameVi: string;
+  nameEn: string;
+  isActive: boolean;
+  difficulty: string;
+  certificates: string;
+  thumbnailUrl: string;
+}
+
+// Transformed language type for UI
+export interface Language {
+  id: number;
+  name: string;        // nameEn for storage
+  displayName: string; // nameVi or nameEn based on locale
+  code: string;        // derived from nameEn
+}
+
+// Category type matching API response
+export interface Category {
+  categoryId: number;
+  categoryName: string;
+  description: string;
+}
 
 export interface CourseFormData {
   title: string;
@@ -26,7 +50,7 @@ export interface SectionFormData {
 export interface LessonFormData {
   title: string;
   duration: number;
-  lessonType: 'Video' | 'Reading';
+  lessonType: 'Video' | 'Reading' | 'Quiz';
   videoURL?: string;
   content?: string;
   orderIndex: number;
@@ -62,11 +86,12 @@ export interface LessonData {
   id?: string;
   title: string;
   duration: number;
-  lessonType?: 'Video' | 'Reading';
+  lessonType?: 'Video' | 'Reading' | 'Quiz';
   videoURL?: string;
   content?: string;
   orderIndex: number;
   resources?: LessonResourceData[];
+  questionCount?: number;
 }
 
 interface ApiResponse<T> {
@@ -198,11 +223,166 @@ export const courseApi = {
   },
 
   deleteObjective: async (objectiveId: string): Promise<void> => {
-    await axios.delete<any>(`/courses/objectives/${objectiveId}`);
+    await axios.delete<any>(`/course-objectives/${objectiveId}`);
   },
 };
 
-export const getCategories = (): Category[] => [...CATEGORIES];
-export const getLanguages = (): Language[] => [...LANGUAGES];
+/**
+ * Fetch categories from API
+ * GET /categories
+ */
+export const getCategories = async (): Promise<Category[]> => {
+  try {
+    const response = await axios.get<Category[]>('/categories');
+    // Handle different response formats
+    const categoriesData = response.data || [];
+    return categoriesData;
+  } catch (error) {
+    console.error('Failed to fetch categories:', error);
+    return [];
+  }
+};
+
+/**
+ * Derive language code from English name
+ * @param nameEn - English name of language
+ * @returns ISO 639-1 language code
+ */
+function deriveLanguageCode(nameEn: string): string {
+  const codeMap: Record<string, string> = {
+    'English': 'en',
+    'Vietnamese': 'vi',
+    'Japanese': 'ja',
+    'Chinese': 'zh',
+    'Korean': 'ko',
+    'French': 'fr',
+    'Spanish': 'es',
+    'German': 'de',
+    'Russian': 'ru',
+  };
+  return codeMap[nameEn] || 'en';
+}
+
+/**
+ * Get display name for a language based on current locale
+ * Falls back to nameEn if the locale-specific name is missing or empty
+ * @param lang - Language response from API
+ * @returns Display name for the language
+ */
+function getDisplayName(lang: LanguageResponse): string {
+  const locale = getCurrentLocale();
+  
+  if (locale === 'vi') {
+    // Use Vietnamese name if available, fallback to English
+    return lang.nameVi && lang.nameVi.trim() !== '' ? lang.nameVi : lang.nameEn;
+  }
+  
+  // For English locale, use English name
+  return lang.nameEn;
+}
+
+/**
+ * Fetch languages from API
+ * GET /languages
+ * @returns Promise<Language[]> - List of active languages
+ */
+export const getLanguages = async (): Promise<Language[]> => {
+  const response = await axios.get<{ 
+    code: number; 
+    message: string; 
+    result: LanguageResponse[] 
+  }>('/languages');
+  
+  const languages = response.data.result || [];
+  
+  // Filter active languages and transform to UI format
+  return languages
+    .filter(lang => lang.isActive)
+    .map(lang => ({
+      id: lang.id,
+      name: lang.nameEn,
+      displayName: getDisplayName(lang),
+      code: deriveLanguageCode(lang.nameEn),
+    }))
+    .sort((a, b) => a.displayName.localeCompare(b.displayName));
+};
 
 export default courseApi;
+
+/**
+ * Fetch course detail by ID
+ * GET /tutor/courses/{courseId}
+ */
+export const getCourseDetail = async (courseId: string): Promise<CourseFormData> => {
+  try {
+    const response = await axios.get<any>(`/tutor/courses/${courseId}`);
+    const courseData = response.data?.result || response.data;
+    return {
+      title: courseData.title,
+      shortDescription: courseData.shortDescription,
+      description: courseData.description,
+      requirement: courseData.requirement,
+      level: courseData.level,
+      categoryID: courseData.categoryID,
+      language: courseData.language,
+      duration: courseData.duration,
+      price: courseData.price,
+      thumbnailURL: courseData.thumbnailURL,
+    };
+  } catch (error) {
+    console.error('Failed to fetch course detail:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch objectives for a course
+ * GET /courses/{courseId}/objectives
+ */
+export const getObjectives = async (courseId: string): Promise<any[]> => {
+  try {
+    const response = await axios.get<any>(`/courses/${courseId}/objectives`);
+    const objectives = response.data?.result || response.data || [];
+    return objectives;
+  } catch (error) {
+    console.error('Failed to fetch objectives:', error);
+    return [];
+  }
+};
+
+/**
+ * Fetch sections with lessons and resources for a course
+ * GET /tutor/courses/{courseId}/sections
+ */
+export const getSections = async (courseId: string): Promise<SectionData[]> => {
+  try {
+    const response = await axios.get<any>(`/tutor/courses/${courseId}/sections`);
+    const sections = response.data?.result || response.data || [];
+    
+    // Transform API response to match SectionData interface
+    return sections.map((section: any) => ({
+      id: section.sectionID?.toString() || section.id?.toString(),
+      title: section.title,
+      description: section.description,
+      orderIndex: section.orderIndex,
+      lessons: (section.lessons || []).map((lesson: any) => ({
+        id: lesson.lessonID?.toString() || lesson.id?.toString(),
+        title: lesson.title,
+        duration: lesson.duration,
+        lessonType: lesson.lessonType,
+        videoURL: lesson.videoURL,
+        content: lesson.content,
+        orderIndex: lesson.orderIndex,
+        resources: (lesson.resources || []).map((resource: any) => ({
+          id: resource.resourceID?.toString() || resource.id?.toString(),
+          resourceType: resource.resourceType,
+          resourceTitle: resource.resourceTitle,
+          resourceURL: resource.resourceURL,
+        })),
+      })),
+    }));
+  } catch (error) {
+    console.error('Failed to fetch sections:', error);
+    return [];
+  }
+};

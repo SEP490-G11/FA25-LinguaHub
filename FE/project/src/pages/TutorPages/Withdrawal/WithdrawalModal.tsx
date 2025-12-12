@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle, AlertCircle } from 'lucide-react';
 import { WithdrawalResponse } from './types';
 import { formatCurrency, formatDate } from '../Payment/utils';
+import { ROUTES } from '@/constants/routes';
 
 interface WithdrawalModalProps {
   isOpen: boolean;
@@ -30,7 +31,7 @@ export default function WithdrawalModal({
 
   const handleViewHistory = () => {
     onClose();
-    navigate('/payments');
+    navigate(ROUTES.PAYMENTS);
   };
 
   const getStatusText = (status: string) => {

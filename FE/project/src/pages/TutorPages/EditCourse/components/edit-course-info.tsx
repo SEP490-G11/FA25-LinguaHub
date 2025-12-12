@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import {
   Select,
   SelectContent,
@@ -10,6 +10,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { FileUploadField } from '@/components/shared/FileUploadField';
+import { useLanguages } from '@/hooks/useLanguages';
 import { CourseDetail } from '../types';
 
 interface EditCourseInfoProps {
@@ -23,6 +25,8 @@ export default function EditCourseInfo({
   onSave,
   isSubmitting,
 }: EditCourseInfoProps) {
+  const { languages, isLoading: isLoadingLanguages, error: languageError, refetch: refetchLanguages } = useLanguages();
+
   const [formData, setFormData] = useState({
     title: course.title,
     shortDescription: course.shortDescription || '',
@@ -37,6 +41,7 @@ export default function EditCourseInfo({
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
+
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -53,6 +58,16 @@ export default function EditCourseInfo({
     }
   };
 
+  const handleEditorChange = (name: string, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+  };
+
   const handleSelectChange = (name: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -60,6 +75,13 @@ export default function EditCourseInfo({
     }));
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleThumbnailChange = (url: string) => {
+    setFormData(prev => ({ ...prev, thumbnailURL: url }));
+    if (url) {
+      setErrors(prev => ({ ...prev, thumbnailURL: '' }));
     }
   };
 
@@ -91,7 +113,17 @@ export default function EditCourseInfo({
       newErrors.language = 'Please select a language';
     }
     if (!formData.thumbnailURL.trim()) {
-      newErrors.thumbnailURL = 'Please enter image URL';
+      newErrors.thumbnailURL = 'Vui lòng nhập URL ảnh bìa';
+    } else {
+      // Validate URL format
+      try {
+        const url = new URL(formData.thumbnailURL);
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+          newErrors.thumbnailURL = 'URL phải bắt đầu bằng http:// hoặc https://';
+        }
+      } catch (error) {
+        newErrors.thumbnailURL = 'URL không hợp lệ. Vui lòng nhập URL đầy đủ (VD: https://example.com/image.jpg)';
+      }
     }
 
     setErrors(newErrors);
@@ -110,14 +142,14 @@ export default function EditCourseInfo({
       {/* Course Title */}
       <div>
         <Label htmlFor="title" className="text-base font-semibold mb-2">
-          Course Title <span className="text-red-500">*</span>
+          Tiêu đề khóa học <span className="text-red-500">*</span>
         </Label>
         <Input
           id="title"
           name="title"
           value={formData.title}
           onChange={handleChange}
-          placeholder="e.g., IELTS Masterclass"
+          placeholder="VD: Luyện thi IELTS toàn diện"
           disabled={isSubmitting}
           className={errors.title ? 'border-red-500' : ''}
         />
@@ -129,14 +161,14 @@ export default function EditCourseInfo({
       {/* Short Description */}
       <div>
         <Label htmlFor="shortDescription" className="text-base font-semibold mb-2">
-          Short Description <span className="text-red-500">*</span>
+          Mô tả ngắn <span className="text-red-500">*</span>
         </Label>
         <Input
           id="shortDescription"
           name="shortDescription"
           value={formData.shortDescription}
           onChange={handleChange}
-          placeholder="Brief summary of your course (max 200 characters)"
+          placeholder="Tóm tắt ngắn gọn về khóa học (tối đa 200 ký tự)"
           disabled={isSubmitting}
           maxLength={200}
           className={errors.shortDescription ? 'border-red-500' : ''}
@@ -152,17 +184,14 @@ export default function EditCourseInfo({
       {/* Course Description */}
       <div>
         <Label htmlFor="description" className="text-base font-semibold mb-2">
-          Course Description <span className="text-red-500">*</span>
+          Mô tả khóa học <span className="text-red-500">*</span>
         </Label>
-        <Textarea
-          id="description"
-          name="description"
+        <RichTextEditor
           value={formData.description}
-          onChange={handleChange}
-          placeholder="Provide a detailed description of your course..."
-          rows={4}
+          onChange={(value) => handleEditorChange('description', value)}
+          placeholder="Cung cấp mô tả chi tiết về khóa học của bạn..."
           disabled={isSubmitting}
-          className={errors.description ? 'border-red-500' : ''}
+          className={errors.description ? 'border-red-500 rounded-md' : ''}
         />
         {errors.description && (
           <p className="text-red-500 text-sm mt-1">{errors.description}</p>
@@ -172,17 +201,14 @@ export default function EditCourseInfo({
       {/* Requirement */}
       <div>
         <Label htmlFor="requirement" className="text-base font-semibold mb-2">
-          Course Requirements <span className="text-red-500">*</span>
+          Yêu cầu khóa học <span className="text-red-500">*</span>
         </Label>
-        <Textarea
-          id="requirement"
-          name="requirement"
+        <RichTextEditor
           value={formData.requirement}
-          onChange={handleChange}
-          placeholder="List the requirements to take this course..."
-          rows={4}
+          onChange={(value) => handleEditorChange('requirement', value)}
+          placeholder="Liệt kê các yêu cầu để tham gia khóa học này..."
           disabled={isSubmitting}
-          className={errors.requirement ? 'border-red-500' : ''}
+          className={errors.requirement ? 'border-red-500 rounded-md' : ''}
         />
         {errors.requirement && (
           <p className="text-red-500 text-sm mt-1">{errors.requirement}</p>
@@ -193,7 +219,7 @@ export default function EditCourseInfo({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <Label htmlFor="duration" className="text-base font-semibold mb-2">
-            Duration (hours) <span className="text-red-500">*</span>
+            Thời lượng (giờ) <span className="text-red-500">*</span>
           </Label>
           <Input
             id="duration"
@@ -202,7 +228,7 @@ export default function EditCourseInfo({
             min="1"
             value={formData.duration}
             onChange={handleChange}
-            placeholder="e.g., 40"
+            placeholder="VD: 40"
             disabled={isSubmitting}
             className={errors.duration ? 'border-red-500' : ''}
           />
@@ -213,7 +239,7 @@ export default function EditCourseInfo({
 
         <div>
           <Label htmlFor="price" className="text-base font-semibold mb-2">
-            Price (VND) <span className="text-red-500">*</span>
+            Giá (VND) <span className="text-red-500">*</span>
           </Label>
           <Input
             id="price"
@@ -222,7 +248,7 @@ export default function EditCourseInfo({
             min="0"
             value={formData.price}
             onChange={handleChange}
-            placeholder="e.g., 750000"
+            placeholder="VD: 750000"
             disabled={isSubmitting}
             className={errors.price ? 'border-red-500' : ''}
           />
@@ -236,16 +262,16 @@ export default function EditCourseInfo({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <Label htmlFor="level" className="text-base font-semibold mb-2">
-            Level <span className="text-red-500">*</span>
+            Cấp độ <span className="text-red-500">*</span>
           </Label>
           <Select value={formData.level} onValueChange={(value) => handleSelectChange('level', value as 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED')}>
             <SelectTrigger disabled={isSubmitting} className={errors.level ? 'border-red-500' : ''}>
-              <SelectValue placeholder="Select level" />
+              <SelectValue placeholder="Chọn cấp độ" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="BEGINNER">Beginner</SelectItem>
-              <SelectItem value="INTERMEDIATE">Intermediate</SelectItem>
-              <SelectItem value="ADVANCED">Advanced</SelectItem>
+              <SelectItem value="BEGINNER">Cơ bản</SelectItem>
+              <SelectItem value="INTERMEDIATE">Trung cấp</SelectItem>
+              <SelectItem value="ADVANCED">Nâng cao</SelectItem>
             </SelectContent>
           </Select>
           {errors.level && (
@@ -255,50 +281,60 @@ export default function EditCourseInfo({
 
         <div>
           <Label htmlFor="language" className="text-base font-semibold mb-2">
-            Teaching Language <span className="text-red-500">*</span>
+            Ngôn ngữ giảng dạy <span className="text-red-500">*</span>
           </Label>
-          <Select value={formData.language} onValueChange={(value) => handleSelectChange('language', value)}>
-            <SelectTrigger disabled={isSubmitting} className={errors.language ? 'border-red-500' : ''}>
-              <SelectValue placeholder="Select language" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="English">English</SelectItem>
-              <SelectItem value="Vietnamese">Vietnamese</SelectItem>
-              <SelectItem value="French">French</SelectItem>
-              <SelectItem value="Spanish">Spanish</SelectItem>
-              <SelectItem value="German">German</SelectItem>
-              <SelectItem value="Japanese">Japanese</SelectItem>
-              <SelectItem value="Chinese">Chinese</SelectItem>
-              <SelectItem value="Korean">Korean</SelectItem>
-            </SelectContent>
-          </Select>
-          {errors.language && (
-            <p className="text-red-500 text-sm mt-1">{errors.language}</p>
+          {languageError ? (
+            <div className="space-y-2">
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-red-600 text-sm">{languageError}</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={refetchLanguages}
+                className="w-full"
+              >
+                Thử lại
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Select
+                value={formData.language}
+                onValueChange={(value) => handleSelectChange('language', value)}
+                disabled={isSubmitting || isLoadingLanguages}
+              >
+                <SelectTrigger className={errors.language ? 'border-red-500' : ''}>
+                  <SelectValue placeholder={isLoadingLanguages ? "Đang tải..." : "Chọn ngôn ngữ"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {languages.map((lang) => (
+                    <SelectItem key={lang.id} value={lang.name}>
+                      {lang.displayName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.language && (
+                <p className="text-red-500 text-sm mt-1">{errors.language}</p>
+              )}
+            </>
           )}
         </div>
       </div>
 
       {/* Thumbnail URL */}
-      <div>
-        <Label htmlFor="thumbnailURL" className="text-base font-semibold mb-2">
-          Thumbnail Image URL <span className="text-red-500">*</span>
-        </Label>
-        <Input
-          id="thumbnailURL"
-          name="thumbnailURL"
-          value={formData.thumbnailURL}
-          onChange={handleChange}
-          placeholder="e.g., https://example.com/image.jpg"
-          disabled={isSubmitting}
-          className={errors.thumbnailURL ? 'border-red-500' : ''}
-        />
-        <p className="text-xs text-gray-500 mt-1">
-          Supported formats: JPG, PNG
-        </p>
-        {errors.thumbnailURL && (
-          <p className="text-red-500 text-sm mt-1">{errors.thumbnailURL}</p>
-        )}
-      </div>
+      {/* Thumbnail URL */}
+      <FileUploadField
+        value={formData.thumbnailURL || ''}
+        onChange={handleThumbnailChange}
+        label="Ảnh bìa"
+        error={errors.thumbnailURL}
+        disabled={isSubmitting}
+        allowedTypes={['image/']}
+        accept="image/*"
+      />
 
       {/* Submit Button */}
       <div className="flex justify-end gap-4 pt-6">
@@ -307,7 +343,7 @@ export default function EditCourseInfo({
           disabled={isSubmitting}
           className="bg-blue-600 hover:bg-blue-700 text-white font-semibold"
         >
-          {isSubmitting ? 'Saving...' : 'Continue'}
+          {isSubmitting ? 'Đang lưu...' : 'Tiếp tục'}
         </Button>
       </div>
     </form>

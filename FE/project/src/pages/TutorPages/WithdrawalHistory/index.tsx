@@ -1,3 +1,16 @@
+/**
+ * WithdrawalHistory Page - Tutor Withdrawal History
+ * 
+ * Migration Notes:
+ * - Migrated to use StandardPageHeading with teal-cyan-blue gradient
+ * - Migrated to use StandardStatisticsCards with compact variant (6 stats in header)
+ * - Kept sticky positioning for header
+ * - Removed custom Card components in header
+ * - All functionality preserved: data fetching, table rendering, retry
+ * 
+ * @see .kiro/specs/tutor-pages-migration/design.md
+ */
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -13,7 +26,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-  ArrowLeft,
   Loader2,
   AlertCircle,
   History,
@@ -21,9 +33,13 @@ import {
   CheckCircle,
   XCircle,
   FileText,
+  DollarSign,
 } from 'lucide-react';
+import { StandardPageHeading } from '@/components/shared/StandardPageHeading';
+import { PageHeadingStatistic } from '@/components/shared/types/standard-components';
 import { withdrawalHistoryApi } from './api';
 import { WithdrawalHistoryItem, WithdrawalStatus } from './types';
+import { ROUTES } from '@/constants/routes';
 
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('vi-VN', {
@@ -112,76 +128,53 @@ export default function WithdrawalHistoryPage() {
       .reduce((sum, w) => sum + w.withdrawAmount, 0),
   };
 
+  // Prepare statistics for StandardPageHeading
+  const headerStats: PageHeadingStatistic[] = [
+    {
+      label: 'Tổng yêu cầu',
+      value: stats.total,
+      icon: FileText,
+    },
+    {
+      label: 'Chờ duyệt',
+      value: stats.pending,
+      icon: Clock,
+    },
+    {
+      label: 'Đã duyệt',
+      value: stats.approved,
+      icon: CheckCircle,
+    },
+    {
+      label: 'Hoàn thành',
+      value: stats.completed,
+      icon: CheckCircle,
+    },
+    {
+      label: 'Từ chối',
+      value: stats.rejected,
+      icon: XCircle,
+    },
+    {
+      label: 'Đã rút',
+      value: formatCurrency(stats.totalWithdrawn),
+      icon: DollarSign,
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="sticky top-0 z-10 bg-white shadow-md">
-        <div className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600">
-          <div className="max-w-[1600px] mx-auto px-6 py-5">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="ghost"
-                  onClick={() => navigate('/payments')}
-                  className="text-white hover:bg-white/20"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Quay lại
-                </Button>
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center border border-white/30">
-                  <History className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-white">Lịch sử rút tiền</h1>
-                  <p className="text-cyan-100 text-sm">Theo dõi các yêu cầu rút tiền của bạn</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-              <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
-                <CardContent className="pt-4 pb-3 px-4">
-                  <div className="text-xs font-medium text-white/80 mb-1">Tổng yêu cầu</div>
-                  <div className="text-xl font-bold">{stats.total}</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
-                <CardContent className="pt-4 pb-3 px-4">
-                  <div className="text-xs font-medium text-white/80 mb-1">Chờ duyệt</div>
-                  <div className="text-xl font-bold text-yellow-300">{stats.pending}</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
-                <CardContent className="pt-4 pb-3 px-4">
-                  <div className="text-xs font-medium text-white/80 mb-1">Đã duyệt</div>
-                  <div className="text-xl font-bold text-blue-300">{stats.approved}</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
-                <CardContent className="pt-4 pb-3 px-4">
-                  <div className="text-xs font-medium text-white/80 mb-1">Hoàn thành</div>
-                  <div className="text-xl font-bold text-green-300">{stats.completed}</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
-                <CardContent className="pt-4 pb-3 px-4">
-                  <div className="text-xs font-medium text-white/80 mb-1">Từ chối</div>
-                  <div className="text-xl font-bold text-red-300">{stats.rejected}</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white">
-                <CardContent className="pt-4 pb-3 px-4">
-                  <div className="text-xs font-medium text-white/80 mb-1">Đã rút</div>
-                  <div className="text-base font-bold">{formatCurrency(stats.totalWithdrawn)}</div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </div>
+      {/* Migrated to StandardPageHeading with teal-cyan-blue gradient */}
+      <div>
+        <StandardPageHeading
+          title="Lịch sử rút tiền"
+          description="Theo dõi các yêu cầu rút tiền của bạn"
+          icon={History}
+          gradientFrom="from-teal-600"
+          gradientVia="via-cyan-600"
+          gradientTo="to-blue-600"
+          statistics={headerStats}
+        />
       </div>
 
       <div className="max-w-[1600px] mx-auto px-6 py-6">
@@ -216,7 +209,7 @@ export default function WithdrawalHistoryPage() {
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Chưa có lịch sử</h3>
             <p className="text-gray-500 text-sm mb-4">Bạn chưa có yêu cầu rút tiền nào</p>
-            <Button onClick={() => navigate('/withdrawal')} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={() => navigate(ROUTES.WITHDRAWAL)} className="bg-blue-600 hover:bg-blue-700">
               Tạo yêu cầu rút tiền
             </Button>
           </div>

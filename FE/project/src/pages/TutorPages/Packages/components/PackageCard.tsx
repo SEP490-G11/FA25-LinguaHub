@@ -91,19 +91,17 @@ const PackageCard: React.FC<PackageCardProps> = ({
         {/* Action buttons */}
         <CardFooter className="p-6 pt-0 flex gap-2">
           <Button
-            variant="outline"
             size="sm"
             onClick={() => onEdit(pkg.packageid)}
-            className="flex-1 hover:bg-blue-50 hover:border-blue-300"
+            className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white"
           >
             <Edit className="w-4 h-4 mr-2" />
             Chỉnh sửa
           </Button>
           <Button
-            variant="outline"
             size="sm"
             onClick={() => onDelete(pkg.packageid)}
-            className="flex-1 hover:bg-red-50 hover:border-red-300 hover:text-red-600"
+            className="flex-1 bg-red-600 hover:bg-red-700 text-white"
           >
             <Trash2 className="w-4 h-4 mr-2" />
             Xóa

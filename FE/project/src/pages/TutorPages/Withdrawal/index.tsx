@@ -1,20 +1,32 @@
+/**
+ * Withdrawal Page - Tutor Withdrawal Request
+ * 
+ * Migration Notes:
+ * - Migrated to use StandardPageHeading with blue-indigo gradient
+ * - Kept existing balance card with gradient design (already well-designed)
+ * - All functionality preserved: form validation, submission, modal
+ * 
+ * @see .kiro/specs/tutor-pages-migration/design.md
+ */
+
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, DollarSign, CreditCard, AlertCircle, Loader2 } from 'lucide-react';
+import { DollarSign, CreditCard, AlertCircle, Loader2 } from 'lucide-react';
 import { withdrawalApi } from './api';
 import { WithdrawalFormData, WithdrawalRequestPayload, WithdrawalResponse } from './types';
+import { getApiErrorMessage } from '@/utils/errorMessages';
 import { formatCurrency } from '../Payment/utils';
 import { toast } from 'sonner';
 import { getTutorIdFromToken } from '@/utils/jwt-decode';
 import WithdrawalModal from './WithdrawalModal';
 
+import { StandardPageHeading } from '@/components/shared/StandardPageHeading';
+
 export default function WithdrawalPage() {
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingEarnings, setIsLoadingEarnings] = useState(true);
   const [totalEarnings, setTotalEarnings] = useState(0);
@@ -140,20 +152,12 @@ export default function WithdrawalPage() {
 
       const response = await withdrawalApi.createWithdrawal(payload);
       
-      console.log('Withdrawal response received:', response);
-      
       // Show success modal with response data
       openSuccessModal(response);
       toast.success('Yêu cầu rút tiền đã được gửi thành công!');
     } catch (err: any) {
-      // Extract error message
-      let errorMessage = 'Đã xảy ra lỗi. Vui lòng thử lại.';
-      
-      if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
+      // Extract error message using getApiErrorMessage
+      const errorMessage = getApiErrorMessage(err, 'Đã xảy ra lỗi. Vui lòng thử lại.');
       
       // Show error modal
       openErrorModal(errorMessage);
@@ -173,22 +177,19 @@ export default function WithdrawalPage() {
         errorMessage={modalState.errorMessage}
       />
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      <div className="max-w-3xl mx-auto px-6 py-8">
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/payments')}
-          className="mb-6 hover:bg-white/50"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Quay lại
-        </Button>
+        {/* Migrated to StandardPageHeading with blue-indigo gradient */}
+        <StandardPageHeading
+          title="Rút tiền"
+          description="Gửi yêu cầu rút tiền từ thu nhập của bạn"
+          icon={DollarSign}
+          gradientFrom="from-blue-600"
+          gradientVia="via-indigo-600"
+          gradientTo="to-indigo-600"
+        />
+        
+        <div className="max-w-3xl mx-auto px-6 py-8">
 
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Rút tiền</h1>
-          <p className="text-gray-600">Gửi yêu cầu rút tiền từ thu nhập của bạn</p>
-        </div>
-
-        <div className="grid gap-6">
+          <div className="grid gap-6">
           <Card className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white border-0">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -319,14 +320,7 @@ export default function WithdrawalPage() {
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => navigate('/payments')}
-                    className="flex-1"
-                  >
-                    Hủy
-                  </Button>
+                  
                   <Button
                     type="submit"
                     disabled={isLoading || isLoadingEarnings || totalEarnings <= 0 || !!tutorIdError}
@@ -339,8 +333,7 @@ export default function WithdrawalPage() {
                       </>
                     ) : (
                       <>
-                        <DollarSign className="w-4 h-4 mr-2" />
-                        Gửi yêu cầu rút tiền
+                        Gửi 
                       </>
                     )}
                   </Button>
@@ -349,7 +342,7 @@ export default function WithdrawalPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
+        </div>
       </div>
     </>
   );

@@ -13,12 +13,7 @@ export const tutorPackageApi = {
    */
   getMyPackages: async (): Promise<Package[]> => {
     try {
-      console.log('🔍 Fetching tutor packages');
-
       const response = await axios.get('/tutor/package/me');
-      
-      console.log('📦 Full API response:', response);
-      console.log('📦 Response data:', response?.data);
       
       // Extract data from response - handle multiple possible structures
       let packagesArray: any[] = [];
@@ -30,8 +25,6 @@ export const tutorPackageApi = {
       } else if (Array.isArray(response?.data)) {
         packagesArray = response.data;
       }
-      
-      console.log('📦 Packages array:', packagesArray);
 
       // Transform API response to match frontend types
       const packages: Package[] = packagesArray.map((pkg: any) => ({
@@ -87,8 +80,6 @@ export const tutorPackageApi = {
    */
   createPackage: async (data: PackageFormData): Promise<PackageResponse> => {
     try {
-      console.log('➕ Creating new package:', data);
-
       // Prepare request body with all required fields
       const requestBody = {
         name: data.name,
@@ -100,8 +91,6 @@ export const tutorPackageApi = {
       };
 
       const response = await axios.post('/tutor/package', requestBody);
-      
-      console.log('📦 Create package response:', response);
 
       return {
         success: true,
@@ -142,11 +131,7 @@ export const tutorPackageApi = {
    */
   getPackageById: async (packageId: number): Promise<Package> => {
     try {
-      console.log('🔍 Fetching package details for ID:', packageId);
-
       const response = await axios.get(`/tutor/package/${packageId}`);
-      
-      console.log('📦 Package details response:', response);
 
       const pkg = response.data;
       
@@ -200,8 +185,6 @@ export const tutorPackageApi = {
    */
   updatePackage: async (packageId: number, data: PackageFormData): Promise<PackageResponse> => {
     try {
-      console.log('✏️ Updating package:', packageId, data);
-
       // Prepare request body with all required fields
       const requestBody = {
         name: data.name,
@@ -213,8 +196,6 @@ export const tutorPackageApi = {
       };
 
       const response = await axios.put(`/tutor/package/${packageId}`, requestBody);
-      
-      console.log('📦 Update package response:', response);
 
       return {
         success: true,
@@ -257,11 +238,7 @@ export const tutorPackageApi = {
    */
   deletePackage: async (packageId: number): Promise<PackageResponse> => {
     try {
-      console.log('🗑️ Deleting package:', packageId);
-
       const response = await axios.delete(`/tutor/package/${packageId}`);
-      
-      console.log('📦 Delete package response:', response);
 
       return {
         success: true,

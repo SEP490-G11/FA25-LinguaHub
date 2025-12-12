@@ -11,13 +11,8 @@ export const tutorPaymentApi = {
    */
   getTutorPayments: async (): Promise<Payment[]> => {
     try {
-      console.log('🔍 Fetching tutor payments');
-
       // Make API request
       const response = await axios.get('/api/payments/me');
-      
-      console.log('📊 Full API response:', response);
-      console.log('📊 Response data:', response?.data);
       
       // Extract data from response - handle multiple possible structures
       let paymentsArray: any[] = [];
@@ -27,8 +22,6 @@ export const tutorPaymentApi = {
       } else if (Array.isArray(response?.data)) {
         paymentsArray = response.data;
       }
-      
-      console.log('📊 Payments array:', paymentsArray);
 
       // Transform API response to match frontend types
       const payments: Payment[] = paymentsArray.map((payment: any) => ({

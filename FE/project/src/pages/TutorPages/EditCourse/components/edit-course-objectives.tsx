@@ -16,12 +16,16 @@ interface EditCourseObjectivesProps {
   objectives: ObjectiveEditItem[];
   isLoading?: boolean;
   onChange?: (objectives: ObjectiveEditItem[]) => void;
+  onDeleteObjective?: (objectiveId: number) => Promise<void>;
+  isDraftMode?: boolean;
 }
 
 export default function EditCourseObjectives({
   objectives: initialObjectives,
   isLoading = false,
   onChange,
+  onDeleteObjective,
+  isDraftMode = false,
 }: EditCourseObjectivesProps) {
   const [objectivesList, setObjectivesList] = useState<ObjectiveEditItem[]>(
     initialObjectives || []
@@ -44,11 +48,11 @@ export default function EditCourseObjectives({
     const error: Record<string, string> = {};
 
     if (!newObjectiveText.trim()) {
-      error.objectiveText = 'Objective text is required';
+      error.objectiveText = 'Nội dung mục tiêu là bắt buộc';
     } else if (newObjectiveText.trim().length < 5) {
-      error.objectiveText = 'Objective must be at least 5 characters';
+      error.objectiveText = 'Mục tiêu phải có ít nhất 5 ký tự';
     } else if (newObjectiveText.trim().length > 200) {
-      error.objectiveText = 'Objective must not exceed 200 characters';
+      error.objectiveText = 'Mục tiêu không được vượt quá 200 ký tự';
     }
 
     if (Object.keys(error).length > 0) {
@@ -74,7 +78,20 @@ export default function EditCourseObjectives({
     setObjectivesList(updated);
   };
 
-  const handleRemoveObjective = (index: number) => {
+  const handleRemoveObjective = async (index: number) => {
+    const objectiveToRemove = objectivesList[index];
+    
+    // If objective has a valid ID (already saved), call DELETE API immediately
+    if (onDeleteObjective && objectiveToRemove.id > 0 && !objectiveToRemove.isNew) {
+      try {
+        await onDeleteObjective(objectiveToRemove.id);
+      } catch (error) {
+        console.error('Failed to delete objective:', error);
+        // Don't remove from UI if API call failed
+        return;
+      }
+    }
+    
     const updated = objectivesList.filter((_, i) => i !== index);
     // Update orderIndex for remaining items
     const reordered = updated.map((obj, i) => ({
@@ -87,10 +104,10 @@ export default function EditCourseObjectives({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold mb-2">Course Objectives</h2>
+        <h2 className="text-2xl font-bold mb-2">Mục tiêu khóa học</h2>
         <p className="text-gray-600 mb-4">
-          Manage learning objectives for this course. Students will see these goals
-          before enrolling.
+          Quản lý các mục tiêu học tập cho khóa học này. Học viên sẽ thấy những mục tiêu này
+          trước khi đăng ký.
         </p>
       </div>
 
@@ -99,7 +116,7 @@ export default function EditCourseObjectives({
         <div className="space-y-4">
           <div>
             <Label htmlFor="objective-input" className="text-base font-semibold mb-2">
-              Add New Objective <span className="text-red-500">*</span>
+              Thêm mục tiêu mới <span className="text-red-500">*</span>
             </Label>
             <div className="flex gap-2">
               <Input
@@ -117,7 +134,7 @@ export default function EditCourseObjectives({
                     handleAddObjective();
                   }
                 }}
-                placeholder="e.g., Understand advanced grammar concepts"
+                placeholder="VD: Hiểu các khái niệm ngữ pháp nâng cao"
                 maxLength={200}
                 disabled={isLoading}
                 className={errors.objectiveText ? 'border-red-500' : ''}
@@ -129,7 +146,7 @@ export default function EditCourseObjectives({
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add
+                Thêm
               </Button>
             </div>
             <div className="flex justify-between mt-2">
@@ -147,12 +164,12 @@ export default function EditCourseObjectives({
       {/* Objectives List */}
       <div>
         <h3 className="text-lg font-semibold mb-3">
-          Objectives ({objectivesList.length})
+          Mục tiêu ({objectivesList.length})
         </h3>
         {objectivesList.length === 0 ? (
           <div className="p-6 text-center border-2 border-dashed border-gray-300 rounded-lg bg-gray-50">
-            <p className="text-gray-500">No objectives added yet</p>
-            <p className="text-sm text-gray-400">Add your first objective above</p>
+            <p className="text-gray-500">Chưa có mục tiêu nào</p>
+            <p className="text-sm text-gray-400">Thêm mục tiêu đầu tiên ở trên</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -183,7 +200,7 @@ export default function EditCourseObjectives({
                   onClick={() => handleRemoveObjective(index)}
                   disabled={isLoading}
                   className="ml-2 p-2 text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                  title="Remove objective"
+                  title="Xóa mục tiêu"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>

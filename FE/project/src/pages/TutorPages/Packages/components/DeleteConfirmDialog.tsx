@@ -31,7 +31,7 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
             </div>
             <div>
               <AlertDialogTitle className="text-lg font-semibold text-gray-900">
-                Xác nhận xóa package
+                Xác nhận xóa gói dịch vụ
               </AlertDialogTitle>
             </div>
           </div>
@@ -43,12 +43,12 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
               ⚠️ Cảnh báo: Hành động này không thể hoàn tác!
             </p>
             <p className="text-sm text-red-700">
-              Bạn sắp xóa vĩnh viễn package này khỏi hệ thống. Tất cả dữ liệu liên quan sẽ bị mất.
+              Bạn sắp xóa vĩnh viễn gói dịch vụ này khỏi hệ thống. Tất cả dữ liệu liên quan sẽ bị mất.
             </p>
           </div>
 
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <h4 className="font-medium text-gray-900 mb-2">Thông tin package:</h4>
+            <h4 className="font-medium text-gray-900 mb-2">Thông tin gói dịch vụ:</h4>
             <div className="space-y-1 text-sm text-gray-700">
               <p><span className="font-medium">Tên:</span> {pkg.name}</p>
               <p><span className="font-medium">Mô tả:</span> {pkg.description}</p>
@@ -58,7 +58,7 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
           </div>
 
           <p className="text-sm text-gray-600">
-            Để xác nhận xóa, vui lòng nhấn nút "Xóa Package" bên dưới.
+            Để xác nhận xóa, vui lòng nhấn nút "Xóa gói dịch vụ" bên dưới.
           </p>
         </AlertDialogDescription>
 
@@ -76,7 +76,7 @@ const DeleteConfirmDialog: React.FC<DeleteConfirmDialogProps> = ({
             className="flex-1 bg-red-600 hover:bg-red-700 focus:ring-red-500"
           >
             {isLoading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Xóa Package
+            Xóa gói dịch vụ
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

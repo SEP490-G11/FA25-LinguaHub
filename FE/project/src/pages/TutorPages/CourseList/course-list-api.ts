@@ -11,6 +11,7 @@ export interface CourseListItem {
   thumbnailURL: string;
   categoryName: string;
   status: string; // "Approved", "Pending", "Draft", "Rejected"
+  isEnabled?: boolean; // Optional field for approved courses - indicates if course is visible to students
 }
 
 /**
@@ -45,11 +46,16 @@ export const deleteCourse = async (courseId: number): Promise<void> => {
   try {
     const response = await axiosInstance.delete(`/tutor/courses/${courseId}`);
 
-    if (response.data.code !== 0) {
+    // Handle 204 No Content response (successful deletion with no body)
+    if (response.status === 204) {
+      return;
+    }
+
+    // Handle response with body
+    if (response.data && response.data.code !== 0) {
       throw new Error(response.data.message || 'Failed to delete course');
     }
   } catch (error: any) {
-    console.error('Error deleting course:', error);
     throw new Error(
       error.response?.data?.message || 
       error.message || 
