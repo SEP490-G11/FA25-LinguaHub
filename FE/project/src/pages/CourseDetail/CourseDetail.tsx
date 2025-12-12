@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import api from "@/config/axiosConfig.ts";
+import { useToast } from "@/components/ui/use-toast";
 import CourseHeroSection from "./components/sections/hero-section";
 import CourseContent from "./components/sections/course-content";
 import CourseSidebar from "./components/sections/course-sidebar";
@@ -77,6 +78,9 @@ interface CourseDetailResponse {
 
 const CourseDetail = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [course, setCourse] = useState<CourseDetailResponse | null>(null);
   const [wishlisted, setWishlisted] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -109,6 +113,48 @@ const CourseDetail = () => {
     fetchCourseDetail();
   }, [id]);
 
+  // ============ CHECK PAYMENT SUCCESS ============
+  useEffect(() => {
+    const paid = searchParams.get("paid");
+    
+    if (paid === "true") {
+      toast({
+        title: "Thanh toán thành công! 🎉",
+        description: "Bạn đã mua khóa học thành công.",
+      });
+
+      navigate(`/courses/${id}`, { replace: true });
+
+      const refetchCourse = async () => {
+        try {
+          const res = await api.get<{ code: number; result: CourseDetailResponse }>(
+              `/courses/detail/${id}`
+          );
+          const data = res.data.result;
+          setCourse(data);
+          
+          if (data.isPurchased) {
+            await api.delete(`/wishlist/${data.id}`).catch(() => {});
+            setWishlisted(false);
+          }
+        } catch (error) {
+          console.error("Failed to refetch course:", error);
+        }
+      };
+
+      setTimeout(refetchCourse, 1000);
+    } else if (paid === "false") {
+      toast({
+        variant: "destructive",
+        title: "Thanh toán thất bại",
+        description: "Mua khóa học chưa được xác nhận. Vui lòng thử lại.",
+      });
+      
+      // Xóa query param
+      navigate(`/courses/${id}`, { replace: true });
+    }
+  }, [searchParams, id, navigate, toast]);
+
   if (loading)
     return <p className="text-center py-10 text-lg">Loading course...</p>;
 
@@ -122,10 +168,12 @@ const CourseDetail = () => {
         <CourseHeroSection
             course={{
               ...course,
-              isPurchased: Boolean(course.isPurchased),   // ép boolean
+              isPurchased: Boolean(course.isPurchased),
             }}
             wishlisted={wishlisted}
             setWishlisted={setWishlisted}
+            turnstileToken={null}
+            setTurnstileToken={() => {}}
         />
         <section className="py-16">
           <div className="max-w-7xl mx-auto px-8 lg:px-16">
@@ -150,6 +198,8 @@ const CourseDetail = () => {
                   }}
                   wishlisted={wishlisted}
                   setWishlisted={setWishlisted}
+                  turnstileToken={null}
+                  setTurnstileToken={() => {}}
               />
             </div>
           </div>
