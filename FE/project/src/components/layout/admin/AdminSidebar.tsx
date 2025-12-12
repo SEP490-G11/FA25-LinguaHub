@@ -2,14 +2,18 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
-  Users,
   BookOpen,
   FileCheck,
   UserCheck,
   CreditCard,
   UserCog,
+  RefreshCcw,
+  Tags,
+  Languages,
+  DollarSign,
+  Settings,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/cn';
 
 interface AdminSidebarProps {
   isOpen: boolean;
@@ -23,11 +27,11 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   {
-    title: 'Dashboard',
+    title: 'Tổng quan',
     href: '/admin/dashboard',
     icon: LayoutDashboard,
   },
-  
+
   {
     title: 'Quản lý người dùng',
     href: '/admin/user-management',
@@ -49,9 +53,34 @@ const menuItems: MenuItem[] = [
     icon: UserCheck,
   },
   {
+    title: 'Quản lý danh mục',
+    href: '/admin/categories',
+    icon: Tags,
+  },
+  {
+    title: 'Quản lý ngôn ngữ',
+    href: '/admin/languages',
+    icon: Languages,
+  },
+  {
     title: 'Quản lý thanh toán',
     href: '/admin/payments',
     icon: CreditCard,
+  },
+  {
+    title: 'Yêu cầu rút tiền',
+    href: '/admin/withdraw-requests',
+    icon: DollarSign,
+  },
+  {
+    title: 'Cài đặt hoa hồng',
+    href: '/admin/commission-settings',
+    icon: Settings,
+  },
+  {
+    title: 'Quản lý hoàn tiền',
+    href: '/admin/refund-management',
+    icon: RefreshCcw,
   },
 ];
 
@@ -76,17 +105,17 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isOpen }) => {
               key={item.href}
               to={item.href}
               className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200',
-                'hover:bg-gray-100 group',
+                'flex items-center gap-3 px-4 py-3 mx-2 rounded-lg transition-all duration-200',
+                'hover:bg-accent hover:text-accent-foreground group',
                 active
-                  ? 'bg-purple-50 text-purple-600 font-medium'
-                  : 'text-gray-700 hover:text-gray-900'
+                  ? 'bg-primary/10 text-primary font-semibold shadow-sm'
+                  : 'text-muted-foreground'
               )}
             >
               <Icon
                 className={cn(
                   'w-5 h-5 transition-colors',
-                  active ? 'text-purple-600' : 'text-gray-500 group-hover:text-gray-700'
+                  active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
                 )}
               />
               <span className="text-sm">{item.title}</span>

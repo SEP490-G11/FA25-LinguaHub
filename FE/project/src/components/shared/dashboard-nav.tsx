@@ -12,7 +12,7 @@ import {
   TooltipContent
 } from '@/components/ui/tooltip';
 
-import { cn } from '@/lib/utils.ts';
+import { cn } from '@/utils/cn';
 import { useSidebar } from '@/hooks/use-sidebar';
 import { usePathname } from '@/routes/hooks';
 import __helpers from '@/helpers';

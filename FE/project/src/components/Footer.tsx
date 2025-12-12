@@ -1,7 +1,41 @@
 
 import { Facebook, Twitter, Instagram, Linkedin, Mail, Phone, MapPin, Languages } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import api from '@/config/axiosConfig';
+
+interface Language {
+  languageID: number;
+  languageName: string;
+  languageNameEn: string;
+}
 
 const Footer = () => {
+  const [languages, setLanguages] = useState<Language[]>([]);
+
+  useEffect(() => {
+    const fetchLanguages = async () => {
+      try {
+        const res = await api.get('/languages/all');
+        const allLanguages = res.data.result || [];
+        
+        if (allLanguages.length > 0) {
+          // Get first 5 languages and map to correct format
+          const mappedLanguages = allLanguages.slice(0, 5).map((lang: any) => ({
+            languageID: lang.id,
+            languageName: lang.nameVi || lang.nameEn,
+            languageNameEn: lang.nameEn
+          }));
+          setLanguages(mappedLanguages);
+        }
+      } catch (error) {
+        console.error('Failed to fetch languages:', error);
+      }
+    };
+
+    fetchLanguages();
+  }, []);
+
   return (
     <footer className="bg-gray-900 text-white py-12">
       <div className="w-full px-8 lg:px-16">
@@ -17,7 +51,7 @@ const Footer = () => {
               </div>
             </div>
             <p className="text-gray-300 mb-4">
-              Connecting language learners with native speakers worldwide. Master any language with personalized lessons.
+              Kết nối người học ngôn ngữ với người bản ngữ trên toàn thế giới. Thành thạo mọi ngôn ngữ với các bài học được cá nhân hóa.
             </p>
             <div className="flex space-x-4">
               <Facebook className="w-5 h-5 text-gray-400 hover:text-blue-400 cursor-pointer transition-colors" />
@@ -29,31 +63,48 @@ const Footer = () => {
 
           {/* Quick Links */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Quick Links</h3>
+            <h3 className="text-lg font-semibold mb-4">Liên kết nhanh</h3>
             <ul className="space-y-2">
-              <li><a href="#" className="text-gray-300 hover:text-blue-400 transition-colors">About Us</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-blue-400 transition-colors">Find Tutors</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-blue-400 transition-colors">Become a Tutor</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-blue-400 transition-colors">Pricing</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-blue-400 transition-colors">Contact</a></li>
+              <li><Link to="/" className="text-gray-300 hover:text-blue-400 transition-colors">Trang chủ</Link></li>
+              <li><Link to="/tutors" className="text-gray-300 hover:text-blue-400 transition-colors">Tìm gia sư</Link></li>
+              <li><Link to="/languages" className="text-gray-300 hover:text-blue-400 transition-colors">Khóa học</Link></li>
+              <li><Link to="/apply-tutor" className="text-gray-300 hover:text-blue-400 transition-colors">Trở thành gia sư</Link></li>
+              <li><Link to="/policy" className="text-gray-300 hover:text-blue-400 transition-colors">Chính sách & Điều khoản</Link></li>
             </ul>
           </div>
 
           {/* Languages */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Popular Languages</h3>
+            <h3 className="text-lg font-semibold mb-4">Ngôn ngữ phổ biến</h3>
             <ul className="space-y-2">
-              <li><a href="#" className="text-gray-300 hover:text-blue-400 transition-colors">English</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-blue-400 transition-colors">Spanish</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-blue-400 transition-colors">French</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-blue-400 transition-colors">German</a></li>
-              <li><a href="#" className="text-gray-300 hover:text-blue-400 transition-colors">Chinese</a></li>
+              {languages.length > 0 ? (
+                languages
+                  .filter((lang) => lang?.languageName && lang?.languageNameEn)
+                  .map((lang) => (
+                    <li key={lang.languageID}>
+                      <Link 
+                        to={`/languages/${lang.languageNameEn.toLowerCase()}`} 
+                        className="text-gray-300 hover:text-blue-400 transition-colors"
+                      >
+                        {lang.languageName}
+                      </Link>
+                    </li>
+                  ))
+              ) : (
+                <>
+                  <li><Link to="/languages/english" className="text-gray-300 hover:text-blue-400 transition-colors">Tiếng Anh</Link></li>
+                  <li><Link to="/languages/japanese" className="text-gray-300 hover:text-blue-400 transition-colors">Tiếng Nhật</Link></li>
+                  <li><Link to="/languages/korean" className="text-gray-300 hover:text-blue-400 transition-colors">Tiếng Hàn</Link></li>
+                  <li><Link to="/languages/chinese" className="text-gray-300 hover:text-blue-400 transition-colors">Tiếng Trung</Link></li>
+                  <li><Link to="/languages/french" className="text-gray-300 hover:text-blue-400 transition-colors">Tiếng Pháp</Link></li>
+                </>
+              )}
             </ul>
           </div>
 
           {/* Contact */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">Contact Us</h3>
+            <h3 className="text-lg font-semibold mb-4">Liên hệ với chúng tôi</h3>
             <div className="space-y-3">
               <div className="flex items-center space-x-3">
                 <Mail className="w-5 h-5 text-blue-400" />

@@ -2,7 +2,6 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import AdminHeader from './AdminHeader';
 import AdminSidebar from './AdminSidebar';
-import AdminFooter from './AdminFooter';
 import { useSidebar } from '@/contexts/SidebarContext';
 
 const AdminLayout: React.FC = () => {
@@ -23,14 +22,11 @@ const AdminLayout: React.FC = () => {
             isOpen ? 'ml-64' : 'ml-0'
           }`}
         >
-          <div className="p-6 min-h-[calc(100vh-64px-80px)]">
+          <div className="p-6 min-h-[calc(100vh-64px)]">
             <Outlet />
           </div>
         </main>
       </div>
-
-      {/* Footer */}
-      <AdminFooter />
     </div>
   );
 };

@@ -9,8 +9,11 @@ import {
   CreditCard,
   Package,
   CalendarCheck,
+  DollarSign,
+  History,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/cn';
+import { ROUTES } from '@/constants/routes';
 
 interface TutorSidebarProps {
   isOpen: boolean;
@@ -24,52 +27,62 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   {
-    title: 'Dashboard',
-    href: '/dashboard',
+    title: 'Tổng quan',
+    href: ROUTES.TUTOR_DASHBOARD,
     icon: LayoutDashboard,
   },
   {
-    title: 'My Courses',
-    href: '/courses',
+    title: 'Khóa học của tôi',
+    href: ROUTES.TUTOR_COURSES,
     icon: BookOpen,
   },
   {
-    title: 'Students',
-    href: '/students',
+    title: 'Học viên',
+    href: ROUTES.TUTOR_STUDENTS,
     icon: Users,
   },
   {
-    title: 'Schedule',
-    href: '/schedule',
+    title: 'Lịch dạy',
+    href: ROUTES.TUTOR_SCHEDULE,
     icon: Calendar,
   },
   {
-    title: 'Booked Slots',
-    href: '/booked-slots',
+    title: 'Lịch đã đặt',
+    href: ROUTES.TUTOR_BOOKED_SLOTS,
     icon: CalendarCheck,
   },
   {
-    title: 'Packages',
-    href: '/packages',
+    title: 'Gói dịch vụ',
+    href: ROUTES.TUTOR_PACKAGES,
     icon: Package,
   },
   {
-    title: 'Messages',
-    href: '/messages',
+    title: 'Tin nhắn',
+    href: ROUTES.TUTOR_MESSAGES,
     icon: MessageSquare,
   },
   {
-      title: 'Quản lý thanh toán',
-      href: '/payments',
-      icon: CreditCard,
-    },
+    title: 'Quản lý thanh toán',
+    href: ROUTES.PAYMENTS,
+    icon: CreditCard,
+  },
+  {
+    title: 'Rút tiền',
+    href: ROUTES.WITHDRAWAL,
+    icon: DollarSign,
+  },
+  {
+    title: 'Lịch sử rút tiền',
+    href: ROUTES.WITHDRAWAL_HISTORY,
+    icon: History,
+  },
   // {
-  //   title: 'Resources',
+  //   title: 'Tài nguyên',
   //   href: '/resources',
   //   icon: FileText,
   // },
   // {
-  //   title: 'Settings',
+  //   title: 'Cài đặt',
   //   href: '/settings',
   //   icon: Settings,
   // },
@@ -96,17 +109,17 @@ const TutorSidebar: React.FC<TutorSidebarProps> = ({ isOpen }) => {
               key={item.href}
               to={item.href}
               className={cn(
-                'flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200',
-                'hover:bg-gray-100 group',
+                'flex items-center gap-3 px-4 py-3 mx-2 rounded-lg transition-all duration-200',
+                'hover:bg-accent hover:text-accent-foreground group',
                 active
-                  ? 'bg-blue-50 text-blue-600 font-medium'
-                  : 'text-gray-700 hover:text-gray-900'
+                  ? 'bg-primary/10 text-primary font-semibold shadow-sm'
+                  : 'text-muted-foreground'
               )}
             >
               <Icon
                 className={cn(
                   'w-5 h-5 transition-colors',
-                  active ? 'text-blue-600' : 'text-gray-500 group-hover:text-gray-700'
+                  active ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground'
                 )}
               />
               <span>{item.title}</span>

@@ -1,5 +1,5 @@
 import { AlertCircle } from 'lucide-react';
-import { cn } from '@/lib/utils.ts';
+import { cn } from '@/utils/cn';
 
 interface ErrorMessageProps {
   message: string;

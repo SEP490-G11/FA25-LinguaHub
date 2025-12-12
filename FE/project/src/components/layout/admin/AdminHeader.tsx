@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSidebar } from "@/contexts/SidebarContext";
 import { useToast } from "@/components/ui/use-toast";
+import { ROUTES } from "@/constants/routes";
 
 const AdminHeader = () => {
     const navigate = useNavigate();
@@ -30,7 +31,7 @@ const AdminHeader = () => {
             title: "Đăng xuất thành công",
             description: "Hẹn gặp lại!",
         });
-        navigate("/signin");
+        navigate(ROUTES.SIGN_IN);
     };
 
     return (
@@ -47,7 +48,7 @@ const AdminHeader = () => {
                         {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
                     </Button>
 
-                    <Link to="/admin/dashboard" className="flex items-center gap-2">
+                    <Link to={ROUTES.ADMIN_DASHBOARD} className="flex items-center gap-2">
                         <div className="bg-gradient-to-r from-purple-500 to-purple-600 p-2 rounded-lg">
                             <LayoutDashboard className="w-5 h-5 text-white" />
                         </div>
@@ -83,15 +84,15 @@ const AdminHeader = () => {
                                 </div>
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => navigate("/admin/dashboard")}>
+                            <DropdownMenuItem onClick={() => navigate(ROUTES.ADMIN_DASHBOARD)}>
                                 <LayoutDashboard className="mr-2 h-4 w-4" />
                                 Dashboard
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate("/profile")}>
+                            <DropdownMenuItem onClick={() => navigate(ROUTES.PROFILE)}>
                                 <User className="mr-2 h-4 w-4" />
                                 Hồ sơ
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
+                            <DropdownMenuItem onClick={() => navigate(ROUTES.SETTINGS)}>
                                 <Settings className="mr-2 h-4 w-4" />
                                 Cài đặt
                             </DropdownMenuItem>

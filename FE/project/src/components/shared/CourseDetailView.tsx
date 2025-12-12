@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, DollarSign, Star, Users, Calendar, Clock } from 'lucide-react';
 import type { CourseDetail as Course } from '@/pages/Admin/CourseApproval/types';
+import { useLanguages } from '@/hooks/useLanguages';
 
 // Reuse CourseContentSection from CourseApproval
 import { CourseContentSection } from '@/pages/Admin/CourseApproval/components/course-content-section';
@@ -11,29 +11,60 @@ interface CourseDetailViewProps {
   loading: boolean;
   backUrl: string;
   backLabel?: string;
-  showAdminActions?: boolean;
-  showTutorActions?: boolean;
-  onEdit?: (courseId: string) => void;
-  onDelete?: (courseId: string) => void;
+  hideTutorInfo?: boolean;
+  adminActionsSlot?: React.ReactNode;
+  headerActionsSlot?: React.ReactNode;
+  variant?: 'admin' | 'tutor';
 }
+
+// Helper function to translate level to Vietnamese
+const getLevelLabel = (level?: string): string => {
+  const levelMap: Record<string, string> = {
+    'BEGINNER': 'Cơ bản',
+    'INTERMEDIATE': 'Trung cấp',
+    'ADVANCED': 'Nâng cao',
+  };
+  return levelMap[level?.toUpperCase() || 'BEGINNER'] || level || 'Cơ bản';
+};
 
 export function CourseDetailView({
   course,
   loading,
   backUrl,
   backLabel = "Quay lại danh sách",
-  showAdminActions = false,
-  showTutorActions = false,
-  onEdit,
-  onDelete
+  hideTutorInfo = false,
+  adminActionsSlot,
+  headerActionsSlot,
+  variant = 'admin',
 }: CourseDetailViewProps) {
   const navigate = useNavigate();
+  const { languages } = useLanguages();
+
+  // Helper function to get Vietnamese display name for language
+  const getLanguageDisplayName = (languageName?: string): string => {
+    if (!languageName) return 'N/A';
+
+    // Find the language in the fetched languages list
+    const language = languages.find(lang => lang.name === languageName);
+
+    // Return displayName if found, otherwise return the original name
+    return language?.displayName || languageName;
+  };
+
+  const gradientClass = variant === 'tutor'
+    ? 'from-blue-600 via-purple-600 to-purple-500'
+    : 'from-purple-600 via-purple-600 to-purple-500';
+
+  const spinnerColor = variant === 'tutor' ? 'border-blue-600' : 'border-purple-600';
+  const buttonColor = variant === 'tutor'
+    ? 'bg-blue-600 hover:bg-blue-700'
+    : 'bg-purple-600 hover:bg-purple-700';
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className={`animate-spin rounded-full h-12 w-12 border-b-2 ${spinnerColor} mx-auto`}></div>
           <p className="mt-4 text-gray-600">Đang tải...</p>
         </div>
       </div>
@@ -47,7 +78,7 @@ export function CourseDetailView({
           <p className="text-gray-600 text-lg">Không tìm thấy khóa học</p>
           <button
             onClick={() => navigate(backUrl)}
-            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className={`mt-4 px-4 py-2 text-white rounded-lg ${buttonColor}`}
           >
             {backLabel}
           </button>
@@ -74,50 +105,26 @@ export function CourseDetailView({
     );
   };
 
-  const canEdit = course.status === 'Draft' || course.status === 'Rejected';
-  const canDelete = course.status === 'Draft' || course.status === 'Rejected';
-
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b">
+      <div className={`bg-gradient-to-r ${gradientClass} shadow-lg`}>
         <div className="container mx-auto px-4 py-6">
           <button
             onClick={() => navigate(backUrl)}
-            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-white font-medium mb-4 transition-colors border border-white/30"
           >
             <ArrowLeft className="w-5 h-5" />
             {backLabel}
           </button>
 
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold text-gray-900">{course.title}</h1>
-                {getStatusBadge(course.status)}
-              </div>
-              <p className="text-gray-600">{course.shortDescription}</p>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <h1 className="text-3xl font-bold text-white truncate">{course.title}</h1>
             </div>
-
-            {/* Action Buttons for Tutor */}
-            {showTutorActions && (
-              <div className="flex gap-2 ml-4">
-                {canEdit && onEdit && (
-                  <button
-                    onClick={() => onEdit(course.courseID?.toString() || course.id?.toString() || '')}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Chỉnh sửa
-                  </button>
-                )}
-                {canDelete && onDelete && (
-                  <button
-                    onClick={() => onDelete(course.courseID?.toString() || course.id?.toString() || '')}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    Xóa khóa học
-                  </button>
-                )}
+            {headerActionsSlot && (
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {headerActionsSlot}
               </div>
             )}
           </div>
@@ -125,9 +132,20 @@ export function CourseDetailView({
       </div>
 
       <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className={adminActionsSlot ? "grid grid-cols-1 lg:grid-cols-3 gap-8" : ""}>
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className={adminActionsSlot ? "lg:col-span-2 space-y-6" : "space-y-6"}>
+            {/* Admin Review Notes - Show for all rejected courses, even if note is null */}
+            {(course.status?.toUpperCase() === 'REJECTED' || course.status?.toLowerCase() === 'rejected') && (
+              <div className="rounded-lg shadow-sm p-6 bg-red-50 border border-red-200">
+                <h3 className="font-semibold mb-2 flex items-center gap-2">
+                  <span className="text-red-700">Lý do từ chối</span>
+                </h3>
+                <p className="text-sm whitespace-pre-wrap text-red-800">
+                  {course.adminReviewNote || course.adminNotes || 'Admin chưa cung cấp lý do cụ thể'}
+                </p>
+              </div>
+            )}
             {/* Thumbnail */}
             {course.thumbnailURL && (
               <div className="bg-white rounded-xl shadow-md overflow-hidden">
@@ -142,38 +160,31 @@ export function CourseDetailView({
             {/* Basic Info */}
             <div className="bg-white rounded-xl shadow-md p-8">
               {/* Badges */}
-              <div className="flex gap-2 mb-4 flex-wrap">
+              <div className="flex gap-2 mb-6 flex-wrap">
                 <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                  {course.level || 'BEGINNER'}
+                  {getLevelLabel(course.level)}
                 </span>
                 <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-medium">
-                  {course.categoryName || course.category || 'N/A'}
+                  {course.categoryName || 'N/A'}
                 </span>
                 <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-medium">
-                  {course.language || 'English'}
+                  {getLanguageDisplayName(course.language)}
                 </span>
               </div>
 
-              {/* Title & Short Description */}
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
-                {course.title}
-              </h2>
-
-              <p className="text-gray-600 text-lg mb-6">
-                {course.shortDescription}
-              </p>
-
               {/* Stats Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="flex items-center gap-2 text-blue-600 mb-1">
-                    <Users className="w-4 h-4" />
-                    <span className="text-sm font-medium">Giảng viên</span>
+              <div className={`grid grid-cols-2 ${hideTutorInfo ? 'md:grid-cols-4' : 'md:grid-cols-6'} gap-4 mb-6`}>
+                {!hideTutorInfo && (
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 text-blue-600 mb-1">
+                      <Users className="w-4 h-4" />
+                      <span className="text-sm font-medium">Giảng viên</span>
+                    </div>
+                    <p className="font-semibold text-gray-900 text-sm truncate">
+                      {course.tutorName || 'N/A'}
+                    </p>
                   </div>
-                  <p className="font-semibold text-gray-900 text-sm truncate">
-                    {course.tutorName || 'N/A'}
-                  </p>
-                </div>
+                )}
 
                 <div className="bg-green-50 p-4 rounded-lg">
                   <div className="flex items-center gap-2 text-green-600 mb-1">
@@ -188,7 +199,16 @@ export function CourseDetailView({
                     <Star className="w-4 h-4" />
                     <span className="text-sm font-medium">Đánh giá</span>
                   </div>
-                  <p className="font-semibold text-gray-900">{course.rating || 'N/A'}</p>
+                  <p className="font-semibold text-gray-900">
+                    {course.avgRating !== undefined
+                      ? `${course.avgRating.toFixed(1)} ⭐`
+                      : 'N/A'}
+                  </p>
+                  {course.totalRatings !== undefined && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      ({course.totalRatings} đánh giá)
+                    </p>
+                  )}
                 </div>
 
                 <div className="bg-yellow-50 p-4 rounded-lg">
@@ -200,6 +220,30 @@ export function CourseDetailView({
                     {course.price?.toLocaleString()} đ
                   </p>
                 </div>
+
+                {course.learnerCount !== undefined && (
+                  <div className="bg-indigo-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 text-indigo-600 mb-1">
+                      <Users className="w-4 h-4" />
+                      <span className="text-sm font-medium">Học viên</span>
+                    </div>
+                    <p className="font-semibold text-gray-900">
+                      {course.learnerCount.toLocaleString()}
+                    </p>
+                  </div>
+                )}
+
+                {!hideTutorInfo && (
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="flex items-center gap-2 text-gray-600 mb-1">
+                      <Calendar className="w-4 h-4" />
+                      <span className="text-sm font-medium">Ngày tạo</span>
+                    </div>
+                    <p className="font-semibold text-gray-900 text-sm">
+                      {course.createdAt ? new Date(course.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="border-t border-gray-200 my-6"></div>
@@ -209,9 +253,18 @@ export function CourseDetailView({
                 <h3 className="text-xl font-semibold text-gray-900 mb-3">
                   Mô tả chi tiết
                 </h3>
-                <p className="text-gray-600 whitespace-pre-wrap leading-relaxed">
-                  {course.description}
-                </p>
+                <div
+                  className="text-gray-600 prose max-w-none"
+                  dangerouslySetInnerHTML={{ __html: course.description }}
+                />
+              </div>
+
+              <div className="border-t border-gray-200 my-6"></div>
+
+              {/* Short Description */}
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Mô tả ngắn</h3>
+                <p className="text-gray-700">{course.shortDescription}</p>
               </div>
 
               {/* Requirements */}
@@ -222,9 +275,10 @@ export function CourseDetailView({
                     <h3 className="text-xl font-semibold text-gray-900 mb-3">
                       Yêu cầu
                     </h3>
-                    <p className="text-gray-600 whitespace-pre-wrap">
-                      {course.requirement}
-                    </p>
+                    <div
+                      className="text-gray-600 prose max-w-none"
+                      dangerouslySetInnerHTML={{ __html: course.requirement }}
+                    />
                   </div>
                 </>
               )}
@@ -261,71 +315,12 @@ export function CourseDetailView({
             )}
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Tutor Info */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="font-semibold mb-4">Giảng viên</h3>
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-blue-600 font-semibold">
-                    {course.tutorName?.charAt(0) || 'T'}
-                  </span>
-                </div>
-                <div>
-                  <p className="font-medium">{course.tutorName || 'N/A'}</p>
-                  <p className="text-sm text-gray-500">Tutor ID: {course.tutorID}</p>
-                </div>
-              </div>
+          {/* Admin Actions Sidebar */}
+          {adminActionsSlot && (
+            <div className="lg:col-span-1">
+              {adminActionsSlot}
             </div>
-
-            {/* Admin Review Note */}
-            {course.adminNotes && (
-              <div className={`rounded-lg shadow-sm p-6 ${
-                course.status?.toUpperCase() === 'APPROVED'
-                  ? 'bg-green-50 border border-green-200'
-                  : course.status?.toUpperCase() === 'REJECTED'
-                  ? 'bg-red-50 border border-red-200'
-                  : 'bg-blue-50 border border-blue-200'
-              }`}>
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  {course.status?.toUpperCase() === 'APPROVED' ? (
-                    <span className="text-green-700">✓ Ghi chú phê duyệt</span>
-                  ) : course.status?.toUpperCase() === 'REJECTED' ? (
-                    <span className="text-red-700">✗ Lý do từ chối</span>
-                  ) : (
-                    <span className="text-blue-700">📝 Ghi chú từ admin</span>
-                  )}
-                </h3>
-                <p className={`text-sm whitespace-pre-wrap ${
-                  course.status?.toUpperCase() === 'APPROVED' 
-                    ? 'text-green-800' 
-                    : course.status?.toUpperCase() === 'REJECTED'
-                    ? 'text-red-800'
-                    : 'text-blue-800'
-                }`}>
-                  {course.adminNotes}
-                </p>
-              </div>
-            )}
-
-            {/* Metadata */}
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h3 className="font-semibold mb-4">Thông tin khác</h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Calendar className="w-4 h-4" />
-                  <span>Tạo: {course.createdAt ? new Date(course.createdAt).toLocaleDateString('vi-VN') : 'N/A'}</span>
-                </div>
-                {course.updatedAt && (
-                  <div className="flex items-center gap-2 text-gray-600">
-                    <Calendar className="w-4 h-4" />
-                    <span>Cập nhật: {new Date(course.updatedAt).toLocaleDateString('vi-VN')}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>

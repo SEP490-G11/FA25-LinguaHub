@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
-import { cn } from '@/lib/utils.ts';
+import { cn } from '@/utils/cn';
 
 type Language = {
   code: string;
