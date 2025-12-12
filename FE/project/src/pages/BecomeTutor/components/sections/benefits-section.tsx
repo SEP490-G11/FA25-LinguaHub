@@ -20,23 +20,23 @@ const BenefitsSection = () => {
   const benefits = [
     {
       icon: DollarSign,
-      title: 'Earn $15-50/hour',
-      description: 'Set your own rates and earn competitive income teaching your native language'
+      title: 'Thu nhập hấp dẫn',
+      description: 'Tự đặt mức giá phù hợp với trình độ và kinh nghiệm của bạn'
     },
     {
       icon: Clock,
-      title: 'Flexible Schedule',
-      description: 'Work when you want, from anywhere in the world'
+      title: 'Lịch trình linh hoạt',
+      description: 'Tự quản lý lịch dạy, làm việc theo thời gian phù hợp với bạn'
     },
     {
       icon: Users,
-      title: 'Global Students',
-      description: 'Connect with learners from over 100 countries'
+      title: 'Kết nối học viên',
+      description: 'Tiếp cận học viên có nhu cầu học tập thực sự trên nền tảng'
     },
     {
       icon: Star,
-      title: 'Build Your Reputation',
-      description: 'Grow your teaching profile with student reviews and ratings'
+      title: 'Xây dựng danh tiếng',
+      description: 'Phát triển hồ sơ giảng dạy với đánh giá và xếp hạng từ học viên'
     }
   ];
 
@@ -50,8 +50,8 @@ const BenefitsSection = () => {
           viewport={{ once: true }}
           variants={fadeInUp}
         >
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Why Teach with LinguaHub?</h2>
-          <p className="text-lg text-gray-600">Join our community and enjoy these amazing benefits</p>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Tại sao dạy học với LinguaHub?</h2>
+          <p className="text-lg text-gray-600">Tham gia cộng đồng và tận hưởng những lợi ích tuyệt vời</p>
         </motion.div>
 
         <motion.div 

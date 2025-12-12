@@ -19,23 +19,18 @@ const HowItWorksSection = () => {
   const steps = [
     {
       step: '1',
-      title: 'Apply Online',
-      description: 'Fill out our application form with your teaching background'
+      title: 'Đăng ký làm gia sư',
+      description: 'Điền thông tin cá nhân, kinh nghiệm và chuyên môn của bạn vào form đăng ký'
     },
     {
       step: '2',
-      title: 'Interview',
-      description: 'Complete a video interview to showcase your teaching skills'
+      title: 'Chờ phê duyệt',
+      description: 'Admin sẽ xem xét hồ sơ của bạn và phê duyệt trong vòng 1-3 ngày làm việc'
     },
     {
       step: '3',
-      title: 'Training',
-      description: 'Complete our tutor training program and platform orientation'
-    },
-    {
-      step: '4',
-      title: 'Start Teaching',
-      description: 'Create your profile and start accepting students'
+      title: 'Bắt đầu dạy học',
+      description: 'Sau khi được phê duyệt, bạn có thể tạo lịch dạy và bắt đầu nhận học viên ngay'
     }
   ];
 
@@ -49,12 +44,12 @@ const HowItWorksSection = () => {
           viewport={{ once: true }}
           variants={fadeInUp}
         >
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">How It Works</h2>
-          <p className="text-lg text-gray-600">Get started in 4 simple steps</p>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Cách thức hoạt động</h2>
+          <p className="text-lg text-gray-600">Bắt đầu với 3 bước đơn giản</p>
         </motion.div>
 
         <motion.div 
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
+          className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto"
           initial="initial"
           whileInView="animate"
           viewport={{ once: true }}

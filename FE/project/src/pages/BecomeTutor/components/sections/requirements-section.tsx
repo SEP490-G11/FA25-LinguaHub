@@ -10,11 +10,11 @@ const RequirementsSection = () => {
   };
 
   const requirements = [
-    'Native speaker of the language you want to teach',
-    'Teaching experience or certification (preferred)',
-    'Reliable internet connection and quiet teaching space',
-    'Passion for helping others learn languages',
-    'Available for at least 10 hours per week'
+    'Người bản ngữ của ngôn ngữ bạn muốn dạy',
+    'Kinh nghiệm giảng dạy hoặc chứng chỉ (ưu tiên)',
+    'Kết nối internet ổn định và không gian giảng dạy yên tĩnh',
+    'Đam mê giúp đỡ người khác học ngôn ngữ',
+    'Có thể dạy ít nhất 10 giờ mỗi tuần'
   ];
 
   return (
@@ -27,7 +27,7 @@ const RequirementsSection = () => {
             viewport={{ once: true }}
             variants={fadeInUp}
           >
-            <h2 className="text-3xl font-bold text-gray-900 mb-6">Requirements</h2>
+            <h2 className="text-3xl font-bold text-gray-900 mb-6">Yêu cầu</h2>
             <div className="space-y-4">
               {requirements.map((requirement, index) => (
                 <motion.div
