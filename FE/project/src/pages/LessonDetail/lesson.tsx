@@ -6,8 +6,11 @@ import api from "@/config/axiosConfig";
 import { ROUTES } from "@/constants/routes";
 
 import LessonHeader from "./components/sections/lesson-header";
-import LessonContent from "./components/sections/lesson-content";
 import LessonSidebar from "./components/sections/lesson-sidebar";
+import QuizLesson from "./components/lesson-types/quiz-lesson";
+import VideoLesson from "./components/lesson-types/video-lesson";
+import ReadingLesson from "./components/lesson-types/reading-lesson";
+import LessonWrapper from "./components/lesson-types/lesson-wrapper";
 
 
 interface CourseResource {
@@ -81,7 +84,7 @@ interface LessonData {
 }
 
 
-const LessonDetail: React.FC = () => {
+function LessonDetail() {
   const { id } = useParams();
   const location = useLocation();
 
@@ -98,11 +101,68 @@ const LessonDetail: React.FC = () => {
   const [isLoading, setIsLoading] = React.useState<boolean>(true);
   const [error, setError] = React.useState<string | null>(null);
 
+  // Render lesson based on type
+  const renderLessonByType = (lesson: LessonData, courseId: number) => {
+    const lessonType = lesson.lessonType?.trim().toLowerCase();
+
+    switch (lessonType) {
+      case "quiz":
+        return <QuizLesson lesson={lesson} courseId={courseId} />;
+
+      case "video":
+        return (
+          <LessonWrapper
+            lessonId={lesson.id}
+            courseId={courseId}
+            lessonType={lesson.lessonType}
+            isDoneInitial={!!lesson.isDone}
+            videoDuration={lesson.duration}
+          >
+            <VideoLesson
+              videoURL={lesson.videoURL}
+              materials={lesson.materials}
+            />
+          </LessonWrapper>
+        );
+
+      case "reading":
+        return (
+          <LessonWrapper
+            lessonId={lesson.id}
+            courseId={courseId}
+            lessonType={lesson.lessonType}
+            isDoneInitial={!!lesson.isDone}
+          >
+            <ReadingLesson
+              duration={lesson.duration}
+              content={lesson.content ?? null}
+              transcript={lesson.transcript}
+              materials={lesson.materials}
+            />
+          </LessonWrapper>
+        );
+
+      default:
+        return (
+          <div className="lg:col-span-2">
+            <div className="text-center py-12 text-gray-600 bg-white rounded-lg shadow">
+              <p className="text-lg font-semibold mb-2">
+                Loại bài học không được hỗ trợ
+              </p>
+              <p className="text-sm text-gray-500">
+                Loại: {lesson.lessonType}
+              </p>
+            </div>
+          </div>
+        );
+    }
+  };
+
   React.useEffect(() => {
     const fetchLesson = async () => {
       if (!id) return;
       if (!courseId) {
-        setError("Missing courseId. Please return from the course page.");
+        setError("Thiếu courseId. Vui lòng quay lại từ trang khóa học.");
         return;
       }
 
@@ -118,19 +178,19 @@ const LessonDetail: React.FC = () => {
         let foundLesson: CourseLesson | null = null;
         let nextLesson: CourseLesson | null = null;
 
-        for (const sec of course.section) {
-          const idx = sec.lessons.findIndex(
+        for (const section  of course.section) {
+          const idx = section .lessons.findIndex(
               (l) => l.lessonID.toString() === id
           );
           if (idx !== -1) {
-            foundLesson = sec.lessons[idx];
-            nextLesson = sec.lessons[idx + 1] || null;
+            foundLesson = section .lessons[idx];
+            nextLesson = section .lessons[idx + 1] || null;
             break;
           }
         }
 
         if (!foundLesson) {
-          setError("Lesson not found in this course.");
+          setError("Không tìm thấy bài học trong khóa học này.");
           return;
         }
 
@@ -163,9 +223,7 @@ const LessonDetail: React.FC = () => {
               foundLesson.videoUrl ||
               foundLesson.video ||
               null,
-
           isDone: foundLesson.isDone,
-
           nextLesson: nextLesson
               ? {
                 id: nextLesson.lessonID,
@@ -175,12 +233,11 @@ const LessonDetail: React.FC = () => {
               : null,
         });
       } catch {
-        setError("Failed to load lesson.");
+        setError("Không thể tải bài học.");
       } finally {
         setIsLoading(false);
       }
     };
-
     fetchLesson();
   }, [id, courseId]);
 
@@ -188,7 +245,7 @@ const LessonDetail: React.FC = () => {
   if (isLoading) {
     return (
         <div className="min-h-screen flex items-center justify-center">
-          Loading...
+          Đang tải...
         </div>
     );
   }
@@ -205,8 +262,6 @@ const LessonDetail: React.FC = () => {
         </div>
     );
   }
-
-
   return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50">
         <LessonHeader
@@ -214,7 +269,6 @@ const LessonDetail: React.FC = () => {
             courseId={courseId}
             courseTitle={courseTitle}
         />
-
         <section className="py-12">
           <div className="max-w-7xl mx-auto px-8 lg:px-16">
             <motion.div
@@ -223,12 +277,7 @@ const LessonDetail: React.FC = () => {
                 animate={{opacity: 1, y: 0}}
                 transition={{duration: 0.6}}
             >
-              <div className="lg:col-span-2">
-                <LessonContent lesson={lesson} courseId={courseId}/>
-              </div>
-
-
-              {/* Truyền đúng dạng cho Sidebar */}
+              {renderLessonByType(lesson, courseId)}
               <LessonSidebar
                   lesson={lesson}
                   course={{id: courseData.id}}
@@ -238,6 +287,6 @@ const LessonDetail: React.FC = () => {
         </section>
       </div>
   );
-};
+}
 
 export default LessonDetail;

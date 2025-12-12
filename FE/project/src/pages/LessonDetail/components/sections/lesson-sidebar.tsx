@@ -2,19 +2,15 @@ import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { BookOpen, CheckCircle, ChevronDown } from "lucide-react";
+import { BookOpen, CheckCircle, ChevronDown, PlayCircle, ClipboardCheck } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import api from "@/config/axiosConfig";
-
-/* ===============================
-      INTERFACES CHUẨN HÓA
-=============================== */
-
 interface LessonProgress {
   lessonId: number;
   lessonTitle: string;
   isDone: boolean;
   duration: number | null;
+  lessonType?: string;
 }
 
 interface SectionProgress {
@@ -34,6 +30,7 @@ interface LocalLesson {
   title: string;
   isDone: boolean;
   duration: number | null;
+  lessonType?: string;
 }
 
 interface LocalSection {
@@ -57,20 +54,12 @@ interface LessonSidebarProps {
   course?: { id: number } | null;
 }
 
-
-/* ===============================
-           COMPONENT
-=============================== */
-
 const LessonSidebar = ({ course, lesson }: LessonSidebarProps) => {
   const navigate = useNavigate();
 
   const [openSections, setOpenSections] = useState<Record<number, boolean>>({});
   const [localCourse, setLocalCourse] = useState<LocalCourse | null>(null);
 
-  /* ===============================
-        LOAD PROGRESS TỪ BACKEND
-  =============================== */
   const loadCourseProgress = async () => {
     if (!course?.id) return;
 
@@ -91,6 +80,7 @@ const LessonSidebar = ({ course, lesson }: LessonSidebarProps) => {
           title: ls.lessonTitle,
           isDone: ls.isDone,
           duration: ls.duration ?? null,
+          lessonType: ls.lessonType,
         })),
       })),
     };
@@ -101,10 +91,6 @@ const LessonSidebar = ({ course, lesson }: LessonSidebarProps) => {
   useEffect(() => {
     loadCourseProgress();
   }, [course?.id]);
-
-  /* ===============================
-        UPDATE LOCAL STATE KHI DONE
-  =============================== */
   useEffect(() => {
     if (!lesson?.id || !localCourse) return;
 
@@ -122,21 +108,12 @@ const LessonSidebar = ({ course, lesson }: LessonSidebarProps) => {
       };
     });
   }, [lesson?.isDone]);
-
-  /* ===============================
-       AUTO RELOAD FROM BE MỖI 3S
-  =============================== */
   useEffect(() => {
     const interval = setInterval(() => loadCourseProgress(), 3000);
     return () => clearInterval(interval);
   }, [course?.id]);
 
   if (!localCourse) return null;
-
-  /* ===============================
-           TÍNH TOÁN PROGRESS
-  =============================== */
-
   const enhancedSections = localCourse.section.map((sec) => {
     const total = sec.lessons.length;
     const done = sec.lessons.filter((l) => l.isDone).length;
@@ -170,30 +147,25 @@ const LessonSidebar = ({ course, lesson }: LessonSidebarProps) => {
       [id]: !prev[id],
     }));
   };
-
-  /* ===============================
-                RENDER
-  =============================== */
-
   return (
       <div className="lg:col-span-1">
         <Card className="mb-6 overflow-hidden shadow-md border-0 bg-gradient-to-br from-blue-50 to-purple-50">
           <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white pb-8 shadow-md">
-            <CardTitle className="tracking-wide">Your Progress</CardTitle>
+            <CardTitle className="tracking-wide">Tiến độ của bạn</CardTitle>
           </CardHeader>
 
           <CardContent className="pt-6">
             <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-700 font-medium">Course Progress</span>
+                  <span className="text-gray-700 font-medium">Tiến độ khóa học</span>
                   <span className="font-bold text-2xl text-blue-600">{courseProgress}%</span>
                 </div>
 
                 <Progress value={courseProgress} className="w-full h-3 rounded-md" />
 
                 <span className="text-gray-600 text-sm block">
-                {courseDone} / {courseTotal} lessons completed
+                {courseDone} / {courseTotal} bài học đã hoàn thành
               </span>
               </div>
             </motion.div>
@@ -204,7 +176,7 @@ const LessonSidebar = ({ course, lesson }: LessonSidebarProps) => {
         <Card className="overflow-hidden border shadow-md">
           <CardHeader>
             <CardTitle className="text-lg font-semibold tracking-wide">
-              Course Content
+              Nội dung khóa học
             </CardTitle>
           </CardHeader>
 
@@ -217,22 +189,22 @@ const LessonSidebar = ({ course, lesson }: LessonSidebarProps) => {
                     <div key={sec.sectionID} className="pb-4 border-b last:border-b-0">
                       <button
                           onClick={() => toggleSection(sec.sectionID)}
-                          className="w-full flex justify-between items-center py-2 transition hover:bg-gray-50 rounded-md px-2"
+                          className="w-full flex justify-between items-start py-2 transition hover:bg-gray-50 rounded-md px-2"
                       >
-                        <div className="flex flex-col items-start">
-                          <h3 className="text-base font-semibold text-gray-800">
+                        <div className="flex flex-col items-start flex-1 min-w-0">
+                          <h3 className="text-base font-semibold text-gray-800 text-left w-full">
                             {index + 1}. {sec.title}
                           </h3>
                           <p className="text-xs text-gray-500 mt-0.5">
-                            {sec.totalLessons} lessons
+                            {sec.totalLessons} bài học
                           </p>
                           <p className="text-xs text-blue-600 font-medium">
-                            {sec.progress}% completed
+                            {sec.progress}% đã hoàn thành
                           </p>
                         </div>
 
                         <ChevronDown
-                            className={`w-5 h-5 text-gray-600 transition-transform ${
+                            className={`w-5 h-5 text-gray-600 transition-transform flex-shrink-0 ml-2 ${
                                 isOpen ? "rotate-180" : ""
                             }`}
                         />
@@ -242,7 +214,7 @@ const LessonSidebar = ({ course, lesson }: LessonSidebarProps) => {
                           <motion.div
                               initial={{ opacity: 0, y: 5 }}
                               animate={{ opacity: 1, y: 0 }}
-                              className="space-y-1 mt-3 pl-6 pr-2"
+                              className="space-y-1 mt-3 pl-2 pr-2"
                           >
                             {sec.lessons.map((ls) => (
                                 <button
@@ -256,13 +228,21 @@ const LessonSidebar = ({ course, lesson }: LessonSidebarProps) => {
                                 >
                                   <div className="flex items-start gap-3">
                                     {ls.isDone ? (
-                                        <CheckCircle className="w-4 h-4 text-green-600 mt-1" />
+                                        <CheckCircle className="w-4 h-4 text-green-600 mt-1 flex-shrink-0" />
                                     ) : (
-                                        <BookOpen className="w-4 h-4 text-blue-600 mt-1" />
+                                        <>
+                                          {ls.lessonType?.toLowerCase() === 'video' ? (
+                                            <PlayCircle className="w-4 h-4 text-blue-600 mt-1 flex-shrink-0" />
+                                          ) : ls.lessonType?.toLowerCase() === 'quiz' ? (
+                                            <ClipboardCheck className="w-4 h-4 text-purple-600 mt-1 flex-shrink-0" />
+                                          ) : (
+                                            <BookOpen className="w-4 h-4 text-blue-600 mt-1 flex-shrink-0" />
+                                          )}
+                                        </>
                                     )}
 
                                     <span
-                                        className={`text-sm ${
+                                        className={`text-sm text-left ${
                                             ls.isDone
                                                 ? "text-green-700 font-medium"
                                                 : "text-gray-800"

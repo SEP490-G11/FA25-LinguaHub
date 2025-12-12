@@ -48,7 +48,7 @@ const LessonHeader = ({ lesson, courseId, courseTitle }: LessonHeaderProps) => {
               >
                 <Link to={`/courses/${courseId}`}>
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Course
+                  Quay lại khóa học
                 </Link>
               </Button>
 
@@ -60,7 +60,7 @@ const LessonHeader = ({ lesson, courseId, courseTitle }: LessonHeaderProps) => {
 
               <span className="opacity-70">|</span>
 
-              <span className="opacity-90">Lesson {lesson.week}</span>
+              <span className="opacity-90">Bài {lesson.week}</span>
             </div>
 
             {/* Title */}
@@ -80,7 +80,7 @@ const LessonHeader = ({ lesson, courseId, courseTitle }: LessonHeaderProps) => {
               {/* Week Info */}
               <div className="flex items-center space-x-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full text-white">
                 <BookOpen className="w-5 h-5" />
-                <span className="font-medium">Week {lesson.week}</span>
+                <span className="font-medium">Tuần {lesson.week}</span>
               </div>
             </div>
 
