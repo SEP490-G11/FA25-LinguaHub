@@ -59,7 +59,7 @@ const HeroSection = ({ language, onSearch }: HeroSectionProps) => {
               <Button variant="ghost" asChild className="text-white hover:bg-white/20">
                 <Link to={ROUTES.LANGUAGES}>
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Languages
+                  Quay lại Ngôn ngữ
                 </Link>
               </Button>
             </div>
@@ -69,8 +69,8 @@ const HeroSection = ({ language, onSearch }: HeroSectionProps) => {
               <div className="flex items-center justify-center space-x-4 mb-4">
                 <span className="text-6xl">{language.flag}</span>
                 <div>
-                  <h1 className="text-5xl font-bold">{language.name} Courses</h1>
-                  <p className="text-xl text-blue-100">Learn with native speakers</p>
+                  <h1 className="text-5xl font-bold">Khóa học {language.name}</h1>
+                  <p className="text-xl text-blue-100">Học với giáo viên bản ngữ</p>
                 </div>
               </div>
 
@@ -79,7 +79,7 @@ const HeroSection = ({ language, onSearch }: HeroSectionProps) => {
                 <div className="flex items-center bg-white rounded-full shadow-xl overflow-hidden">
                   <input
                       type="text"
-                      placeholder="Search for a course or teacher..."
+                      placeholder="Tìm kiếm khóa học hoặc giáo viên..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       onKeyDown={handleEnter}

@@ -19,27 +19,43 @@ const LanguageCourses = () => {
     const [categories, setCategories] = useState<string[]>([]);
     const [selectedCategory, setSelectedCategory] = useState("All");
     const [selectedLevel, setSelectedLevel] = useState("All");
-    const [selectedRating, setSelectedRating] = useState(0); // ⭐ NEW
+    const [selectedRating, setSelectedRating] = useState(0);
+    const [priceSort, setPriceSort] = useState<"none" | "asc" | "desc">("none");
 
-    // Price + pagination
+    // Pagination
     const [currentPage, setCurrentPage] = useState(1);
-    const [priceRange, setPriceRange] = useState<[number, number]>([0, 0]);
+    const [currentLang, setCurrentLang] = useState<{ name: string; flag: string; image: string } | null>(null);
 
     const coursesPerPage = 8;
 
-    /** Language Info */
-    const languageInfo: Record<string, { name: string; flag: string; image: string }> = {
-        english: { name: "English", flag: "🇺🇸", image: "https://images.pexels.com/photos/267669/pexels-photo-267669.jpeg" },
-        chinese: { name: "Chinese", flag: "🇨🇳", image: "https://images.pexels.com/photos/2412603/pexels-photo-2412603.jpeg" },
-        spanish: { name: "Spanish", flag: "🇪🇸", image: "https://images.pexels.com/photos/1166209/pexels-photo-1166209.jpeg" },
-        french: { name: "French", flag: "🇫🇷", image: "https://images.pexels.com/photos/161901/paris-sunset-france-monument-161901.jpeg" },
-        japanese: { name: "Japanese", flag: "🇯🇵", image: "https://images.pexels.com/photos/161401/fushimi-inari-taisha-shrine-kyoto-japan-161401.jpeg" },
-        korean: { name: "Korean", flag: "🇰🇷", image: "https://images.pexels.com/photos/2070033/pexels-photo-2070033.jpeg" },
-        german: { name: "German", flag: "🇩🇪", image: "https://images.pexels.com/photos/109629/pexels-photo-109629.jpeg" },
-        italian: { name: "Italian", flag: "🇮🇹", image: "https://images.pexels.com/photos/1797161/pexels-photo-1797161.jpeg" },
-    };
+    /** Fetch Language Info from API */
+    useEffect(() => {
+        const fetchLanguageInfo = async () => {
+            try {
+                const res = await api.get('/languages/all');
+                const languages = res.data.result || [];
+                
+                // Find matching language
+                const matchedLang = languages.find((lang: any) => 
+                    lang.nameEn?.toLowerCase() === language?.toLowerCase()
+                );
+                
+                if (matchedLang) {
+                    setCurrentLang({
+                        name: matchedLang.nameVi || matchedLang.nameEn,
+                        flag: matchedLang.flag || "🌐",
+                        image: matchedLang.thumbnailUrl || "https://images.pexels.com/photos/267669/pexels-photo-267669.jpeg"
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to fetch language info:", err);
+            }
+        };
 
-    const currentLang = languageInfo[language?.toLowerCase() ?? ""];
+        if (language) {
+            fetchLanguageInfo();
+        }
+    }, [language]);
 
     /** 1) Fetch Courses */
     useEffect(() => {
@@ -72,58 +88,56 @@ const LanguageCourses = () => {
         fetchCategories();
     }, []);
 
-    /** 3) Set Price Range */
-    useEffect(() => {
-        if (courses.length > 0) {
-            const maxPrice = Math.max(...courses.map((c) => c.price));
-            setPriceRange([0, maxPrice]);
-        }
-    }, [courses]);
-
-    /** ⭐ RESET FILTERS */
+    /** RESET FILTERS */
     const handleResetFilters = () => {
         setSelectedCategory("All");
         setSelectedLevel("All");
         setSelectedRating(0);
-        const maxPrice = Math.max(...courses.map((c) => c.price), 0);
-        setPriceRange([0, maxPrice]);
+        setPriceSort("none");
         setCurrentPage(1);
     };
 
-    /** ⭐ FILTER LOGIC */
-    const filteredCourses = courses.filter((course) => {
-        const matchesLanguage = language
-            ? course.language?.trim().toLowerCase().includes(language.toLowerCase())
-            : true;
+    /** FILTER & SORT LOGIC */
+    const filteredCourses = (() => {
+        let result = courses.filter((course) => {
+            const matchesLanguage = language
+                ? course.language?.trim().toLowerCase().includes(language.toLowerCase())
+                : true;
 
-        const matchesSearch =
-            course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            course.tutorName.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesSearch =
+                course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                course.tutorName.toLowerCase().includes(searchTerm.toLowerCase());
 
-        const matchesCategory =
-            selectedCategory === "All" || course.categoryName === selectedCategory;
+            const matchesCategory =
+                selectedCategory === "All" || course.categoryName === selectedCategory;
 
-        const matchesLevel =
-            selectedLevel === "All" || course.level === selectedLevel;
+            const matchesLevel =
+                selectedLevel === "All" || course.level === selectedLevel;
 
-        const matchesRating =
-            selectedRating === 0 || course.avgRating >= selectedRating;
+            const matchesRating =
+                selectedRating === 0 || course.avgRating >= selectedRating;
 
-        const matchesPrice =
-            course.price >= priceRange[0] && course.price <= priceRange[1];
+            const notPurchased = !course.isPurchased;
 
-        const notPurchased = !course.isPurchased;
+            return (
+                matchesLanguage &&
+                matchesSearch &&
+                matchesCategory &&
+                matchesLevel &&
+                matchesRating &&
+                notPurchased
+            );
+        });
 
-        return (
-            matchesLanguage &&
-            matchesSearch &&
-            matchesCategory &&
-            matchesLevel &&
-            matchesRating &&
-            matchesPrice &&
-            notPurchased
-        );
-    })
+        // Sort by price
+        if (priceSort === "asc") {
+            result = [...result].sort((a, b) => a.price - b.price);
+        } else if (priceSort === "desc") {
+            result = [...result].sort((a, b) => b.price - a.price);
+        }
+
+        return result;
+    })()
 
 
 
@@ -138,7 +152,7 @@ const LanguageCourses = () => {
     if (!currentLang) {
         return (
             <div className="min-h-screen flex items-center justify-center">
-                <h2 className="text-2xl font-bold">Language not found</h2>
+                <h2 className="text-2xl font-bold">Không tìm thấy ngôn ngữ</h2>
             </div>
         );
     }
@@ -160,10 +174,9 @@ const LanguageCourses = () => {
                 selectedLevel={selectedLevel}
                 selectedRating={selectedRating}
                 courseCount={filteredCourses.length}
-                maxPrice={Math.max(...courses.map((c) => c.price), 0)}
-                priceRange={priceRange}
-                onPriceRangeChange={(range) => {
-                    setPriceRange(range);
+                priceSort={priceSort}
+                onPriceSortChange={(sort) => {
+                    setPriceSort(sort);
                     setCurrentPage(1);
                 }}
                 onCategoryChange={(value) => {
