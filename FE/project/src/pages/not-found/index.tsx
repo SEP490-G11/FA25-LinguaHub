@@ -21,9 +21,9 @@ const NotFound = () => {
       >
         <div className="mb-8">
           <h1 className="text-9xl font-bold text-blue-500 mb-4">404</h1>
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">Page Not Found</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-4">Không tìm thấy trang</h2>
           <p className="text-lg text-gray-600 mb-8">
-            Sorry, the page you are looking for doesn't exist or has been moved.
+            Xin lỗi, trang bạn đang tìm kiếm không tồn tại hoặc đã được di chuyển.
           </p>
         </div>
 
@@ -31,7 +31,7 @@ const NotFound = () => {
           <Button asChild className="w-full">
             <Link to="/">
               <Home className="w-4 h-4 mr-2" />
-              Go Home
+              Về trang chủ
             </Link>
           </Button>
 
@@ -41,7 +41,7 @@ const NotFound = () => {
               onClick={() => window.history.back()}
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Go Back
+            Quay lại
           </Button>
         </div>
       </motion.div>
