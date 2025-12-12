@@ -12,6 +12,20 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import api from "@/config/axiosConfig";
 import { Input } from "@/components/ui/input";
 
+interface Lesson {
+    lessonId: number;
+    lessonTitle: string;
+    isDone: boolean;
+}
+
+interface SectionProgress {
+    sectionId: number;
+    sectionTitle: string;
+    progress: number;
+    isCompleted: boolean;
+    lessons: Lesson[];
+}
+
 interface StudentCourse {
     courseID: number;
     courseTitle: string;
@@ -23,6 +37,9 @@ interface StudentCourse {
     enrolledAt: string;
     progressPercent: number;
     isCompleted: boolean;
+    // Thêm fields để tính tiến độ chính xác
+    totalLessons?: number;
+    completedLessons?: number;
 }
 
 const ITEMS_PER_PAGE = 5;
@@ -34,12 +51,50 @@ const MyEnrollments = () => {
     const [loading, setLoading] = useState(true);
     const [page, setPage] = useState(1);
 
-    // FETCH API
+    // FETCH API - lấy chi tiết từng course để tính tiến độ chính xác
     useEffect(() => {
         const fetchEnrollments = async () => {
             try {
                 const res = await api.get("/student/courses");
-                setEnrollments(res.data.result ?? []);
+                const baseCourses: StudentCourse[] = res.data.result ?? [];
+
+                // Fetch chi tiết từng course để tính tiến độ từ lessons
+                const detailedCourses = await Promise.all(
+                    baseCourses.map(async (course) => {
+                        try {
+                            const detailRes = await api.get(`/student/courses/${course.courseID}`);
+                            const detail = detailRes.data?.result;
+
+                            let totalLessons = 0;
+                            let completedLessons = 0;
+
+                            if (detail?.sectionProgress) {
+                                detail.sectionProgress.forEach((section: SectionProgress) => {
+                                    totalLessons += section.lessons.length;
+                                    completedLessons += section.lessons.filter((l) => l.isDone).length;
+                                });
+                            }
+
+                            // Tính tiến độ từ lessons thay vì dùng progressPercent từ API
+                            const calculatedProgress = totalLessons > 0 
+                                ? (completedLessons / totalLessons) * 100 
+                                : 0;
+                            const calculatedCompleted = calculatedProgress >= 100;
+
+                            return {
+                                ...course,
+                                totalLessons,
+                                completedLessons,
+                                progressPercent: calculatedProgress,
+                                isCompleted: calculatedCompleted,
+                            };
+                        } catch {
+                            return course;
+                        }
+                    })
+                );
+
+                setEnrollments(detailedCourses);
             } finally {
                 setLoading(false);
             }
@@ -85,22 +140,22 @@ const MyEnrollments = () => {
     };
 
     if (loading)
-        return <div className="text-center py-20 text-lg font-medium">Loading...</div>;
+        return <div className="text-center py-20 text-lg font-medium">Đang tải...</div>;
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
             <div className="container mx-auto px-4 py-8 max-w-7xl">
 
                 {/* HEADER */}
-                <h1 className="text-4xl font-bold text-gray-900 mb-2">My Enrollments</h1>
+                <h1 className="text-4xl font-bold text-gray-900 mb-2">Khóa học của tôi</h1>
                 <p className="text-gray-600 mb-6">
-                    Track your learning progress and continue your journey
+                    Theo dõi tiến độ học tập và tiếp tục hành trình của bạn
                 </p>
 
                 {/* SEARCH */}
                 <div className="mb-6">
                     <Input
-                        placeholder="Search course or tutor..."
+                        placeholder="Tìm kiếm khóa học hoặc gia sư..."
                         className="max-w-md bg-white shadow-sm"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -113,7 +168,7 @@ const MyEnrollments = () => {
                         <CardContent className="pt-6">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <p className="text-sm text-gray-600">Total Courses</p>
+                                    <p className="text-sm text-gray-600">Tổng khóa học</p>
                                     <p className="text-3xl font-bold">{stats.total}</p>
                                 </div>
                                 <BookOpen className="w-10 h-10 text-blue-500" />
@@ -125,7 +180,7 @@ const MyEnrollments = () => {
                         <CardContent className="pt-6">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <p className="text-sm text-gray-600">In Progress</p>
+                                    <p className="text-sm text-gray-600">Đang học</p>
                                     <p className="text-3xl font-bold text-orange-600">{stats.inProgress}</p>
                                 </div>
                                 <Clock className="w-10 h-10 text-orange-500" />
@@ -137,7 +192,7 @@ const MyEnrollments = () => {
                         <CardContent className="pt-6">
                             <div className="flex justify-between items-center">
                                 <div>
-                                    <p className="text-sm text-gray-600">Completed</p>
+                                    <p className="text-sm text-gray-600">Đã hoàn thành</p>
                                     <p className="text-3xl font-bold text-green-600">{stats.completed}</p>
                                 </div>
                                 <Award className="w-10 h-10 text-green-500" />
@@ -149,9 +204,9 @@ const MyEnrollments = () => {
                 {/* TABS */}
                 <Tabs value={selectedTab} onValueChange={setSelectedTab}>
                     <TabsList className="bg-white shadow-sm">
-                        <TabsTrigger value="all">All ({stats.total})</TabsTrigger>
-                        <TabsTrigger value="in-progress">In Progress ({stats.inProgress})</TabsTrigger>
-                        <TabsTrigger value="completed">Completed ({stats.completed})</TabsTrigger>
+                        <TabsTrigger value="all">Tất cả ({stats.total})</TabsTrigger>
+                        <TabsTrigger value="in-progress">Đang học ({stats.inProgress})</TabsTrigger>
+                        <TabsTrigger value="completed">Đã hoàn thành ({stats.completed})</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value={selectedTab} className="mt-6 space-y-6">
@@ -183,7 +238,7 @@ const MyEnrollments = () => {
                                         {/* COMPLETED BADGE */}
                                         {course.isCompleted && (
                                             <Badge className="absolute top-3 right-3 bg-green-600 text-white shadow">
-                                                <Award className="w-3 h-3 mr-1" /> Done
+                                                <Award className="w-3 h-3 mr-1" /> Hoàn thành
                                             </Badge>
                                         )}
                                     </div>
@@ -206,7 +261,7 @@ const MyEnrollments = () => {
                                         {/* PROGRESS */}
                                         <div>
                                             <div className="flex justify-between mb-1 text-sm">
-                                                <span>Progress</span>
+                                                <span>Tiến độ</span>
                                                 <span className="font-semibold text-blue-700">
                                                     {Math.round(course.progressPercent)}%
                                                 </span>
@@ -222,7 +277,7 @@ const MyEnrollments = () => {
 
                                         {/* DATE */}
                                         <p className="text-gray-600 text-sm">
-                                            Enrolled:{" "}
+                                            Đã đăng ký:{" "}
                                             {new Date(course.enrolledAt).toLocaleDateString("vi-VN")}
                                         </p>
 
@@ -235,7 +290,7 @@ const MyEnrollments = () => {
                                                 >
                                                     <Link to={`/courses/${course.courseID}`}>
                                                         <Play className="w-4 h-4 mr-2" />
-                                                        Continue Learning
+                                                        Tiếp tục học
                                                     </Link>
                                                 </Button>
                                             ) : (
@@ -245,7 +300,7 @@ const MyEnrollments = () => {
                                                     className="flex-1 py-5 rounded-lg border-gray-300 hover:bg-gray-50"
                                                 >
                                                     <Link to={`/courses/${course.courseID}`}>
-                                                        Review Course
+                                                        Xem lại khóa học
                                                     </Link>
                                                 </Button>
                                             )}
@@ -269,7 +324,7 @@ const MyEnrollments = () => {
                         {/* EMPTY STATE */}
                         {paginated.length === 0 && (
                             <div className="text-center py-20 text-gray-600 text-lg">
-                                No courses found
+                                Không tìm thấy khóa học
                             </div>
                         )}
                     </TabsContent>
@@ -284,11 +339,11 @@ const MyEnrollments = () => {
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                         className="rounded-full px-6"
                     >
-                        Previous
+                        Trước
                     </Button>
 
                     <div className="px-5 py-2 bg-white shadow rounded-full text-gray-700 font-medium">
-                        Page {page} / {pageCount}
+                        Trang {page} / {pageCount}
                     </div>
 
                     <Button
@@ -297,7 +352,7 @@ const MyEnrollments = () => {
                         onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
                         className="rounded-full px-6"
                     >
-                        Next
+                        Sau
                     </Button>
 
                 </div>
