@@ -1,10 +1,14 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import {
   Send,
   Video,
   Image as ImageIcon,
-  Paperclip,
-  X
+  X,
+  FileText,
+  Download,
+  Wifi,
+  WifiOff,
+  Paperclip
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,9 +16,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import api from "@/config/axiosConfig";
 import { useUserInfo } from "@/hooks/useUserInfo";
+import { uploadFileToBackend, type FileUploadResponse } from "@/utils/fileUpload";
+import { useChatSignal } from "@/hooks/useChatSignal";
 
 interface ChatWindowProps {
   conversationId: number;
+  onNewMessage?: () => void;
 }
 
 export type MessageType = "Text" | "Link" | "Image" | "File";
@@ -101,21 +108,80 @@ function isGoogleMeetLink(content: string): boolean {
   return content.includes("https://meet.google.com");
 }
 
-const ChatWindow = ({ conversationId }: ChatWindowProps) => {
+const ChatWindow = ({ conversationId, onNewMessage }: ChatWindowProps) => {
   const { toast } = useToast();
-  const [message, setMessage] = useState<string>(""); // Text input for message
-  const [room, setRoom] = useState<ChatRoom | null>(null); // Chat room data
-  const [loading, setLoading] = useState<boolean>(true); // Loading state
-  const [showMeetLinkInput, setShowMeetLinkInput] = useState<boolean>(false); // Show Google Meet link input
-  const [meetLink, setMeetLink] = useState<string>(""); // Google Meet link input
-  const [selectedFile, setSelectedFile] = useState<File | null>(null); // Selected file
-  const [filePreview, setFilePreview] = useState<string | null>(null); // File preview URL
-  const [uploading, setUploading] = useState<boolean>(false); // Uploading state
+  const [message, setMessage] = useState<string>("");
+  const [room, setRoom] = useState<ChatRoom | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [showMeetLinkInput, setShowMeetLinkInput] = useState<boolean>(false);
+  const [meetLink, setMeetLink] = useState<string>("");
+  const [meetError, setMeetError] = useState<string>("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState<boolean>(false);
+  const [typingUser, setTypingUser] = useState<number | null>(null);
+  const [sending, setSending] = useState<boolean>(false);
 
   const { user: currentUser, loading: userLoading } = useUserInfo(); // User information
   const messageListRef = useRef<HTMLDivElement | null>(null); // Message list ref
   const fileInputRef = useRef<HTMLInputElement | null>(null); // File input ref
   const imageInputRef = useRef<HTMLInputElement | null>(null); // Image input ref
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const currentUserRef = useRef(currentUser);
+  
+  // Keep currentUserRef updated
+  useEffect(() => {
+    currentUserRef.current = currentUser;
+  }, [currentUser]);
+  
+  // Check if any action is in progress (for disabling other buttons)
+  const isActionInProgress = uploading || sending || !!selectedFile || showMeetLinkInput;
+
+  // Fetch room data function
+  const fetchRoom = useCallback(async () => {
+    try {
+      const res = await api.get(`/chat/room/${conversationId}`);
+      const rawRoom = res.data.result;
+
+      const normalizedMessages: ChatMessage[] = rawRoom.messages.map(
+        (m: RawMessage) =>
+          normalizeMessage(m, rawRoom.chatRoomID, m.senderName ?? "Unknown")
+      );
+
+      setRoom({
+        ...rawRoom,
+        messages: normalizedMessages,
+      });
+    } catch (err) {
+      console.error("[ChatWindow] ❌ Failed to load chat room:", err);
+    }
+  }, [conversationId]);
+
+  // WebSocket typing handler
+  const handleTyping = useCallback((senderID: number) => {
+    // Use ref to always get latest currentUser value
+    const myUserID = currentUserRef.current?.userID;
+    if (!myUserID || senderID === myUserID) return; // Don't show own typing
+    
+    setTypingUser(senderID);
+    // Clear typing indicator after 3 seconds
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    typingTimeoutRef.current = setTimeout(() => {
+      setTypingUser(null);
+    }, 3000);
+  }, [currentUser?.userID]);
+
+  // Use WebSocket signal to refetch on new message
+  const { isConnected } = useChatSignal(conversationId, () => {
+    fetchRoom();
+  }, {
+    onTyping: handleTyping,
+    onNewMessage: () => {
+      onNewMessage?.();
+    },
+  });
 
   /** Auto scroll */
   useEffect(() => {
@@ -124,30 +190,35 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
     }
   }, [room?.messages]);
 
-  /** Load chat room */
+  /** Load chat room - on mount or conversationId change */
   useEffect(() => {
-    const fetchRoom = async () => {
-      try {
-        const res = await api.get(`/chat/room/${conversationId}`);
-        const rawRoom = res.data.result;
+    setLoading(true);
+    fetchRoom().finally(() => setLoading(false));
+  }, [conversationId, fetchRoom]);
 
-        const normalizedMessages: ChatMessage[] = rawRoom.messages.map(
-            (m: RawMessage) =>
-                normalizeMessage(m, rawRoom.chatRoomID, m.senderName ?? "Unknown")
-        );
-
-        setRoom({
-          ...rawRoom,
-          messages: normalizedMessages,
-        });
-      } catch (err) {
-        console.error("Failed to load chat room:", err);
-      } finally {
-        setLoading(false);
+  // Cleanup typing timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
     };
+  }, []);
 
-    fetchRoom();
+  // Debounced typing indicator
+  const lastTypingSentRef = useRef<number>(0);
+  const sendTypingIndicator = useCallback(async () => {
+    const now = Date.now();
+    // Only send typing indicator every 2 seconds
+    if (now - lastTypingSentRef.current < 2000) return;
+    lastTypingSentRef.current = now;
+    
+    try {
+      await api.post(`/chat/room/${conversationId}/typing`);
+    } catch (err) {
+      // Silently ignore typing indicator errors
+      console.debug("Typing indicator failed:", err);
+    }
   }, [conversationId]);
 
   /** Send text / link message */
@@ -160,37 +231,66 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
       messageType = "Link";
     }
 
+    const messageContent = message.trim();
+    setMessage(""); // Clear message input immediately for better UX
+    setSending(true);
+
     try {
       const res = await api.post("/chat/message", {
         chatRoomID: Number(conversationId),
-        content: message,
+        content: messageContent,
         messageType,
       });
 
+      // Optimistic update: Add message to local state immediately for sender
       const newMsg = normalizeMessage(
-          res.data.result,
-          conversationId,
-          currentUser?.fullName ?? "Unknown"
+        res.data.result,
+        conversationId,
+        currentUser?.fullName ?? "Unknown"
       );
-
+      
       setRoom((prev) =>
-          prev ? { ...prev, messages: [...prev.messages, newMsg] } : null
+        prev ? { ...prev, messages: [...prev.messages, newMsg] } : null
       );
-      setMessage(""); // Clear message input
+      
+      onNewMessage?.();
     } catch (err) {
-      console.error("Send message failed:", err);
+      // Silent error
+      // Restore message on error
+      setMessage(messageContent);
+      toast({
+        variant: "destructive",
+        title: "Không thể gửi tin nhắn",
+        description: "Vui lòng thử lại sau.",
+      });
+    } finally {
+      setSending(false);
     }
   };
 
   /** Send Google Meet link (Tutor only) */
   const handleSendMeetLink = async () => {
-    if (!meetLink.trim() || !room?.canSendMessage) return;
+    if (!room?.canSendMessage) return;
     if (currentUser?.role !== "Tutor") return;
 
+    setMeetError("");
+    
+    // Validate meet link
+    const trimmedLink = meetLink.trim();
+    if (!trimmedLink) {
+      setMeetError("Vui lòng nhập link Google Meet");
+      return;
+    }
+    
+    if (!trimmedLink.startsWith("https://meet.google.com/")) {
+      setMeetError("Link phải bắt đầu bằng https://meet.google.com/");
+      return;
+    }
+
+    setSending(true);
     try {
-      const res = await api.post(`/chat/room/${conversationId}/meeting-link`, {
-        content: meetLink,
-        messageType: "Link",
+      const res = await api.post(`/chat/room/${conversationId}/meeting-link`, trimmedLink, {
+        headers: { "Content-Type": "text/plain" }
       });
 
       const newMsg = normalizeMessage(
@@ -202,10 +302,14 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
       setRoom((prev) =>
           prev ? { ...prev, messages: [...prev.messages, newMsg] } : null
       );
-      setMeetLink(""); // Clear meet link input
+      setMeetLink("");
       setShowMeetLinkInput(false);
-    } catch (err) {
-      console.error("Send Google Meet link failed:", err);
+      setMeetError("");
+      onNewMessage?.();
+    } catch {
+      setMeetError("Không thể gửi link. Vui lòng thử lại.");
+    } finally {
+      setSending(false);
     }
   };
 
@@ -218,11 +322,46 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
     if (type === "Image" && !file.type.startsWith("image/")) {
       toast({
         variant: "destructive",
-        title: "Invalid file type",
-        description: "Please select an image file (PNG, JPG, GIF, etc.)",
+        title: "Loại file không hợp lệ",
+        description: "Vui lòng chọn file hình ảnh (PNG, JPG, GIF, etc.)",
       });
-      // Clear input
       if (imageInputRef.current) imageInputRef.current.value = "";
+      return;
+    }
+
+    // For documents, accept PDF, Word, Excel only (no PowerPoint)
+    if (type === "File") {
+      const allowedTypes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ];
+      
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          variant: "destructive",
+          title: "Loại file không hợp lệ",
+          description: "Vui lòng chọn file PDF, Word hoặc Excel",
+        });
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        return;
+      }
+    }
+
+    // Check file size (max 10MB for images, 100MB for documents)
+    const maxSize = type === "Image" ? 10 * 1024 * 1024 : 100 * 1024 * 1024;
+    if (file.size > maxSize) {
+      toast({
+        variant: "destructive",
+        title: "File quá lớn",
+        description: type === "Image" 
+          ? "Hình ảnh phải nhỏ hơn 10MB" 
+          : "File tài liệu phải nhỏ hơn 100MB",
+      });
+      if (type === "Image" && imageInputRef.current) imageInputRef.current.value = "";
+      if (type === "File" && fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
@@ -253,44 +392,60 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
     if (!selectedFile || !room?.canSendMessage) return;
 
     setUploading(true);
+    
+    const messageType: MessageType = selectedFile.type.startsWith("image/") ? "Image" : "File";
+    
     try {
-      // Convert file to base64
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
-        const messageType: MessageType = selectedFile.type.startsWith("image/") ? "Image" : "File";
+      toast({
+        title: "Đang tải lên...",
+        description: "Vui lòng đợi trong giây lát",
+      });
 
-        try {
-          const res = await api.post("/chat/message", {
-            chatRoomID: Number(conversationId),
-            content: base64, // Send as base64
-            messageType,
-          });
+      // Upload file to backend API (Cloudinary)
+      const uploadResult: FileUploadResponse = await uploadFileToBackend(selectedFile);
+      
+      // Store as JSON with filename, URLs, and file info
+      const fileData = JSON.stringify({
+        filename: selectedFile.name,
+        viewUrl: uploadResult.viewUrl,
+        downloadUrl: uploadResult.downloadUrl,
+        size: selectedFile.size,
+        type: selectedFile.type,
+      });
+      
+      const res = await api.post("/chat/message", {
+        chatRoomID: Number(conversationId),
+        content: fileData,
+        messageType: messageType,
+      });
 
-          const newMsg = normalizeMessage(
-              res.data.result,
-              conversationId,
-              currentUser?.fullName ?? "Unknown"
-          );
+      const newMsg = normalizeMessage(
+        res.data.result,
+        conversationId,
+        currentUser?.fullName ?? "Unknown"
+      );
 
-          setRoom((prev) =>
-              prev ? { ...prev, messages: [...prev.messages, newMsg] } : null
-          );
-          handleClearFile();
-        } catch (err) {
-          console.error("Send file failed:", err);
-          toast({
-            variant: "destructive",
-            title: "Failed to send file",
-            description: "Please try again later.",
-          });
-        } finally {
-          setUploading(false);
-        }
-      };
-      reader.readAsDataURL(selectedFile);
-    } catch (err) {
-      console.error("File processing failed:", err);
+      // Update local state for immediate feedback (optimistic update)
+      setRoom((prev) =>
+        prev ? { ...prev, messages: [...prev.messages, newMsg] } : null
+      );
+      
+      toast({
+        title: messageType === "Image" ? "Hình ảnh đã gửi" : "File đã gửi",
+        description: `"${selectedFile.name}" đã được chia sẻ`,
+      });
+      
+      handleClearFile();
+      onNewMessage?.(); // Notify parent to refresh conversations list
+      
+    } catch (err: any) {
+      // Silent error
+      toast({
+        variant: "destructive",
+        title: "Không thể gửi file",
+        description: err.message || "Vui lòng thử lại sau.",
+      });
+    } finally {
       setUploading(false);
     }
   };
@@ -332,32 +487,50 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
         {/* HEADER */}
         <div className="p-4 border-b bg-white/90 backdrop-blur flex items-center justify-between shadow-md">
           <div className="flex items-center space-x-3">
-            <Avatar>
-              <AvatarImage src={otherAvatar} alt={otherName} />
-              <AvatarFallback>
-                {otherName
-                    ?.split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-              </AvatarFallback>
-            </Avatar>
-            <div className="font-semibold text-lg">{otherName}</div>
+            <div className="flex-shrink-0" style={{ minWidth: '48px', width: '48px', height: '48px' }}>
+              <Avatar style={{ width: '48px', height: '48px' }}>
+                <AvatarImage src={otherAvatar} alt={otherName} className="object-cover" referrerPolicy="no-referrer" />
+                <AvatarFallback className="text-sm bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
+                  {otherName
+                      ?.split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </div>
+            <div>
+              <div className="font-semibold text-lg">{otherName}</div>
+            </div>
             {isBooked && (
                 <span className="ml-2 text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full">
-              Booked
+              Đã đặt lịch
             </span>
             )}
           </div>
-          {isBooked && currentUser?.role === "Tutor" && (
-              <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowMeetLinkInput(!showMeetLinkInput)}
-                  className="rounded-full hover:bg-blue-50"
-              >
-                <Video className="w-5 h-5 text-blue-600" />
-              </Button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* WebSocket connection status */}
+            <div className="flex items-center gap-1" title={isConnected ? "Đã kết nối real-time" : "Đang kết nối..."}>
+              {isConnected ? (
+                <Wifi className="w-4 h-4 text-green-500" />
+              ) : (
+                <WifiOff className="w-4 h-4 text-gray-400 animate-pulse" />
+              )}
+            </div>
+            {isBooked && currentUser?.role === "Tutor" && (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowMeetLinkInput(!showMeetLinkInput)}
+                    disabled={isActionInProgress && !showMeetLinkInput}
+                    className="rounded-full hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Gửi link Google Meet"
+                >
+                  <Video className="w-5 h-5 text-blue-600" />
+                </Button>
+            )}
+          </div>
         </div>
 
         {/* MESSAGE LIST */}
@@ -410,26 +583,149 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
                           </div>
                         </div>
                     ) : msg.messageType === "Image" ? (
-                        <div>
-                          <img 
-                              src={msg.content} 
-                              alt="Shared image" 
-                              className="max-w-full rounded-lg max-h-64 object-contain"
-                          />
-                        </div>
+                        (() => {
+                          let imageData = { viewUrl: "", downloadUrl: "", filename: "image" };
+                          try {
+                            const parsed = JSON.parse(msg.content);
+                            if (parsed.viewUrl) {
+                              imageData = parsed;
+                            } else {
+                              // Old format: base64 or direct URL
+                              imageData.viewUrl = msg.content;
+                              imageData.downloadUrl = msg.content;
+                            }
+                          } catch {
+                            // Not JSON, treat as direct URL or base64
+                            imageData.viewUrl = msg.content;
+                            imageData.downloadUrl = msg.content;
+                          }
+                          
+                          return (
+                            <div className="flex flex-col gap-2">
+                              <img 
+                                  src={imageData.viewUrl} 
+                                  alt={imageData.filename || "Shared image"} 
+                                  className="max-w-full rounded-lg max-h-64 object-contain cursor-pointer"
+                                  onClick={() => window.open(imageData.viewUrl, '_blank')}
+                              />
+                              {imageData.downloadUrl && (
+                                <a
+                                  href={imageData.downloadUrl}
+                                  download
+                                  className={`inline-flex items-center gap-1 text-xs ${
+                                    isUser ? "text-blue-100 hover:text-white" : "text-blue-600 hover:text-blue-800"
+                                  }`}
+                                >
+                                  <Download className="w-3 h-3" />
+                                  Tải xuống
+                                </a>
+                              )}
+                            </div>
+                          );
+                        })()
                     ) : msg.messageType === "File" ? (
-                        <div className="flex items-center gap-2">
-                          <Paperclip className="w-4 h-4" />
-                          <a
-                              href={msg.content}
-                              download
-                              className={`underline text-sm ${
-                                  isUser ? "text-blue-100" : "text-blue-600"
-                              }`}
-                          >
-                            Download File
-                          </a>
-                        </div>
+                        (() => {
+                          let fileData = { 
+                            filename: "Document", 
+                            viewUrl: "", 
+                            downloadUrl: "", 
+                            size: 0,
+                            type: ""
+                          };
+                          
+                          try {
+                            const parsed = JSON.parse(msg.content);
+                            
+                            // New format: has viewUrl and downloadUrl
+                            if (parsed.viewUrl || parsed.downloadUrl) {
+                              fileData = { ...fileData, ...parsed };
+                            } 
+                            // Old format: has url field
+                            else if (parsed.url) {
+                              fileData.filename = parsed.filename || "Document";
+                              fileData.downloadUrl = parsed.url;
+                              fileData.viewUrl = parsed.url;
+                              fileData.size = parsed.size || 0;
+                            }
+                            // Fallback: has filename but no URLs
+                            else if (parsed.filename) {
+                              fileData = { ...fileData, ...parsed };
+                            }
+                          } catch (e) {
+                            // Old format: [PDF] filename
+                            if (msg.content.startsWith("[PDF]")) {
+                              fileData.filename = msg.content.substring(6);
+                            }
+                          }
+                          
+                          // Determine file icon based on type or extension
+                          const getFileIcon = () => {
+                            const ext = fileData.filename.split('.').pop()?.toLowerCase();
+                            if (ext === 'pdf') return <FileText className="w-5 h-5 text-red-600" />;
+                            if (['doc', 'docx'].includes(ext || '')) return <FileText className="w-5 h-5 text-blue-600" />;
+                            if (['xls', 'xlsx'].includes(ext || '')) return <FileText className="w-5 h-5 text-green-600" />;
+                            if (['ppt', 'pptx'].includes(ext || '')) return <FileText className="w-5 h-5 text-orange-600" />;
+                            return <FileText className="w-5 h-5" />;
+                          };
+                          
+                          const formatFileSize = (bytes: number) => {
+                            if (bytes === 0) return '';
+                            if (bytes < 1024) return `${bytes} B`;
+                            if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(2)} KB`;
+                            return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+                          };
+                          
+                          return (
+                            <div className="flex flex-col gap-2 min-w-[200px]">
+                              <div className="flex items-center gap-2 bg-white/10 p-2 rounded">
+                                {getFileIcon()}
+                                <div className="flex flex-col flex-1 min-w-0">
+                                  <span className="text-sm font-medium truncate">
+                                    {fileData.filename}
+                                  </span>
+                                  {fileData.size > 0 && (
+                                    <span className="text-xs opacity-70">
+                                      {formatFileSize(fileData.size)}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex gap-2 flex-wrap">
+                                {fileData.downloadUrl ? (
+                                  <>
+                                    <a
+                                      href={fileData.downloadUrl}
+                                      download
+                                      className={`inline-flex items-center gap-1 text-sm font-medium ${
+                                        isUser ? "text-blue-100 hover:text-white" : "text-blue-600 hover:text-blue-800"
+                                      }`}
+                                    >
+                                      <Download className="w-3 h-3" />
+                                      Tải xuống
+                                    </a>
+                                    {fileData.viewUrl && (
+                                      <a
+                                        href={fileData.viewUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`inline-flex items-center gap-1 text-sm ${
+                                          isUser ? "text-blue-100 hover:text-white" : "text-blue-600 hover:text-blue-800"
+                                        }`}
+                                      >
+                                        <ImageIcon className="w-3 h-3" />
+                                        Xem online
+                                      </a>
+                                    )}
+                                  </>
+                                ) : (
+                                  <div className={`text-xs ${isUser ? "text-blue-100" : "text-gray-500"}`}>
+                                    📎 {fileData.filename}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })()
                     ) : msg.messageType === "Link" ? (
                         <a
                             href={msg.content}
@@ -456,7 +752,14 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
                                     : "text-gray-400"
                         }`}
                     >
-                      {new Date(msg.createdAt).toLocaleString()}
+                      {new Date(msg.createdAt).toLocaleString('vi-VN', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: false
+                      })}
                     </p>
                   </div>
                 </div>
@@ -467,46 +770,58 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
         {/* INPUT BOX */}
         <div className="p-4 bg-white/90 border-t backdrop-blur">
           {!isBooked && (
-              <div className="mb-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+              <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
                 {currentUser?.role === "Tutor" ? (
-                    <span>This learner has not booked any training session yet.</span>
+                    <span>
+                      Học viên này chưa đặt buổi học. Đây là cuộc trò chuyện tư vấn.
+                    </span>
                 ) : (
                     <span>
-                Book a training session to unlock file sharing, images and Google
-                Meet.
-              </span>
+                      Đặt buổi học với gia sư để mở khóa tính năng chia sẻ hình ảnh và Google Meet.
+                    </span>
                 )}
               </div>
           )}
 
           {showMeetLinkInput && isBooked && (
               <div className="mb-3 rounded-xl border border-blue-100 bg-blue-50/60 p-3">
-                <div className="flex items-center mb-2 space-x-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white">
-                    <Video className="w-4 h-4" />
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white">
+                      <Video className="w-4 h-4" />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-semibold text-blue-700">
+                        Gửi link Google Meet
+                      </span>
+                      <span className="text-xs text-blue-500">
+                        Dán link Google Meet của bạn vào đây
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex flex-col">
-                <span className="text-sm font-semibold text-blue-700">
-                  Send Google Meet Room
-                </span>
-                    <span className="text-xs text-blue-500">
-                  Paste your Google Meet link below
-                </span>
-                  </div>
+                  <button
+                    onClick={() => { setShowMeetLinkInput(false); setMeetLink(""); setMeetError(""); }}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
                 <Textarea
-                    placeholder="Example: https://meet.google.com/xxx-xxxx-xxx"
+                    placeholder="Ví dụ: https://meet.google.com/xxx-xxxx-xxx"
                     value={meetLink}
-                    onChange={(e) => setMeetLink(e.target.value)}
+                    onChange={(e) => { setMeetLink(e.target.value); setMeetError(""); }}
                     className="resize-none border rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 />
+                {meetError && (
+                  <p className="text-sm text-red-500 mt-1">{meetError}</p>
+                )}
                 <div className="mt-2 flex justify-end">
                   <Button
                       onClick={handleSendMeetLink}
                       disabled={!meetLink.trim()}
                       className="bg-blue-600 hover:bg-blue-700 rounded-lg text-white px-4"
                   >
-                    Send Google Meet Link
+                    Gửi link
                   </Button>
                 </div>
               </div>
@@ -516,7 +831,9 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
           {selectedFile && (
               <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-blue-900">Selected File:</span>
+                  <span className="text-sm font-semibold text-blue-900">
+                    {selectedFile.type.startsWith("image/") ? "Hình ảnh đã chọn:" : "File đã chọn:"}
+                  </span>
                   <button onClick={handleClearFile} className="text-red-500 hover:text-red-700">
                     <X className="w-4 h-4" />
                   </button>
@@ -524,9 +841,24 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
                 {filePreview ? (
                     <img src={filePreview} alt="Preview" className="max-h-32 rounded-lg" />
                 ) : (
-                    <div className="flex items-center gap-2 text-gray-700">
-                      <Paperclip className="w-4 h-4" />
-                      <span className="text-sm">{selectedFile.name}</span>
+                    <div className="flex items-center gap-2 text-gray-700 bg-white p-2 rounded">
+                      {(() => {
+                        const ext = selectedFile.name.split('.').pop()?.toLowerCase();
+                        if (ext === 'pdf') return <FileText className="w-5 h-5 text-red-600" />;
+                        if (['doc', 'docx'].includes(ext || '')) return <FileText className="w-5 h-5 text-blue-600" />;
+                        if (['xls', 'xlsx'].includes(ext || '')) return <FileText className="w-5 h-5 text-green-600" />;
+                        if (['ppt', 'pptx'].includes(ext || '')) return <FileText className="w-5 h-5 text-orange-600" />;
+                        return <Paperclip className="w-5 h-5" />;
+                      })()}
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{selectedFile.name}</span>
+                        <span className="text-xs text-gray-500">
+                          {selectedFile.size < 1024 * 1024 
+                            ? `${(selectedFile.size / 1024).toFixed(2)} KB`
+                            : `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`
+                          }
+                        </span>
+                      </div>
                     </div>
                 )}
                 <Button
@@ -534,9 +866,21 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
                     disabled={uploading}
                     className="w-full mt-2 bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  {uploading ? "Uploading..." : "Send File"}
+                  {uploading ? "Đang tải lên..." : selectedFile.type.startsWith("image/") ? "Gửi hình ảnh" : "Gửi file"}
                 </Button>
               </div>
+          )}
+
+          {/* Typing indicator - above input */}
+          {typingUser && (
+            <div className="mb-2 flex items-center gap-2 text-sm text-blue-600">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+              </div>
+              <span className="text-gray-500">{otherName} đang nhập...</span>
+            </div>
           )}
 
           <div className="flex items-end space-x-2">
@@ -550,37 +894,46 @@ const ChatWindow = ({ conversationId }: ChatWindowProps) => {
                       className="hidden"
                       onChange={(e) => handleFileSelect(e, "Image")}
                   />
-                  {/* <input
+                  <input
                       ref={fileInputRef}
                       type="file"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx"
                       className="hidden"
                       onChange={(e) => handleFileSelect(e, "File")}
-                  /> */}
+                  />
                   <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => imageInputRef.current?.click()}
-                      disabled={!canSendMessage || !!selectedFile}
-                      className="rounded-full hover:bg-blue-50"
+                      disabled={!canSendMessage || isActionInProgress}
+                      className="rounded-full hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Gửi hình ảnh"
                   >
                     <ImageIcon className="w-5 h-5 text-blue-600" />
                   </Button>
-                  {/* <Button
+                  <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={!canSendMessage || !!selectedFile}
-                      className="rounded-full hover:bg-blue-50"
+                      disabled={!canSendMessage || isActionInProgress}
+                      className="rounded-full hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Gửi file (PDF, Word, Excel)"
                   >
-                    <Paperclip className="w-5 h-5 text-blue-600" />
-                  </Button> */}
+                    <Paperclip className="w-5 h-5 text-gray-600" />
+                  </Button>
                 </>
             )}
 
             <Textarea
                 placeholder="Type your message..."
                 value={message}
-                onChange={(e) => setMessage(e.target.value)}
+                onChange={(e) => {
+                  setMessage(e.target.value);
+                  // Send typing indicator when user types
+                  if (e.target.value.trim()) {
+                    sendTypingIndicator();
+                  }
+                }}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
