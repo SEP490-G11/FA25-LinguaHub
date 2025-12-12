@@ -4,6 +4,7 @@ import api from "@/config/axiosConfig";
 import TutorHeroSection from "./components/sections/hero-section";
 import CoursesSection from "./components/sections/courses-section";
 import ReviewsSection from "./components/sections/reviews-section";
+import SchedulePreview from "./components/sections/schedule-preview";
 import { Button } from "@/components/ui/button";
 import { Video, ChevronLeft, ChevronRight } from "lucide-react";
 import { ROUTES } from "@/constants/routes";
@@ -46,6 +47,23 @@ interface PackageItem {
   updated_at?: string;
 }
 
+interface Feedback {
+  feedbackID: number;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  learnerName: string;
+  learnerAvatarURL: string;
+}
+
+interface Certificate {
+  certificateID: number;
+  certificateName: string;
+  certificateURL: string;
+  issuedDate?: string;
+  expiryDate?: string;
+}
+
 interface Tutor {
   tutorId: number;
   userId: number;
@@ -62,6 +80,8 @@ interface Tutor {
   pricePerHour: number | null;
   status: string;
   courses: Course[];
+  feedbacks?: Feedback[];
+  certificates?: Certificate[];
 }
 
 const TutorDetail = () => {
@@ -74,7 +94,14 @@ const TutorDetail = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [selectedPackage, setSelectedPackage] = useState<PackageItem | null>(null);
   const [openDetail, setOpenDetail] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const navigate = useNavigate();
+
+  // Check authentication
+  useEffect(() => {
+    const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+    setIsAuthenticated(Boolean(token));
+  }, []);
 
   const PACKAGES_PER_PAGE = 2;
   const activePackages = packages.filter(p => p.is_active);
@@ -177,7 +204,7 @@ const TutorDetail = () => {
   return (
       <div className="min-h-screen bg-gray-50">
         {/* HERO SECTION */}
-        <TutorHeroSection tutor={heroData} />
+        <TutorHeroSection tutor={heroData} certificates={tutor.certificates || []} />
 
         <section className="py-16">
           <div className="max-w-7xl mx-auto px-8 lg:px-16">
@@ -188,14 +215,14 @@ const TutorDetail = () => {
                 {/* PACKAGES */}
                 <div className="bg-blue-50/50 p-6 rounded-xl shadow-md border border-blue-100">
                   <h2 className="text-2xl font-bold mb-2 text-blue-900 flex items-center gap-2">
-                    <span>📦</span> Learning Packages
+                    <span>📦</span> Gói học
                   </h2>
-                  <p className="text-gray-600 mb-6">View available learning packages offered by this tutor</p>
+                  <p className="text-gray-600 mb-6">Xem các gói học có sẵn được cung cấp bởi gia sư này</p>
 
                   {loadingPackages ? (
-                      <p className="text-gray-500">Loading packages...</p>
+                      <p className="text-gray-500">Đang tải gói học...</p>
                   ) : activePackages.length === 0 ? (
-                      <p className="text-gray-500 italic">No active packages available.</p>
+                      <p className="text-gray-500 italic">Không có gói học nào khả dụng.</p>
                   ) : (
                       <div className="relative">
                         {/* Previous Button */}
@@ -208,38 +235,38 @@ const TutorDetail = () => {
                         </button>
 
                         {/* Packages Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
                           {displayedPackages.map((pkg) => (
                               <div 
                                   key={pkg.packageid} 
-                                  className="rounded-2xl border-2 border-blue-300 bg-white shadow-md transition-all p-6 hover:shadow-xl"
+                                  className="p-6 rounded-2xl border-2 border-gray-200 bg-white shadow-md transition hover:bg-blue-50 flex flex-col h-full"
                               >
                                 <div className="flex items-center justify-between mb-3">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-yellow-500">✨</span>
-                                    <h3 className="text-lg font-bold text-gray-900">
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <span className="text-yellow-500 flex-shrink-0">✨</span>
+                                    <h3 className="font-bold text-gray-900 line-clamp-1">
                                       {pkg.name}
                                     </h3>
                                   </div>
                                   <Button
-                                      className="bg-blue-600 text-white hover:bg-blue-700"
+                                      className="bg-blue-600 text-white hover:bg-blue-700 flex-shrink-0"
                                       size="sm"
                                       onClick={() => handleOpenDetail(pkg)}
                                   >
-                                    Detail
+                                    Chi tiết
                                   </Button>
                                 </div>
 
-                                <p className="text-gray-600 text-sm mb-4 leading-relaxed line-clamp-2">
-                                  {pkg.requirement || "No specific requirements"}
+                                <p className="text-sm text-gray-600 mt-2 mb-4 line-clamp-2 min-h-[40px]">
+                                  {pkg.requirement || "Không có yêu cầu"}
                                 </p>
 
-                                <div className="space-y-2 text-sm text-gray-700">
-                                  <p>
-                                    <strong>Objectives:</strong> <span className="line-clamp-1">{pkg.objectives || "No objectives provided"}</span>
+                                <div className="space-y-2 text-sm text-gray-700 flex-1">
+                                  <p className="line-clamp-2">
+                                    <b>Mục tiêu:</b> {pkg.objectives || "Chưa có mục tiêu"}
                                   </p>
                                   <p>
-                                    <strong>Max Sessions:</strong> {getMaxSlot(pkg)}
+                                    <b>Số buổi tối đa:</b> {getMaxSlot(pkg)}
                                   </p>
                                 </div>
                               </div>
@@ -270,38 +297,38 @@ const TutorDetail = () => {
                     {selectedPackage && (
                         <div className="space-y-3 text-gray-700">
                           <p>
-                            <strong className="text-gray-900">Description:</strong> {selectedPackage.description || "No description available"}
+                            <strong className="text-gray-900">Mô tả:</strong> {selectedPackage.description || "Chưa có mô tả"}
                           </p>
 
                           <p>
-                            <strong className="text-gray-900">Requirement:</strong> {selectedPackage.requirement || "No specific requirements"}
+                            <strong className="text-gray-900">Yêu cầu:</strong> {selectedPackage.requirement || "Không có yêu cầu cụ thể"}
                           </p>
 
                           <p>
-                            <strong className="text-gray-900">Objectives:</strong> {selectedPackage.objectives || "No objectives provided"}
+                            <strong className="text-gray-900">Mục tiêu:</strong> {selectedPackage.objectives || "Chưa có mục tiêu"}
                           </p>
 
                           <p>
-                            <strong className="text-gray-900">Number of Lessons:</strong> {selectedPackage.slot_content?.length || getMaxSlot(selectedPackage)}
+                            <strong className="text-gray-900">Số buổi học:</strong> {selectedPackage.slot_content?.length || getMaxSlot(selectedPackage)}
                           </p>
 
                           <p>
-                            <strong className="text-gray-900">Max Slots:</strong> {getMaxSlot(selectedPackage)}
+                            <strong className="text-gray-900">Số buổi tối đa:</strong> {getMaxSlot(selectedPackage)}
                           </p>
 
                           {selectedPackage.min_booking_price_per_hour && (
                               <p>
-                                <strong className="text-gray-900">Min Booking Price per Hour:</strong> {selectedPackage.min_booking_price_per_hour.toLocaleString('vi-VN')} ₫
+                                <strong className="text-gray-900">Giá tối thiểu mỗi giờ:</strong> {selectedPackage.min_booking_price_per_hour.toLocaleString('vi-VN')} ₫
                               </p>
                           )}
 
                           {selectedPackage.slot_content && selectedPackage.slot_content.length > 0 && (
                               <div>
-                                <strong className="text-gray-900 block mb-2">Lesson Content:</strong>
+                                <strong className="text-gray-900 block mb-2">Nội dung bài học:</strong>
                                 <ul className="list-disc list-inside space-y-1 ml-2">
                                   {selectedPackage.slot_content.map((slot) => (
                                       <li key={slot.slot_number}>
-                                        Slot {slot.slot_number}: {slot.content}
+                                        Buổi {slot.slot_number}: {slot.content}
                                       </li>
                                   ))}
                                 </ul>
@@ -312,17 +339,20 @@ const TutorDetail = () => {
                   </DialogContent>
                 </Dialog>
 
+                {/* SCHEDULE PREVIEW */}
+                <SchedulePreview tutorId={tutor.tutorId} />
+
                 {/* COURSES */}
                 <CoursesSection courses={tutor.courses || []} />
 
                 {/* REVIEWS */}
-                <ReviewsSection tutorId={tutor.tutorId} />
+                <ReviewsSection tutorId={tutor.tutorId} initialFeedbacks={tutor.feedbacks || []} />
               </div>
 
               {/* RIGHT SIDEBAR */}
-              <div className="lg:col-span-1">
+              <div className="lg:col-span-1 lg:sticky lg:top-20 lg:self-start">
                 <div className="bg-white shadow-sm rounded-xl p-6">
-                  <h3 className="text-xl font-bold mb-2">Tutor Information</h3>
+                  <h3 className="text-xl font-bold mb-2">Thông tin gia sư</h3>
 
                   <p className="text-gray-800 text-lg font-semibold mb-3">
                     {tutor.userName}
@@ -334,30 +364,36 @@ const TutorDetail = () => {
 
                   {tutor.phone && (
                       <p className="text-gray-600">
-                        <strong>Phone:</strong> {tutor.phone}
+                        <strong>Điện thoại:</strong> {tutor.phone}
                       </p>
                   )}
                 </div>
 
                 {/* BOOKING CARD */}
                 <div className="mt-8 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-xl p-6 shadow-lg">
-                  <h3 className="text-2xl font-bold mb-2">Book Your First Trial Lesson!</h3>
+                  <h3 className="text-2xl font-bold mb-2">Đặt buổi học 1-1!</h3>
+                  <p className="text-white/90 text-sm mb-2">
+                    💰 <strong>{tutor.pricePerHour?.toLocaleString('vi-VN') || '0'} ₫/giờ</strong> <span className="text-white/70">(1 slot = 1 giờ)</span>
+                  </p>
                   <p className="text-white/90 text-sm mb-4">
-                    Experience personalized learning with expert tutors. Schedule your trial lesson today and start your journey!
+                    {isAuthenticated 
+                      ? "Trải nghiệm học tập cá nhân hóa với gia sư chuyên nghiệp. Chọn lịch phù hợp với bạn!"
+                      : "Đăng ký ngay để nhận slot tốt nhất! Trải nghiệm học tập cá nhân hóa với gia sư chuyên nghiệp."
+                    }
                   </p>
 
                   <ul className="text-sm space-y-2 mb-4">
                     <li className="flex items-center gap-2">
                       <span className="text-green-300">✔</span>
-                      1-on-1 private learning session
+                      Buổi học riêng 1-1
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="text-green-300">✔</span>
-                      Customized study plan
+                      Kế hoạch học tập tùy chỉnh
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="text-green-300">✔</span>
-                      Flexible schedule & instant booking
+                      Lịch trình linh hoạt & đặt lịch ngay lập tức
                     </li>
                   </ul>
 
@@ -369,7 +405,7 @@ const TutorDetail = () => {
                       className="w-full bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-lg flex items-center justify-center gap-2 text-lg font-semibold"
                   >
                     <Video className="w-5 h-5" />
-                    <span>Booking</span>
+                    <span>Đặt lịch</span>
                   </Button>
                 </div>
               </div>

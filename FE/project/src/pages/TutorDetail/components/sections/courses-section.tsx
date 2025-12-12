@@ -48,7 +48,7 @@ const CoursesSection = ({ courses }: CoursesSectionProps) => {
             variants={fadeInUp}
         >
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            Available Courses
+            Khóa học có sẵn
           </h2>
           <p className="text-gray-500">Hiện chưa có khóa học nào được đăng.</p>
         </motion.div>
@@ -81,7 +81,7 @@ const CoursesSection = ({ courses }: CoursesSectionProps) => {
           variants={fadeInUp}
       >
         <h2 className="text-2xl font-bold text-gray-900 mb-6">
-          Available Courses
+          Khóa học có sẵn
         </h2>
         <button
             onClick={prevPage}
@@ -125,7 +125,7 @@ const CoursesSection = ({ courses }: CoursesSectionProps) => {
                   <CardContent className="p-5 flex flex-col flex-grow">
                     <div className="flex items-center justify-between mb-3">
                       <Badge variant="secondary" className="text-xs capitalize">
-                        {course.categoryName || "General"}
+                        {course.categoryName || "Chung"}
                       </Badge>
                       <span
                           className={`text-xs font-medium ${
@@ -141,13 +141,13 @@ const CoursesSection = ({ courses }: CoursesSectionProps) => {
                       {course.title}
                     </h3>
                     <p className="text-sm text-gray-600 mb-4 line-clamp-3 flex-grow">
-                      {course.description || "No description available."}
+                      {course.description || "Chưa có mô tả."}
                     </p>
                     {/* Duration & Language */}
                     <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
                       <div className="flex items-center gap-1">
                         <Clock className="w-4 h-4" />
-                        <span>{course.duration} hour</span>
+                        <span>{course.duration} giờ</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <Tag className="w-4 h-4" />
@@ -159,7 +159,7 @@ const CoursesSection = ({ courses }: CoursesSectionProps) => {
                     {formatPrice(course.price)}
                   </span>
                       <Button size="sm" className="px-4">
-                        Enroll
+                        Đăng ký
                       </Button>
                     </div>
                   </CardContent>
