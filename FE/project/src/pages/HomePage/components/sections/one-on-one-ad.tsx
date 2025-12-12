@@ -32,16 +32,16 @@ const OneOnOneAd = () => {
           >
             <div className="inline-flex items-center space-x-2 bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-sm font-medium mb-4">
               <Video className="w-4 h-4" />
-              <span>1-on-1 Private Learning</span>
+              <span>Học 1-1 riêng tư</span>
             </div>
 
             <h2 className="text-4xl font-bold mb-4">
-              Learn Any Language 1-on-1 with a Native Tutor
+              Học bất kỳ ngôn ngữ nào 1-1 với gia sư bản ngữ
             </h2>
 
             <p className="text-lg text-blue-100 max-w-2xl mx-auto leading-relaxed">
-              English • Japanese • Korean • Chinese • French • Vietnamese
-              Your goals decide what we teach — speaking, business, exams, or travel.
+              Tiếng Anh • Tiếng Nhật • Tiếng Hàn • Tiếng Trung • Tiếng Pháp • Tiếng Việt
+              Mục tiêu của bạn quyết định nội dung học — giao tiếp, kinh doanh, thi cử, hoặc du lịch.
             </p>
           </motion.div>
 
@@ -54,9 +54,9 @@ const OneOnOneAd = () => {
               variants={staggerContainer}
           >
             {[
-              { icon: Users, title: "Private Lesson", desc: "100% tutor’s attention just for you." },
-              { icon: Clock, title: "Learn Anytime", desc: "Morning, evening or weekend — your choice." },
-              { icon: Star, title: "Personalized Roadmap", desc: "Your goals → customized lesson plan." },
+              { icon: Users, title: "Buổi học riêng", desc: "100% sự chú ý của gia sư chỉ dành cho bạn." },
+              { icon: Clock, title: "Học mọi lúc", desc: "Sáng, tối hay cuối tuần — bạn chọn." },
+              { icon: Star, title: "Lộ trình cá nhân hóa", desc: "Mục tiêu của bạn quyết định kế hoạch học." },
             ].map((benefit, index) => (
                 <motion.div key={index} variants={fadeInUp}>
                   <Card className="p-6 bg-white text-gray-900 hover:shadow-2xl transition-all rounded-xl">
@@ -84,10 +84,10 @@ const OneOnOneAd = () => {
                 size="lg"
                 className="px-10 py-6 text-lg font-semibold bg-white text-blue-600 hover:bg-blue-50 transition-all shadow-lg"
             >
-              <Link to={ROUTES.TUTORS}>Book Free Trial Lesson</Link>
+              <Link to={ROUTES.TUTORS}>Đặt buổi học thử miễn phí</Link>
             </Button>
             <p className="mt-4 text-blue-100 text-sm italic">
-              Start speaking your target language from day one.
+              Bắt đầu nói ngôn ngữ mục tiêu của bạn ngay từ ngày đầu tiên.
             </p>
           </motion.div>
         </div>

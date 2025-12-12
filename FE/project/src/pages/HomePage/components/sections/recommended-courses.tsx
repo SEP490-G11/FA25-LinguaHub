@@ -43,13 +43,13 @@ function RecommendedCourses() {
                 const res = await api.get("/courses/public/approved");
                 let list: RecommendedCourse[] = res.data.result || [];
                 list = list.filter((c) => !c.isPurchased && !c.isWishListed);
-                const random4 = [...list]
-                    .sort(() => Math.random() - 0.5)
+                const top4 = [...list]
+                    .sort((a, b) => b.avgRating - a.avgRating)
                     .slice(0, 4);
-                setCourses(random4);
+                setCourses(top4);
                 setWishlistMap(
                     Object.fromEntries(
-                        random4.map((c) => [c.id, c.isWishListed ?? false])
+                        top4.map((c) => [c.id, c.isWishListed ?? false])
                     )
                 );
             } catch (err) {
@@ -70,8 +70,8 @@ function RecommendedCourses() {
 
         if (!token) {
             toast({
-                title: "Login Required",
-                description: "Please sign in.",
+                title: "Yêu cầu đăng nhập",
+                description: "Vui lòng đăng nhập.",
                 variant: "destructive",
             });
             navigate(ROUTES.SIGN_IN);
@@ -90,8 +90,8 @@ function RecommendedCourses() {
             }));
         } catch {
             toast({
-                title: "Error",
-                description: "Failed to update wishlist.",
+                title: "Lỗi",
+                description: "Không thể cập nhật danh sách yêu thích.",
                 variant: "destructive",
             });
         }
@@ -110,16 +110,16 @@ function RecommendedCourses() {
     if (loading)
         return (
             <div className="py-20 text-center text-lg font-medium">
-                Loading recommended courses…
+                Đang tải khóa học đề xuất…
             </div>
         );
 
     if (courses.length === 0)
         return (
             <section className="py-16 text-center">
-                <h2 className="text-2xl font-semibold">No recommended courses</h2>
+                <h2 className="text-2xl font-semibold">Không có khóa học đề xuất</h2>
                 <p className="text-muted-foreground mt-2">
-                    You have already enrolled in all available courses.
+                    Bạn đã đăng ký tất cả các khóa học có sẵn.
                 </p>
             </section>
         );
@@ -130,14 +130,14 @@ function RecommendedCourses() {
 
                 {/* Header */}
                 <div className="flex items-center justify-between mb-10">
-                    <h2 className="text-3xl font-bold">Recommended Courses</h2>
+                    <h2 className="text-3xl font-bold">Khóa học đề xuất</h2>
 
                     <Button
                         variant="outline"
                         className="font-medium"
-                        onClick={() => navigate("/courses")}
+                        onClick={() => navigate(ROUTES.LANGUAGES)}
                     >
-                        View All Courses
+                        Xem tất cả khóa học
                     </Button>
                 </div>
 
@@ -176,17 +176,17 @@ function RecommendedCourses() {
 
                                             {/* Wishlist */}
                                             <button
-                                                className="absolute top-3 right-3"
+                                                className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg hover:bg-white transition-all hover:scale-110"
                                                 onClick={(e) => {
                                                     e.preventDefault();
                                                     toggleWishlist(course.id);
                                                 }}
                                             >
                                                 <Heart
-                                                    className={`w-7 h-7 transition ${
+                                                    className={`w-5 h-5 transition-all ${
                                                         isWishlisted
                                                             ? "fill-red-500 text-red-500"
-                                                            : "text-white hover:text-red-400"
+                                                            : "text-gray-600 hover:text-red-500 hover:fill-red-100"
                                                     }`}
                                                 />
                                             </button>
@@ -249,7 +249,7 @@ function RecommendedCourses() {
                                                         navigate(`/courses/${course.id}`);
                                                     }}
                                                 >
-                                                    Join
+                                                    Tham gia
                                                 </Button>
                                             </div>
 

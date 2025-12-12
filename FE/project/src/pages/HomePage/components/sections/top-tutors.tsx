@@ -49,21 +49,40 @@ const TopTutors = () => {
   useEffect(() => {
     const fetchTopTutors = async () => {
       try {
+        console.log("Fetching approved tutors...");
         const res = await api.get<ApprovedTutor[]>("/tutors/approved");
         const approvedList = res.data;
+        console.log("Approved tutors:", approvedList?.length || 0);
+
+        if (!approvedList || approvedList.length === 0) {
+          console.warn("No approved tutors found");
+          setLoading(false);
+          return;
+        }
 
         // Lấy chi tiết từng tutor (không dùng any)
+        console.log("Fetching tutor details...");
         const detailPromises = approvedList.map((tutor: ApprovedTutor) =>
-            api.get<TutorDetail>(`/tutors/${tutor.tutorId}`).then((r) => r.data)
+            api.get<TutorDetail>(`/tutors/${tutor.tutorId}`)
+              .then((r) => r.data)
+              .catch((err) => {
+                console.error(`Failed to fetch tutor ${tutor.tutorId}:`, err);
+                return null;
+              })
         );
 
-        const detailedTutors = await Promise.all(detailPromises);
+        const detailedTutors = (await Promise.all(detailPromises)).filter(
+          (t): t is TutorDetail => t !== null
+        );
+
+        console.log("Detailed tutors:", detailedTutors.length);
 
         // Lấy top 4 theo rating
         const top4 = detailedTutors
-            .sort((a, b) => b.rating - a.rating)
+            .sort((a, b) => (b.rating || 0) - (a.rating || 0))
             .slice(0, 4);
 
+        console.log("Top 4 tutors:", top4);
         setTutors(top4);
       } catch (error) {
         console.error("Failed to fetch tutors:", error);
@@ -101,16 +120,26 @@ const TopTutors = () => {
           >
             <div className="inline-flex items-center space-x-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-medium mb-4">
               <Award className="w-4 h-4" />
-              <span>Top Tutors</span>
+              <span>Gia sư hàng đầu</span>
             </div>
-            <h2 className="text-4xl font-bold text-foreground mb-4">Meet the Best Teachers</h2>
+            <h2 className="text-4xl font-bold text-foreground mb-4">Gặp gỡ các giáo viên xuất sắc nhất</h2>
           </motion.div>
 
           {loading && (
-              <p className="text-center text-muted-foreground text-lg">Loading tutors...</p>
+              <p className="text-center text-muted-foreground text-lg">Đang tải gia sư...</p>
+          )}
+
+          {!loading && tutors.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground text-lg mb-4">Chưa có gia sư nào được phê duyệt</p>
+                <Button asChild>
+                  <Link to={ROUTES.BECOME_TUTOR}>Trở thành gia sư</Link>
+                </Button>
+              </div>
           )}
 
           {/* GRID */}
+          {!loading && tutors.length > 0 && (
           <motion.div
               className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12"
               initial="initial"
@@ -177,7 +206,7 @@ const TopTutors = () => {
                             lineHeight: '1.5rem'
                           }}
                         >
-                          {tutor.bio || "No bio available"}
+                          {tutor.bio || "Chưa có giới thiệu"}
                         </p>
 
                         {/* PRICE - Push to bottom */}
@@ -193,8 +222,10 @@ const TopTutors = () => {
                 </motion.div>
             ))}
           </motion.div>
+          )}
 
           {/* VIEW ALL */}
+          {!loading && tutors.length > 0 && (
           <motion.div
               className="text-center"
               initial="initial"
@@ -208,11 +239,12 @@ const TopTutors = () => {
                 className="bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700"
             >
               <Link to={ROUTES.TUTORS}>
-                View All Teachers
+                Xem tất cả giáo viên
                 <ChevronRight className="w-4 h-4 ml-2" />
               </Link>
             </Button>
           </motion.div>
+          )}
 
         </div>
       </section>

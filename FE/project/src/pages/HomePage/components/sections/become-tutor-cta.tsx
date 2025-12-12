@@ -22,23 +22,23 @@ const BecomeTutorCTA = () => {
   const benefits = [
     {
       icon: DollarSign,
-      title: 'High income',
-      description: 'Earn up to 350,000₫ – 1,200,000₫ per hour teaching your native language'
+      title: 'Thu nhập cao',
+      description: 'Kiếm đến 350,000₫ – 1,200,000₫ mỗi giờ dạy ngôn ngữ bản ngữ của bạn'
     },
     {
       icon: Clock,
-      title: 'Flexible schedule',
-      description: 'Teach anytime, anywhere — you control your time'
+      title: 'Lịch linh hoạt',
+      description: 'Dạy bất cứ lúc nào, bất cứ nơi đâu — bạn kiểm soát thời gian'
     },
     {
       icon: Users,
-      title: 'Global students',
-      description: 'Connect with learners from over 100+ countries'
+      title: 'Học viên toàn cầu',
+      description: 'Kết nối với học viên từ hơn 100 quốc gia'
     },
     {
       icon: Globe,
-      title: 'Trusted platform',
-      description: 'Join a community of over 5000 professional tutors'
+      title: 'Nền tảng uy tín',
+      description: 'Tham gia cộng đồng hơn 5000 gia sư chuyên nghiệp'
     }
   ];
 
@@ -58,14 +58,14 @@ const BecomeTutorCTA = () => {
                   className="text-2xl md:text-3xl font-bold text-gray-900 mb-4"
                   variants={fadeInUp}
               >
-                Become a <span className="text-blue-600">Tutor</span> with LinguaHub
+                Trở thành <span className="text-blue-600">Gia sư</span> cùng LinguaHub
               </motion.h2>
 
               <motion.p
                   className="text-base text-gray-600 mb-6"
                   variants={fadeInUp}
               >
-                Share your language with students from all over the world and get paid doing what you love.
+                Chia sẻ ngôn ngữ của bạn với học viên từ khắp nơi trên thế giới và kiếm tiền từ điều bạn yêu thích.
               </motion.p>
 
               <motion.div
@@ -101,13 +101,13 @@ const BecomeTutorCTA = () => {
               >
                 <Button asChild className="bg-blue-600 hover:bg-blue-700">
                   <Link to="/become-tutor">
-                    Apply as Tutor
+                    Đăng ký làm gia sư
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Link>
                 </Button>
 
                 <Button variant="outline">
-                  Learn more
+                  Tìm hiểu thêm
                 </Button>
               </motion.div>
             </motion.div>
@@ -128,11 +128,11 @@ const BecomeTutorCTA = () => {
                 />
                 <div className="absolute -bottom-2 -left-2 bg-white p-2 rounded-lg shadow-md border">
                   <div className="text-lg font-bold text-blue-600">5000+</div>
-                  <div className="text-xs text-gray-600">Tutors</div>
+                  <div className="text-xs text-gray-600">Gia sư</div>
                 </div>
                 <div className="absolute -top-2 -right-2 bg-white p-2 rounded-lg shadow-md border">
                   <div className="text-lg font-bold text-blue-600">100K+</div>
-                  <div className="text-xs text-gray-600">Students</div>
+                  <div className="text-xs text-gray-600">Học viên</div>
                 </div>
               </div>
             </motion.div>

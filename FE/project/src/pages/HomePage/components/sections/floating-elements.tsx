@@ -17,33 +17,30 @@ function FloatingElements() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        // Try to fetch courses (public endpoint)
+        // Fetch courses (public endpoint)
         const coursesRes = await api.get("/courses/public/approved");
-        const courses = coursesRes.data?.result || [];
+        const courses = Array.isArray(coursesRes.data?.result) ? coursesRes.data.result : [];
 
-        // Try to fetch users (may require auth, so we handle errors gracefully)
-        let totalLearners = 1500; // Default fallback
-        let totalTutors = 250; // Default fallback
+        // Fetch tutors (correct endpoint)
+        const tutorsRes = await api.get("/tutors/approved");
+        const tutors = Array.isArray(tutorsRes.data?.result) 
+          ? tutorsRes.data.result 
+          : Array.isArray(tutorsRes.data) 
+            ? tutorsRes.data 
+            : [];
 
-        try {
-          const usersRes = await api.get("/users");
-          const users = usersRes.data?.result || [];
-          totalLearners = users.filter((u: any) => u.role === "Learner").length || totalLearners;
-          totalTutors = users.filter((u: any) => u.role === "Tutor").length || totalTutors;
-        } catch (userErr) {
-          // If users endpoint fails (e.g., not authenticated), use defaults
-          console.log("Using default user stats");
-        }
+        // Fetch languages (correct endpoint)
+        const languagesRes = await api.get("/languages/all");
+        const languages = Array.isArray(languagesRes.data?.result) ? languagesRes.data.result : [];
 
-        setStats((prev) => ({
-          ...prev,
-          totalLearners,
-          totalTutors,
-          totalCourses: courses.length || 100, // Fallback to 100 if no courses
-        }));
+        setStats({
+          totalLearners: 1500,
+          totalTutors: tutors.length > 0 ? tutors.length : 250,
+          totalCourses: courses.length > 0 ? courses.length : 100,
+          totalLanguages: languages.length > 0 ? languages.length : 12,
+        });
       } catch (err) {
         console.error("Failed to load stats:", err);
-        // Set default values even if everything fails
         setStats({
           totalLearners: 1500,
           totalTutors: 250,
@@ -66,28 +63,28 @@ function FloatingElements() {
 
   const dynamicStats = [
     {
-      icon: Users,
-      number: formatNumber(stats.totalLearners),
-      label: "Active Learners",
-      description: "Learning languages on LinguaHub",
+      icon: Award,
+      number: formatNumber(stats.totalCourses),
+      label: "Khóa học chất lượng",
+      description: "Được xác minh và phê duyệt",
     },
     {
       icon: BookOpen,
       number: formatNumber(stats.totalTutors),
-      label: "Professional Tutors",
-      description: "From many countries",
-    },
-    {
-      icon: Award,
-      number: formatNumber(stats.totalCourses),
-      label: "Approved Courses",
-      description: "Verified for quality",
+      label: "Gia sư chuyên nghiệp",
+      description: "Đến từ nhiều quốc gia",
     },
     {
       icon: Globe,
       number: stats.totalLanguages + "",
-      label: "Languages",
-      description: "Available to learn",
+      label: "Ngôn ngữ phổ biến",
+      description: "Sẵn sàng để bạn khám phá",
+    },
+    {
+      icon: Users,
+      number: "24/7",
+      label: "Hỗ trợ học tập",
+      description: "Luôn sẵn sàng đồng hành cùng bạn",
     },
   ];
 
@@ -115,10 +112,10 @@ function FloatingElements() {
               variants={fadeInUp}
           >
             <h2 className="text-3xl font-bold text-white mb-4">
-              Why Choose LinguaHub?
+              Tại sao chọn LinguaHub?
             </h2>
             <p className="text-lg text-gray-300">
-              Join thousands of successful learners worldwide
+              Tham gia cùng hàng nghìn học viên thành công trên toàn thế giới
             </p>
           </motion.div>
 

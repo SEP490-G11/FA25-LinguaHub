@@ -77,21 +77,27 @@ export default function ContinueLearning() {
                             enrolledAt: detail.enrolledAt,
                             totalLessons,
                             completedLessons,
-                            currentLesson: currentLesson || "All lessons completed",
+                            currentLesson: currentLesson || "Đã hoàn thành tất cả bài học",
                         };
                     })
                 );
 
-                // 🔥 Chỉ giữ các khóa CHƯA hoàn thành
-                const ongoing = detailedCourses.filter((c) => !c.isCompleted);
+                // 🔥 Chỉ giữ các khóa CHƯA hoàn thành (tính từ completedLessons/totalLessons)
+                const ongoing = detailedCourses.filter((c) => {
+                    const progress = c.totalLessons ? (c.completedLessons || 0) / c.totalLessons * 100 : 0;
+                    return progress < 100;
+                });
 
-                // 🔥 Sort theo: enrolledAt gần nhất → progressPercent cao hơn
+                // 🔥 Sort theo: enrolledAt gần nhất → progress cao hơn (tính từ completedLessons/totalLessons)
                 const sorted = ongoing.sort((a, b) => {
                     const dateA = new Date(a.enrolledAt).getTime();
                     const dateB = new Date(b.enrolledAt).getTime();
 
                     if (dateA !== dateB) return dateB - dateA;
-                    return b.progressPercent - a.progressPercent;
+                    
+                    const progressA = a.totalLessons ? (a.completedLessons || 0) / a.totalLessons : 0;
+                    const progressB = b.totalLessons ? (b.completedLessons || 0) / b.totalLessons : 0;
+                    return progressB - progressA;
                 });
 
                 // 🔥 Chỉ lấy 3 khóa
@@ -123,15 +129,15 @@ export default function ContinueLearning() {
                     <div>
                         <h2 className="text-3xl font-bold flex items-center gap-3">
                             <Play className="w-8 h-8 text-blue-600" />
-                            Continue Learning
+                            Tiếp tục học
                         </h2>
-                        <p className="text-gray-600">Pick up where you left off</p>
+                        <p className="text-gray-600">Tiếp tục từ nơi bạn đã dừng lại</p>
                     </div>
 
                     {courses.length > 0 && (
                         <Button variant="ghost">
                             <Link to="/my-enrollments" className="flex items-center gap-2 text-blue-600">
-                                View All <ArrowRight className="w-4 h-4" />
+                                Xem tất cả <ArrowRight className="w-4 h-4" />
                             </Link>
                         </Button>
                     )}
@@ -145,12 +151,12 @@ export default function ContinueLearning() {
                         transition={{ duration: 0.6 }}
                         className="p-10 text-center bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl shadow-lg"
                     >
-                        <h3 className="text-2xl font-bold mb-3">You haven't enrolled in any courses yet</h3>
-                        <p className="text-gray-600 mb-6">Start learning to unlock new opportunities!</p>
+                        <h3 className="text-2xl font-bold mb-3">Bạn chưa đăng ký khóa học nào</h3>
+                        <p className="text-gray-600 mb-6">Bắt đầu học để mở khóa cơ hội mới!</p>
 
                         <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 text-lg" asChild>
                             <Link to={ROUTES.LANGUAGES}>
-                                Browse Courses <ArrowRight className="w-5 h-5 ml-2" />
+                                Duyệt khóa học <ArrowRight className="w-5 h-5 ml-2" />
                             </Link>
                         </Button>
                     </motion.div>
@@ -164,22 +170,23 @@ export default function ContinueLearning() {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.5, delay: index * 0.1 }}
+                            className="flex"
                         >
-                            <Card className="overflow-hidden shadow-lg hover:shadow-2xl hover:scale-105 transition-all">
+                            <Card className="overflow-hidden shadow-lg hover:shadow-2xl hover:scale-105 transition-all flex flex-col w-full">
                                 <div className="relative h-48">
                                     <img src={course.thumbnailURL} className="w-full h-full object-cover" />
 
                                     <div className="absolute top-4 right-4 bg-white/90 px-3 py-1 rounded-full text-sm font-bold">
-                                        {Math.round(course.progressPercent)}% Complete
+                                        Hoàn thành {course.totalLessons ? Math.round((course.completedLessons || 0) / course.totalLessons * 100) : 0}%
                                     </div>
 
                                     <div className="absolute bottom-4 left-4 right-4">
-                                        <Progress value={course.progressPercent} className="h-2 bg-white/40" />
+                                        <Progress value={course.totalLessons ? ((course.completedLessons || 0) / course.totalLessons * 100) : 0} className="h-2 bg-white/40" />
                                     </div>
                                 </div>
 
-                                <div className="p-6">
-                                    <h3 className="text-xl font-bold mb-2">{course.courseTitle}</h3>
+                                <div className="p-6 flex flex-col flex-1">
+                                    <h3 className="text-xl font-bold mb-2 line-clamp-2 min-h-[3.5rem]">{course.courseTitle}</h3>
                                     <p className="text-sm text-gray-600 mb-4">by {course.tutorName}</p>
 
                                     <div className="flex flex-wrap gap-3 mb-4 text-sm">
@@ -191,21 +198,21 @@ export default function ContinueLearning() {
                                     <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
                                         <BookOpen className="w-4 h-4" />
                                         <span>
-                                            {course.completedLessons} / {course.totalLessons} lessons
+                                            {course.completedLessons} / {course.totalLessons} bài học
                                         </span>
                                     </div>
 
                                     <div className="p-3 bg-blue-50 rounded-lg mb-4">
                                         <p className="text-sm font-medium">
                                             <Clock className="w-4 h-4 inline mr-1" />
-                                            Next: {course.currentLesson}
+                                            Tiếp theo: {course.currentLesson}
                                         </p>
                                     </div>
 
-                                    <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white" asChild>
+                                    <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white mt-auto" asChild>
                                         <Link to={`/courses/${course.courseID}`}>
                                             <Play className="w-4 h-4 mr-2" />
-                                            Continue Learning
+                                            Tiếp tục học
                                         </Link>
                                     </Button>
                                 </div>

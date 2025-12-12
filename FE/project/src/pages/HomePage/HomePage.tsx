@@ -32,6 +32,7 @@ export default function HomePage() {
                 <ContinueLearning />
                 <RecommendedCourses />
                 <LearningActivity />
+                <PopularLanguages />
                 <TopTutors />
                 {!isTutorOrAdmin && <BecomeTutorCTA />}
                 <FloatingElements />

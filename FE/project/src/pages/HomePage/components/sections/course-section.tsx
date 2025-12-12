@@ -72,8 +72,8 @@ const CourseSection = () => {
     if (!token) {
       navigate(`${ROUTES.SIGN_IN}`);
       toast({
-        title: "Login Required",
-        description: "Please sign in to use wishlist.",
+        title: "Yêu cầu đăng nhập",
+        description: "Vui lòng đăng nhập để sử dụng danh sách yêu thích.",
         variant: "destructive",
       });
       return;
@@ -94,8 +94,8 @@ const CourseSection = () => {
       }));
     } catch {
       toast({
-        title: "Error",
-        description: "Failed to update wishlist.",
+        title: "Lỗi",
+        description: "Không thể cập nhật danh sách yêu thích.",
         variant: "destructive",
       });
     }
@@ -117,7 +117,7 @@ const CourseSection = () => {
   if (loading)
     return (
         <section className="py-16 text-center">
-          <p className="text-lg">Loading courses...</p>
+          <p className="text-lg">Đang tải khóa học...</p>
         </section>
     );
 
@@ -134,10 +134,10 @@ const CourseSection = () => {
               variants={fadeInUp}
           >
             <h2 className="text-3xl font-bold text-foreground mb-4">
-              Popular Language Lessons
+              Bài học ngôn ngữ phổ biến
             </h2>
             <p className="text-lg text-muted-foreground">
-              Learn from our most experienced and highly-rated instructors.
+              Học từ các giảng viên giàu kinh nghiệm và được đánh giá cao nhất.
             </p>
           </motion.div>
 
@@ -158,7 +158,7 @@ const CourseSection = () => {
 
                       {/* Wishlist */}
                       <button
-                          className="absolute top-4 right-4 z-10"
+                          className="absolute top-4 right-4 z-10 bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg hover:bg-white transition-all hover:scale-110"
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
@@ -166,20 +166,20 @@ const CourseSection = () => {
                           }}
                       >
                         <Heart
-                            className={`w-7 h-7 transition ${
+                            className={`w-5 h-5 transition-all ${
                                 isWishlisted
                                     ? "fill-red-500 text-red-500"
-                                    : "text-white hover:text-red-500"
+                                    : "text-gray-600 hover:text-red-500 hover:fill-red-100"
                             }`}
                         />
                       </button>
 
                       <Link to={`/courses/${course.id}`}>
-                        <div className="relative overflow-hidden">
+                        <div className="relative overflow-hidden h-48 bg-gray-100">
                           <img
                               src={course.thumbnailURL}
                               alt={course.title}
-                              className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           />
 
                           <div className="absolute top-4 left-4 flex gap-2">
@@ -192,7 +192,7 @@ const CourseSection = () => {
                           </div>
                         </div>
 
-                        <CardContent className="p-6">
+                        <CardContent className="p-6 flex flex-col min-h-[280px]">
 
                           {/* Title */}
                           <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors line-clamp-2">
@@ -216,14 +216,14 @@ const CourseSection = () => {
                           {/* Learners */}
                           <div className="flex items-center space-x-2 text-sm text-muted-foreground mt-3">
                             <Users className="w-4 h-4" />
-                            <span>{course.learnerCount} learners</span>
+                            <span>{course.learnerCount} học viên</span>
                           </div>
 
                           {/* Duration + Language */}
                           <div className="flex items-center justify-between text-sm text-muted-foreground mt-3">
                             <div className="flex items-center space-x-2">
                               <Clock className="w-4 h-4" />
-                              <span>{course.duration} hours</span>
+                              <span>{course.duration} giờ</span>
                             </div>
                             <span className="text-xs bg-gray-100 px-2 py-1 rounded">
                           {course.language}
@@ -237,7 +237,7 @@ const CourseSection = () => {
                                 {course.price.toLocaleString()}₫
                               </div>
                               <span className="text-xs text-muted-foreground">
-                            Created: {formatDate(course.createdAt)}
+                            Tạo: {formatDate(course.createdAt)}
                           </span>
                             </div>
 
@@ -248,7 +248,7 @@ const CourseSection = () => {
                                         : ""
                                 }`}
                             >
-                              {course.isPurchased ? "Continue" : "Join"}
+                              {course.isPurchased ? "Tiếp tục" : "Tham gia"}
                             </Button>
                           </div>
                         </CardContent>
@@ -269,7 +269,7 @@ const CourseSection = () => {
           >
             <Button size="lg" asChild>
               <Link to={ROUTES.LANGUAGES}>
-                View All Courses <ChevronRight className="ml-2 w-4 h-4" />
+                Xem tất cả khóa học <ChevronRight className="ml-2 w-4 h-4" />
               </Link>
             </Button>
           </motion.div>
@@ -280,3 +280,4 @@ const CourseSection = () => {
 };
 
 export default CourseSection;
+ `-+`

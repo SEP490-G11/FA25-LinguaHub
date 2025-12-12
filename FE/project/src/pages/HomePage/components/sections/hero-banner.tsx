@@ -51,7 +51,7 @@ const HeroBanner = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8 }}
           >
-            Learn Languages, <br /> Connect the World 🌍
+            Học ngôn ngữ, <br /> Kết nối thế giới 🌍
           </motion.h1>
 
           <motion.p
@@ -60,8 +60,8 @@ const HeroBanner = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1, delay: 0.3 }}
           >
-            Empower your future with global communication — start learning with
-            native speakers today!
+            Trao quyền cho tương lai của bạn với giao tiếp toàn cầu — bắt đầu học với
+            giáo viên bản ngữ ngay hôm nay!
           </motion.p>
 
           <motion.div
@@ -74,14 +74,49 @@ const HeroBanner = () => {
                 to={ROUTES.LANGUAGES}
                 className="bg-yellow-400 text-blue-900 font-semibold px-6 py-3 rounded-full shadow-md hover:bg-yellow-500 hover:scale-105 transform transition-all duration-300"
             >
-              Start Learning with Courses
+              Bắt đầu học với khóa học
             </Link>
 
             <Link
                 to={ROUTES.TUTORS}
                 className="bg-white/90 text-blue-700 font-semibold px-6 py-3 rounded-full shadow-md hover:bg-white hover:scale-105 transform transition-all duration-300"
             >
-              Find Your Tutor
+              Tìm gia sư của bạn
+            </Link>
+          </motion.div>
+
+          {/* Quick Access Cards */}
+          <motion.div
+              className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 max-w-5xl mx-auto"
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.9 }}
+          >
+            {/* Card 1: Khóa học */}
+            <Link to={ROUTES.LANGUAGES} className="group">
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 hover:bg-white/20 hover:scale-105 transition-all duration-300 shadow-xl min-h-[160px] flex flex-col">
+                <div className="text-4xl mb-3">📚</div>
+                <h3 className="text-xl font-bold mb-2">Khóa học đa dạng</h3>
+                <p className="text-blue-100 text-sm">Khóa học chất lượng từ cơ bản tới nâng cao</p>
+              </div>
+            </Link>
+
+            {/* Card 2: Gia sư 1-1 */}
+            <Link to={ROUTES.TUTORS} className="group">
+              <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-6 hover:bg-white/20 hover:scale-105 transition-all duration-300 shadow-xl min-h-[160px] flex flex-col">
+                <div className="text-4xl mb-3">👨‍🏫</div>
+                <h3 className="text-xl font-bold mb-2">Học 1-1 với gia sư</h3>
+                <p className="text-blue-100 text-sm">Lịch linh hoạt, học theo nhu cầu</p>
+              </div>
+            </Link>
+
+            {/* Card 3: Trở thành gia sư */}
+            <Link to={ROUTES.BECOME_TUTOR} className="group">
+              <div className="bg-gradient-to-br from-yellow-400/20 to-orange-500/20 backdrop-blur-md border border-yellow-300/30 rounded-2xl p-6 hover:from-yellow-400/30 hover:to-orange-500/30 hover:scale-105 transition-all duration-300 shadow-xl min-h-[160px] flex flex-col">
+                <div className="text-4xl mb-3">✨</div>
+                <h3 className="text-xl font-bold mb-2">Trở thành gia sư</h3>
+                <p className="text-blue-100 text-sm">Chia sẻ kiến thức, kiếm thu nhập</p>
+              </div>
             </Link>
           </motion.div>
         </div>
