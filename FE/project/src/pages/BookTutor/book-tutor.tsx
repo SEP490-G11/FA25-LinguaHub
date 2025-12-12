@@ -52,6 +52,45 @@ const BookTutor = () => {
   const formatVND = (value: number) =>
       value.toLocaleString("vi-VN", { style: "currency", currency: "VND" });
 
+  /** ===================== XỬ LÝ PAYMENT REDIRECT ===================== */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paid = params.get('paid');
+    
+    if (paid) {
+      // Lấy tutorId gốc từ localStorage
+      const savedTutorId = localStorage.getItem('booking_tutorId');
+      
+      if (savedTutorId && savedTutorId !== tutorId) {
+        // BE redirect về sai tutorId, fix lại bằng cách redirect về đúng tutorId
+        console.warn(`[PAYMENT FIX] BE redirected to tutorId=${tutorId}, but original was ${savedTutorId}`);
+        localStorage.removeItem('booking_tutorId');
+        navigate(`/book-tutor/${savedTutorId}?paid=${paid}`, { replace: true });
+        return;
+      }
+      
+      // Xóa localStorage sau khi đã xử lý
+      localStorage.removeItem('booking_tutorId');
+      
+      // Hiển thị thông báo
+      if (paid === 'true') {
+        toast({
+          title: "Thanh toán thành công! 🎉",
+          description: "Đặt lịch học của bạn đã được xác nhận.",
+        });
+      } else if (paid === 'false') {
+        toast({
+          variant: "destructive",
+          title: "Thanh toán thất bại",
+          description: "Đặt lịch học chưa được xác nhận. Vui lòng thử lại.",
+        });
+      }
+      
+      // Xóa query param khỏi URL
+      window.history.replaceState({}, '', `/book-tutor/${tutorId}`);
+    }
+  }, [tutorId, navigate, toast]);
+
   /** ===================== FETCH TUTOR + PACKAGES ===================== */
   useEffect(() => {
     const loadTutorData = async () => {
@@ -61,7 +100,7 @@ const BookTutor = () => {
         const raw = tutorRes.data;
         const normalizedTutor: Tutor = {
           tutorId: raw.tutorId || raw.id || Number(tutorId),
-          name: raw.userName || raw.name || raw.fullName || "Unnamed Tutor",
+          name: raw.userName || raw.name || raw.fullName || "Gia sư chưa đặt tên",
           avatarUrl: raw.avatarURL || raw.avatarUrl || raw.image || null,
           country: raw.country || "Unknown",
           phone: raw.phone || null,
@@ -109,20 +148,20 @@ const BookTutor = () => {
   };
 
   /** ===================== BOOKING ===================== */
-  const handleBooking = async () => {
+  const handleBooking = async (turnstileToken: string) => {
     if (selectedSlots.length === 0) {
       toast({
         variant: "destructive",
-        title: "No sessions selected",
-        description: "You must select at least 1 session.",
+        title: "Chưa chọn buổi học",
+        description: "Bạn phải chọn ít nhất 1 buổi học.",
       });
       return;
     }
     if (selectedPackage && selectedSlots.length !== selectedPackage.maxSlot) {
       toast({
         variant: "destructive",
-        title: "Incomplete package selection",
-        description: `You must select exactly ${selectedPackage.maxSlot} sessions for this package.`,
+        title: "Chưa đủ số buổi học",
+        description: `Bạn phải chọn đúng ${selectedPackage.maxSlot} buổi học cho gói này.`,
       });
       return;
     }
@@ -130,25 +169,38 @@ const BookTutor = () => {
       navigate(`/sign-in?redirect=/tutor/${tutorId}`);
       return;
     }
+    if (!turnstileToken) {
+      toast({
+        variant: "destructive",
+        title: "Xác thực bảo mật thất bại",
+        description: "Vui lòng hoàn thành xác thực bảo mật trước khi thanh toán.",
+      });
+      return;
+    }
     try {
+      // 🔥 LƯU TUTOR ID GỐC VÀO LOCALSTORAGE TRƯỚC KHI THANH TOÁN
+      localStorage.setItem('booking_tutorId', tutorId || '');
+      
       const formattedSlots = selectedSlots.map((slot) => {
         const [hour, minute] = slot.time.split(":");
         const startTime = `${slot.date}T${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
         
-        // Calculate end time: add 30 minutes
-        const startMinutes = Number(hour) * 60 + Number(minute);
-        const endMinutes = startMinutes + 30;
-        const endHour = Math.floor(endMinutes / 60);
-        const endMinute = endMinutes % 60;
+        // Calculate end time: add 1 hour
+        const startHour = Number(hour);
+        const endHour = (startHour + 1) % 24;
         
-        const endTime = `${slot.date}T${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`;
+        const endTime = `${slot.date}T${String(endHour).padStart(2, "0")}:${minute.padStart(2, "0")}`;
         return { startTime, endTime };
       });
       const body = {
         userId: user.userID,
-        targetId: selectedPackage ? selectedPackage.packageId : selectedSlots[0].bookingPlanId,
+        // Luôn dùng bookingPlanId từ slot đầu tiên (BE cần BookingPlan ID, không phải Package ID)
+        targetId: selectedSlots[0].bookingPlanId,
         paymentType: "Booking",
         slots: formattedSlots,
+        turnstileToken,
+        // Gửi thêm userPackageId nếu có chọn package
+        ...(selectedPackage && { userPackageId: selectedPackage.packageId }),
       };
       const res = await api.post("/api/payments/create", body);
       if (res.data?.checkoutUrl) {
@@ -156,21 +208,45 @@ const BookTutor = () => {
       } else {
         toast({
           variant: "destructive",
-          title: "Payment creation failed",
-          description: "Cannot create payment. Please try again.",
+          title: "Tạo thanh toán thất bại",
+          description: "Không thể tạo thanh toán. Vui lòng thử lại.",
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Payment error:", error);
+      
+      // Reset Turnstile widget on error
+      if (typeof window !== 'undefined' && '__turnstileReset' in window && typeof (window as { __turnstileReset?: () => void }).__turnstileReset === 'function') {
+        (window as { __turnstileReset: () => void }).__turnstileReset();
+      }
+      
+      // Lấy error code và message từ response
+      const errorResponse = error instanceof Error && 'response' in error 
+        ? (error as { response?: { data?: { code?: number; message?: string } } }).response?.data
+        : null;
+      
+      const errorCode = errorResponse?.code;
+      
+      // Xử lý riêng cho lỗi bị block do hủy thanh toán quá nhiều lần (code 8006)
+      if (errorCode === 8006) {
+        toast({
+          variant: "destructive",
+          title: "Tạm thời bị chặn đặt lịch",
+          description: "Bạn đã hủy thanh toán quá nhiều lần. Vui lòng thử lại sau 1 giờ.",
+        });
+        return;
+      }
+      
+      const errorMessage = errorResponse?.message || "Không thể tạo thanh toán. Vui lòng thử lại sau.";
       toast({
         variant: "destructive",
-        title: "Payment failed",
-        description: "Failed to create payment. Please try again later.",
+        title: "Thanh toán thất bại",
+        description: errorMessage,
       });
     }
   };
 
-  if (loading || userLoading) return <div className="text-center py-10">Loading...</div>;
+  if (loading || userLoading) return <div className="text-center py-10">Đang tải...</div>;
 
   /** ===================== PRICE ===================== */
   // Each slot has the full tutor price (not divided)
@@ -189,7 +265,7 @@ const BookTutor = () => {
               className="mb-6 text-blue-600 hover:text-blue-700 flex items-center space-x-2"
           >
             <span>←</span>
-            <span>Back</span>
+            <span>Quay lại</span>
           </button>
           <div className="space-y-8">
             <TutorInfo tutor={tutor!} />
@@ -221,20 +297,20 @@ const BookTutor = () => {
               <div className="max-w-7xl mx-auto flex justify-between items-center px-4">
                 <div>
                   <p className="font-semibold text-gray-800">
-                    {selectedSlots.length} session(s) selected
+                    Đã chọn {selectedSlots.length} buổi học
                   </p>
                   {selectedPackage ? (
                       <p className="text-sm text-gray-600">
-                        {selectedSlots.length}/{selectedPackage.maxSlot} sessions —{" "}
+                        {selectedSlots.length}/{selectedPackage.maxSlot} buổi —{" "}
                         {selectedSlots.length < selectedPackage.maxSlot
-                            ? `select ${
+                            ? `chọn thêm ${
                                 selectedPackage.maxSlot - selectedSlots.length
-                            } more`
-                            : "ready to confirm"}
+                            } buổi`
+                            : "sẵn sàng xác nhận"}
                       </p>
                   ) : (
                       <p className="text-sm text-gray-600 italic">
-                        Slot-only booking (no package selected)
+                        Đặt lịch đơn lẻ (không chọn gói)
                       </p>
                   )}
                 </div>
@@ -248,7 +324,7 @@ const BookTutor = () => {
                       }
                       className="bg-blue-600 text-white px-5 py-2 rounded-lg shadow hover:bg-blue-700"
                   >
-                    Review & Confirm
+                    Xem & Xác nhận
                   </button>
                 </div>
               </div>
