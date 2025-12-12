@@ -17,8 +17,8 @@ const ChangePassword = () => {
         if (!token) {
             toast({
                 variant: "destructive",
-                title: "You are not logged in",
-                description: "Please log in to change your password.",
+                title: "Bạn chưa đăng nhập",
+                description: "Vui lòng đăng nhập để thay đổi mật khẩu.",
             });
 
             navigate(ROUTES.SIGN_IN);

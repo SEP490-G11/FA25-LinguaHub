@@ -9,9 +9,9 @@ export const ChangePasswordHeader = () => {
               <Lock className="w-6 h-6 text-blue-600" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Change Password</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Đổi mật khẩu</h1>
               <p className="text-sm text-gray-500">
-                Update your password to keep your account secure.
+                Cập nhật mật khẩu để giữ tài khoản của bạn an toàn.
               </p>
             </div>
           </div>
