@@ -3,7 +3,6 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { tutorApplicationSchema, TutorApplicationFormData } from '../schema';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Form,
   FormControl,
@@ -13,9 +12,19 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { useLanguages } from '@/hooks/useLanguages';
+import { RichTextEditor } from '@/components/ui/rich-text-editor';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { X, Plus } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/cn';
+import { FileUploadField } from '@/components/shared/FileUploadField';
 
 interface ApplicationFormProps {
   onSubmit: (data: TutorApplicationFormData) => void;
@@ -23,6 +32,7 @@ interface ApplicationFormProps {
 }
 
 export function ApplicationForm({ onSubmit, isSubmitting = false }: ApplicationFormProps) {
+  const { languages, isLoading: isLoadingLanguages } = useLanguages();
   const form = useForm<TutorApplicationFormData>({
     resolver: zodResolver(tutorApplicationSchema),
     mode: 'onChange',
@@ -43,9 +53,9 @@ export function ApplicationForm({ onSubmit, isSubmitting = false }: ApplicationF
   return (
     <Card className="w-full max-w-3xl mx-auto">
       <CardHeader>
-        <CardTitle>Apply to Become a Tutor</CardTitle>
+        <CardTitle>Đăng ký trở thành gia sư</CardTitle>
         <CardDescription>
-          Fill out the form below to submit your application to become a tutor on our platform.
+          Điền vào biểu mẫu dưới đây để gửi đơn đăng ký trở thành gia sư trên nền tảng của chúng tôi.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -57,11 +67,11 @@ export function ApplicationForm({ onSubmit, isSubmitting = false }: ApplicationF
               name="experience"
               render={({ field, fieldState }) => (
                 <FormItem>
-                  <FormLabel>Experience (years) *</FormLabel>
+                  <FormLabel>Kinh nghiệm (năm) *</FormLabel>
                   <FormControl>
                     <Input
                       type="number"
-                      placeholder="Enter your years of teaching experience"
+                      placeholder="Nhập số năm kinh nghiệm giảng dạy của bạn"
                       {...field}
                       onChange={(e) => field.onChange(e.target.valueAsNumber)}
                       disabled={isSubmitting}
@@ -74,9 +84,6 @@ export function ApplicationForm({ onSubmit, isSubmitting = false }: ApplicationF
                       aria-describedby={fieldState.error ? 'experience-error' : 'experience-description'}
                     />
                   </FormControl>
-                  <FormDescription id="experience-description">
-                    How many years of teaching experience do you have?
-                  </FormDescription>
                   <FormMessage id="experience-error" />
                 </FormItem>
               )}
@@ -88,10 +95,10 @@ export function ApplicationForm({ onSubmit, isSubmitting = false }: ApplicationF
               name="specialization"
               render={({ field, fieldState }) => (
                 <FormItem>
-                  <FormLabel>Specialization *</FormLabel>
+                  <FormLabel>Chuyên môn *</FormLabel>
                   <FormControl>
                     <Input
-                      placeholder="e.g., Mathematics, English, Programming"
+                      placeholder="Nhập chuyên môn của bạn"
                       {...field}
                       disabled={isSubmitting}
                       className={cn(
@@ -103,9 +110,6 @@ export function ApplicationForm({ onSubmit, isSubmitting = false }: ApplicationF
                       aria-describedby={fieldState.error ? 'specialization-error' : 'specialization-description'}
                     />
                   </FormControl>
-                  <FormDescription id="specialization-description">
-                    What is your area of expertise?
-                  </FormDescription>
                   <FormMessage id="specialization-error" />
                 </FormItem>
               )}
@@ -115,27 +119,28 @@ export function ApplicationForm({ onSubmit, isSubmitting = false }: ApplicationF
             <FormField
               control={form.control}
               name="teachingLanguage"
-              render={({ field, fieldState }) => (
+              render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Teaching Language *</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g., English, Vietnamese, Spanish"
-                      {...field}
-                      disabled={isSubmitting}
-                      className={cn(
-                        'transition-all duration-200',
-                        fieldState.error && 'border-red-500 focus-visible:ring-red-500',
-                        !fieldState.error && field.value.length >= 2 && 'border-green-500 focus-visible:ring-green-500'
-                      )}
-                      aria-invalid={fieldState.error ? 'true' : 'false'}
-                      aria-describedby={fieldState.error ? 'teaching-language-error' : 'teaching-language-description'}
-                    />
-                  </FormControl>
-                  <FormDescription id="teaching-language-description">
-                    What language will you primarily teach in?
-                  </FormDescription>
-                  <FormMessage id="teaching-language-error" />
+                  <FormLabel>Ngôn ngữ giảng dạy *</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    disabled={isSubmitting || isLoadingLanguages}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn ngôn ngữ bạn sẽ giảng dạy" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {languages.map((language) => (
+                        <SelectItem key={language.id} value={language.name}>
+                          {language.displayName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -149,29 +154,26 @@ export function ApplicationForm({ onSubmit, isSubmitting = false }: ApplicationF
                 const maxChars = 1000;
                 const minChars = 50;
                 const isValid = charCount >= minChars && charCount <= maxChars;
-                
+
                 return (
                   <FormItem>
-                    <FormLabel>Bio *</FormLabel>
+                    <FormLabel>Tiểu sử *</FormLabel>
                     <FormControl>
-                      <Textarea
-                        placeholder="Tell us about yourself, your teaching philosophy, and why you want to become a tutor..."
+                      <RichTextEditor
+                        value={field.value}
+                        onChange={field.onChange}
+                        placeholder="Hãy cho chúng tôi biết về bản thân, triết lý giảng dạy và lý do bạn muốn trở thành gia sư..."
+                        disabled={isSubmitting}
                         className={cn(
-                          'min-h-[120px] resize-none transition-all duration-200',
+                          'transition-all duration-200',
                           fieldState.error && 'border-red-500 focus-visible:ring-red-500',
                           !fieldState.error && isValid && 'border-green-500 focus-visible:ring-green-500'
                         )}
-                        {...field}
-                        disabled={isSubmitting}
-                        aria-invalid={fieldState.error ? 'true' : 'false'}
-                        aria-describedby={fieldState.error ? 'bio-error' : 'bio-description'}
                       />
                     </FormControl>
                     <div className="flex items-center justify-between">
-                      <FormDescription id="bio-description">
-                        Minimum 50 characters. Share your background and teaching approach.
-                      </FormDescription>
-                      <span 
+
+                      <span
                         className={cn(
                           'text-sm transition-colors duration-200',
                           charCount < minChars && 'text-muted-foreground',
@@ -193,9 +195,9 @@ export function ApplicationForm({ onSubmit, isSubmitting = false }: ApplicationF
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <FormLabel>Certificates *</FormLabel>
+                  <FormLabel>Chứng chỉ *</FormLabel>
                   <FormDescription>
-                    Add at least one certificate to demonstrate your qualifications
+                    Thêm ít nhất một chứng chỉ để chứng minh trình độ của bạn
                   </FormDescription>
                 </div>
               </div>
@@ -223,10 +225,10 @@ export function ApplicationForm({ onSubmit, isSubmitting = false }: ApplicationF
                       name={`certificates.${index}.certificateName`}
                       render={({ field, fieldState }) => (
                         <FormItem>
-                          <FormLabel>Certificate Name</FormLabel>
+                          <FormLabel>Tên chứng chỉ</FormLabel>
                           <FormControl>
                             <Input
-                              placeholder="e.g., TESOL Certificate, Master's Degree in Education"
+                              placeholder="Ví dụ: Chứng chỉ TESOL, Thạc sĩ Giáo dục"
                               {...field}
                               disabled={isSubmitting}
                               className={cn(
@@ -249,23 +251,16 @@ export function ApplicationForm({ onSubmit, isSubmitting = false }: ApplicationF
                       name={`certificates.${index}.documentUrl`}
                       render={({ field, fieldState }) => (
                         <FormItem>
-                          <FormLabel>Document URL</FormLabel>
+                          <FormLabel>File tài liệu</FormLabel>
                           <FormControl>
-                            <Input
-                              type="url"
-                              placeholder="https://example.com/certificate.pdf"
-                              {...field}
-                              disabled={isSubmitting}
-                              className={cn(
-                                'transition-all duration-200',
-                                fieldState.error && 'border-red-500 focus-visible:ring-red-500',
-                                !fieldState.error && field.value.length > 0 && 'border-green-500 focus-visible:ring-green-500'
-                              )}
-                              aria-invalid={fieldState.error ? 'true' : 'false'}
-                              aria-describedby={fieldState.error ? `document-url-${index}-error` : undefined}
+                            <FileUploadField
+                              value={field.value}
+                              onChange={field.onChange}
+                              error={fieldState.error?.message}
+                              allowedTypes={['application/pdf', 'image/']}
+                              accept=".pdf,image/*"
                             />
                           </FormControl>
-                          <FormMessage id={`document-url-${index}-error`} />
                         </FormItem>
                       )}
                     />
@@ -283,13 +278,13 @@ export function ApplicationForm({ onSubmit, isSubmitting = false }: ApplicationF
                 aria-label="Add another certificate"
               >
                 <Plus className="h-4 w-4 mr-2" />
-                Add Certificate
+                Thêm chứng chỉ
               </Button>
             </div>
 
-            <Button 
-              type="submit" 
-              disabled={isSubmitting || !form.formState.isValid || form.formState.isSubmitting} 
+            <Button
+              type="submit"
+              disabled={isSubmitting || !form.formState.isValid || form.formState.isSubmitting}
               className="w-full transition-all duration-200 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
               aria-label={isSubmitting ? 'Submitting application' : 'Submit application'}
               aria-busy={isSubmitting}
@@ -300,9 +295,9 @@ export function ApplicationForm({ onSubmit, isSubmitting = false }: ApplicationF
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  Submitting...
+                  Đang gửi...
                 </span>
-              ) : 'Submit Application'}
+              ) : 'Gửi đơn đăng ký'}
             </Button>
           </form>
         </Form>

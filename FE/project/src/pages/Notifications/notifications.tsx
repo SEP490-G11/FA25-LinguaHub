@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/cn';
 import { formatDistanceToNow, format, parseISO } from 'date-fns';
 import { vi } from 'date-fns/locale';
 

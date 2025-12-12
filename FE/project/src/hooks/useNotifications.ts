@@ -3,8 +3,8 @@ import { notificationApi } from "@/queries/notification-api";
 import { Notification } from "@/types/Notification";
 import api from "@/config/axiosConfig";
 
-// Tự động refresh mỗi 30 giây
-const AUTO_REFRESH_TIME = 30000;
+// Tự động refresh mỗi 10 giây để cập nhật nhanh hơn
+const AUTO_REFRESH_TIME = 10000;
 
 /**
  * Hook để lấy thông báo của user
@@ -90,6 +90,26 @@ export const useNotifications = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
+  // Hàm đánh dấu thông báo đã đọc
+  const markAsRead = async (notificationId: number) => {
+    try {
+      await api.patch(`/api/notifications/${notificationId}/read`, {
+        read: true
+      });
+      
+      // Cập nhật state local
+      setNotifications(prev => 
+        prev.map(n => 
+          n.notificationId === notificationId 
+            ? { ...n, isRead: true }
+            : n
+        )
+      );
+    } catch (err) {
+      console.error("Error marking notification as read:", err);
+    }
+  };
+
   // Tính số lượng thông báo chưa đọc
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -103,5 +123,6 @@ export const useNotifications = () => {
     loading, // Đang loading
     error, // Lỗi nếu có
     refetch: fetchNotifications, // Hàm để refresh thủ công
+    markAsRead, // Hàm đánh dấu đã đọc
   };
 };

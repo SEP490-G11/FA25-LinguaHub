@@ -11,7 +11,7 @@ export function ApplicationStatus({ data }: ApplicationStatusProps) {
   const { status, submittedAt, reasonForReject } = data;
 
   // Format the submission date
-  const formattedDate = date.format(new Date(submittedAt), 'MMM DD, YYYY');
+  const formattedDate = date.format(new Date(submittedAt), 'DD/MM/YYYY');
 
   // Determine badge variant and color based on status
   const getBadgeVariant = () => {
@@ -26,16 +26,29 @@ export function ApplicationStatus({ data }: ApplicationStatusProps) {
     }
   };
 
+  // Get status label in Vietnamese
+  const getStatusLabel = () => {
+    switch (status) {
+      case 'APPROVED':
+        return 'Đã chấp thuận';
+      case 'REJECTED':
+        return 'Đã từ chối';
+      case 'PENDING':
+      default:
+        return 'Đang chờ xét duyệt';
+    }
+  };
+
   // Get status message based on status
   const getStatusMessage = () => {
     switch (status) {
       case 'APPROVED':
-        return 'Congratulations! Your application has been approved. You can now create and teach courses on the platform.';
+        return 'Chúc mừng! Đơn đăng ký của bạn đã được chấp thuận. Bây giờ bạn có thể tạo và giảng dạy các khóa học trên nền tảng.';
       case 'REJECTED':
-        return 'Unfortunately, your application has been rejected.';
+        return 'Rất tiếc, đơn đăng ký của bạn đã bị từ chối.';
       case 'PENDING':
       default:
-        return 'Your application is currently under review. We will notify you once a decision has been made.';
+        return 'Đơn đăng ký của bạn hiện đang được xem xét. Chúng tôi sẽ thông báo cho bạn ngay khi có quyết định.';
     }
   };
 
@@ -43,18 +56,18 @@ export function ApplicationStatus({ data }: ApplicationStatusProps) {
     <div className="max-w-2xl mx-auto p-6">
       <Card>
         <CardHeader>
-          <CardTitle>Application Status</CardTitle>
+          <CardTitle>Trạng Thái Đơn Đăng Ký</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-muted-foreground">Status:</span>
+            <span className="text-sm font-medium text-muted-foreground">Trạng thái:</span>
             <Badge variant={getBadgeVariant()}>
-              {status}
+              {getStatusLabel()}
             </Badge>
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-muted-foreground">Submitted:</span>
+            <span className="text-sm font-medium text-muted-foreground">Đã Gửi:</span>
             <span className="text-sm">{formattedDate}</span>
           </div>
 
@@ -66,7 +79,7 @@ export function ApplicationStatus({ data }: ApplicationStatusProps) {
 
           {status === 'REJECTED' && reasonForReject && (
             <div className="pt-2 border-t">
-              <p className="text-sm font-medium text-muted-foreground mb-2">Reason for rejection:</p>
+              <p className="text-sm font-medium text-muted-foreground mb-2">Lý do từ chối:</p>
               <p className="text-sm text-destructive">{reasonForReject}</p>
             </div>
           )}

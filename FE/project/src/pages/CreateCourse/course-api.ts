@@ -1,4 +1,4 @@
-﻿import axios from '@/config/axiosConfig';
+import axios from '@/config/axiosConfig';
 import { CATEGORIES, LANGUAGES, type Category, type Language } from '@/constants/categories';
 
 export type { Category, Language };

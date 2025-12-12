@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { MetricCardProps } from '../types';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/cn';
 
 /**
  * MetricCard component displays a performance metric with an icon, title, value, and optional trend indicator.

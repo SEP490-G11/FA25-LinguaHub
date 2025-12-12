@@ -11,7 +11,7 @@ import { CourseListItem } from '../course-list-api';
 import { getStatusConfig, formatPrice } from '../utils';
 import { createCourseDraft } from '../draft-course-api';
 import { getCourseEditRoute, getCourseDraftEditRoute, getCourseDetailRoute } from '@/utils/course-routes';
-import { cn } from '@/lib/utils'; // Added import
+import { cn } from '@/utils/cn'; // Added import
 
 interface CourseCardProps {
   course: CourseListItem;

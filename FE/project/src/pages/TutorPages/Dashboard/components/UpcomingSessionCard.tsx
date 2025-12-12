@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { UpcomingSession } from '../types';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/cn';
 
 interface UpcomingSessionCardProps {
   session: UpcomingSession;

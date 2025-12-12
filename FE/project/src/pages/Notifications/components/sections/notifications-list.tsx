@@ -1,7 +1,7 @@
 import React from 'react';
 import { Bell, BookOpen, Calendar, MessageSquare, AlertCircle, CheckCircle, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn } from '@/utils/cn';
 
 interface Notification {
   id: string;

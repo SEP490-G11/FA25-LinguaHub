@@ -5,7 +5,7 @@ import api from "@/config/axiosConfig";
 import { useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { ROUTES } from "@/constants/routes.ts";
-import { getUserId } from "@/lib/getUserId.ts";
+import { getUserId } from "@/utils/getUserId";
 
 interface Lesson {
   lessonID: number;

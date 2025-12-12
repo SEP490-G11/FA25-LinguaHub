@@ -1,4 +1,4 @@
-﻿import axios from '@/config/axiosConfig';
+import axios from '@/config/axiosConfig';
 import { getCurrentLocale } from '@/utils/locale';
 
 // Language type matching API response

@@ -5,7 +5,7 @@ import api from "@/config/axiosConfig";
 import { ROUTES } from "@/constants/routes";
 import { useEffect, useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
-import { getUserId } from "@/lib/getUserId";
+import { getUserId } from "@/utils/getUserId";
 
 interface CourseSidebarProps {
   course: {
