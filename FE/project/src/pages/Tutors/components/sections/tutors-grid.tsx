@@ -39,7 +39,7 @@ const TutorsGrid = ({ tutors, loading }: TutorsGridProps) => {
   if (loading) {
     return (
         <section className="py-16 text-center">
-          <p className="text-gray-500 text-lg">Loading tutors...</p>
+          <p className="text-gray-500 text-lg">Đang tải gia sư...</p>
         </section>
     );
   }
@@ -47,7 +47,7 @@ const TutorsGrid = ({ tutors, loading }: TutorsGridProps) => {
   if (!tutors || tutors.length === 0) {
     return (
         <section className="py-16 text-center">
-          <p className="text-gray-500 text-lg">No tutors found.</p>
+          <p className="text-gray-500 text-lg">Không tìm thấy gia sư.</p>
         </section>
     );
   }
@@ -111,11 +111,11 @@ const TutorsGrid = ({ tutors, loading }: TutorsGridProps) => {
 
                         {/* COUNTRY + LANGUAGE */}
                         <div className="flex items-center gap-3 mb-3 text-gray-600 text-sm">
-                          <MapPin className="w-4 h-4 text-gray-500"/>
-                          <span>{tutor.country}</span>
+                          <MapPin className="w-4 h-4 text-gray-500 flex-shrink-0"/>
+                          <span className="truncate">{tutor.country}</span>
 
-                          <Languages className="w-4 h-4 text-gray-500 ml-3"/>
-                          <span>{tutor.language}</span>
+                          <Languages className="w-4 h-4 text-gray-500 ml-3 flex-shrink-0"/>
+                          <span className="truncate" title={tutor.language}>{tutor.language}</span>
                         </div>
 
                         {/* DESCRIPTION - Fixed height with ellipsis */}
@@ -129,7 +129,7 @@ const TutorsGrid = ({ tutors, loading }: TutorsGridProps) => {
                             lineHeight: '1.5rem'
                           }}
                         >
-                          {tutor.description || "No description available"}
+                          {tutor.description || "Chưa có mô tả"}
                         </p>
 
                         {/* SPECIALTIES */}
@@ -145,19 +145,24 @@ const TutorsGrid = ({ tutors, loading }: TutorsGridProps) => {
                         </div>
 
                         {/* PRICE + CTA */}
-                        <div className="flex items-center justify-between mt-auto pt-4 border-t">
-                          <div className="flex items-center space-x-1">
-                        <span className="text-2xl font-bold text-green-600">
-                          {tutor.price?.toLocaleString()}₫
-                        </span>
-                            <span className="text-gray-500 text-sm">/slot</span>
+                        <div className="mt-auto pt-4 border-t">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <div className="flex items-center space-x-1">
+                                <span className="text-2xl font-bold text-green-600">
+                                  {tutor.price?.toLocaleString()}₫
+                                </span>
+                                <span className="text-gray-500 text-sm">/slot</span>
+                              </div>
+                              <span className="text-xs text-gray-400">(1 slot = 1 giờ)</span>
+                            </div>
+                            <Link
+                                to={tutorDetailPath}
+                                className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm font-semibold"
+                            >
+                              Đặt lịch
+                            </Link>
                           </div>
-                          <Link
-                              to={tutorDetailPath}
-                              className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm font-semibold"
-                          >
-                            Book Trial
-                          </Link>
                         </div>
                       </div>
                     </Link>

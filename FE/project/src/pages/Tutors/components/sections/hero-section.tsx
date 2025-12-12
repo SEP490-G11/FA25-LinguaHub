@@ -33,18 +33,18 @@ const HeroSection = ({ onSearchChange }: HeroSectionProps) => {
               variants={fadeInUp}
           >
             <h1 className="text-5xl font-bold mb-4">
-              Find Your Perfect Language Tutor
+              Tìm gia sư ngôn ngữ hoàn hảo của bạn
             </h1>
             <p className="text-xl text-blue-100 mb-10">
-              Connect with certified native speakers from around the world
+              Kết nối với giáo viên bản ngữ được chứng nhận từ khắp nơi trên thế giới
             </p>
 
-            {/* ✅ SEARCH INPUT */}
+            {/*  SEARCH INPUT */}
             <div className="max-w-3xl mx-auto">
               <div className="flex items-center bg-white rounded-full shadow-xl overflow-hidden">
                 <input
                     type="text"
-                    placeholder="Search tutors by name or language..."
+                    placeholder="Tìm kiếm gia sư phù hợp cho bạn"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     onKeyDown={handleKeyDown}
