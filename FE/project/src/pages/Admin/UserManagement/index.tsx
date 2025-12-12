@@ -1,8 +1,8 @@
 import React from 'react';
-import { Users, Loader2, AlertCircle, UserCheck } from 'lucide-react';
+import { Users, Loader2, AlertCircle, UserCheck, Search, Shield, UserCog, Calendar } from 'lucide-react';
 import { UserTable } from './components/UserTable';
-import { UserFilters } from './components/UserFilters';
 import { useUsers } from './hooks/useUsers';
+import { StandardPageHeading, StandardFilters, FilterConfig } from '@/components/shared';
 
 /**
  * UserManagement main page component
@@ -89,44 +89,28 @@ export default function UserManagement() {
 
   try {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-purple-50 to-indigo-50">
         {/* ========== HEADER SECTION ========== */}
-        <div className="bg-gradient-to-r from-indigo-700 via-blue-700 to-blue-600 text-white py-6 sm:py-10 px-4 shadow-xl">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 gap-4">
-              <div className="text-center sm:text-left">
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-2 flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-3">
-                  <div className="bg-white bg-opacity-20 p-2 sm:p-3 rounded-lg">
-                    <Users className="w-6 h-6 sm:w-8 sm:h-8" aria-hidden="true" />
-                  </div>
-                  <span>User Management</span>
-                </h1>
-                <p className="text-blue-100 text-base sm:text-lg">Manage and monitor all users in the system</p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              <div className="bg-white bg-opacity-15 backdrop-blur-sm rounded-xl px-4 sm:px-6 py-4 border border-white border-opacity-20 hover:bg-opacity-20 transition-all">
-                <p className="text-blue-100 text-xs sm:text-sm font-semibold uppercase tracking-wide">Active Users</p>
-                <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mt-1" aria-label={`${activeUsersCount} active users`}>
-                  {activeUsersCount}
-                </p>
-              </div>
-              <div className="bg-white bg-opacity-15 backdrop-blur-sm rounded-xl px-4 sm:px-6 py-4 border border-white border-opacity-20 hover:bg-opacity-20 transition-all">
-                <p className="text-blue-100 text-xs sm:text-sm font-semibold uppercase tracking-wide">Total Users</p>
-                <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mt-1" aria-label={`${totalUsersCount} total users`}>
-                  {totalUsersCount}
-                </p>
-              </div>
-              <div className="bg-white bg-opacity-15 backdrop-blur-sm rounded-xl px-4 sm:px-6 py-4 border border-white border-opacity-20 hover:bg-opacity-20 transition-all">
-                <p className="text-blue-100 text-xs sm:text-sm font-semibold uppercase tracking-wide">All Users</p>
-                <p className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mt-1" aria-label={`${users.length} total users in system`}>
-                  {users.length}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <StandardPageHeading
+          title="Quản lý người dùng"
+          description="Quản lý và giám sát tất cả người dùng trong hệ thống"
+          icon={Users}
+          gradientFrom="from-purple-600"
+          gradientVia="via-purple-600"
+          gradientTo="to-purple-500"
+          statistics={[
+            {
+              label: 'Tổng người dùng',
+              value: users.length,
+              ariaLabel: `${users.length} tổng người dùng`,
+            },
+            {
+              label: 'Người dùng hoạt động',
+              value: users.filter(user => user.isActive).length,
+              ariaLabel: `${users.filter(user => user.isActive).length} người dùng hoạt động`,
+            },
+          ]}
+        />
 
       {/* ========== MAIN CONTENT ========== */}
       <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8">
@@ -134,11 +118,11 @@ export default function UserManagement() {
         {loading ? (
           <div className="flex justify-center items-center py-16 sm:py-24">
             <div className="text-center">
-              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-full mb-4">
-                <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-indigo-600" aria-hidden="true" />
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-100 to-indigo-100 rounded-full mb-4">
+                <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin text-purple-600" aria-hidden="true" />
               </div>
-              <p className="text-gray-700 font-semibold text-base sm:text-lg">Loading users...</p>
-              <p className="text-gray-500 text-sm mt-2">Please wait while we fetch the user data</p>
+              <p className="text-gray-700 font-semibold text-base sm:text-lg">Đang tải người dùng...</p>
+              <p className="text-gray-500 text-sm mt-2">Vui lòng đợi trong khi chúng tôi tải dữ liệu người dùng</p>
             </div>
           </div>
         ) : error ? (
@@ -149,60 +133,103 @@ export default function UserManagement() {
                 <AlertCircle className="w-8 h-8 sm:w-12 sm:h-12 text-red-500" aria-hidden="true" />
               </div>
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">Error Loading Users</h3>
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">Lỗi tải người dùng</h3>
             <p className="text-gray-600 text-base sm:text-lg mb-6">{error}</p>
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 mx-auto focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-              aria-label={isRefreshing ? 'Retrying to load users' : 'Try again to load users'}
+              className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2 mx-auto focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+              aria-label={isRefreshing ? 'Đang thử lại tải người dùng' : 'Thử lại tải người dùng'}
             >
               {isRefreshing ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                  Retrying...
+                  Đang thử lại...
                 </>
               ) : (
-                'Try Again'
+                'Thử lại'
               )}
             </button>
           </div>
         ) : users.length === 0 ? (
           /* ========== EMPTY STATE ========== */
-          <div className="bg-white rounded-xl shadow-md border border-blue-100 p-8 sm:p-16 text-center hover:shadow-lg transition-all">
+          <div className="bg-white rounded-xl shadow-md border border-purple-100 p-8 sm:p-16 text-center hover:shadow-lg transition-all">
             <div className="flex justify-center mb-6">
-              <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gradient-to-br from-indigo-100 via-blue-100 to-cyan-100 rounded-full flex items-center justify-center">
-                <UserCheck className="w-8 h-8 sm:w-12 sm:h-12 text-indigo-500" aria-hidden="true" />
+              <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gradient-to-br from-purple-100 via-indigo-100 to-purple-100 rounded-full flex items-center justify-center">
+                <UserCheck className="w-8 h-8 sm:w-12 sm:h-12 text-purple-500" aria-hidden="true" />
               </div>
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">No Users Found</h3>
-            <p className="text-gray-600 text-base sm:text-lg">There are currently no users in the system.</p>
+            <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">Không tìm thấy người dùng</h3>
+            <p className="text-gray-600 text-base sm:text-lg">Hiện tại không có người dùng nào trong hệ thống.</p>
           </div>
         ) : (
           <>
             {/* ========== FILTERS ========== */}
-            <UserFilters
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              statusFilter={statusFilter}
-              onStatusChange={setStatusFilter}
-              roleFilter={roleFilter}
-              onRoleChange={setRoleFilter}
-              dateFilter={dateFilter}
-              onDateChange={setDateFilter}
-              onClearFilters={handleClearFilters}
-            />
+            <div className="bg-white rounded-xl shadow-md border border-purple-100 p-6 mb-6 hover:shadow-lg transition-all">
+              <StandardFilters
+                filters={[
+                  {
+                    id: 'search',
+                    type: 'search',
+                    placeholder: 'Tìm theo tên, tên đăng nhập, email...',
+                    value: searchQuery,
+                    onChange: setSearchQuery,
+                    icon: Search,
+                  },
+                  {
+                    id: 'status',
+                    type: 'select',
+                    placeholder: 'Tất cả trạng thái',
+                    value: statusFilter,
+                    onChange: setStatusFilter,
+                    icon: Shield,
+                    options: [
+                      { value: 'all', label: 'Tất cả trạng thái' },
+                      { value: 'active', label: 'Hoạt động' },
+                      { value: 'inactive', label: 'Không hoạt động' },
+                    ],
+                  },
+                  {
+                    id: 'role',
+                    type: 'select',
+                    placeholder: 'Tất cả vai trò',
+                    value: roleFilter,
+                    onChange: setRoleFilter,
+                    icon: UserCog,
+                    options: [
+                      { value: 'all', label: 'Tất cả vai trò' },
+                      { value: 'Admin', label: 'Quản trị viên' },
+                      { value: 'Tutor', label: 'Giảng viên' },
+                      { value: 'Learner', label: 'Học viên' },
+                    ],
+                  },
+                  {
+                    id: 'date',
+                    type: 'select',
+                    placeholder: 'Thứ tự mặc định',
+                    value: dateFilter,
+                    onChange: setDateFilter,
+                    icon: Calendar,
+                    options: [
+                      { value: 'all', label: 'Thứ tự mặc định' },
+                      { value: 'newest', label: 'Mới nhất trước' },
+                      { value: 'oldest', label: 'Cũ nhất trước' },
+                    ],
+                  },
+                ] as FilterConfig[]}
+              />
+            </div>
 
             {/* ========== USER TABLE ========== */}
             {filteredUsers.length === 0 ? (
-              <div className="bg-white rounded-xl shadow-md border border-blue-100 p-8 sm:p-16 text-center hover:shadow-lg transition-all">
+              <div className="bg-white rounded-xl shadow-md border border-purple-100 p-8 sm:p-16 text-center hover:shadow-lg transition-all">
                 <div className="flex justify-center mb-6">
-                  <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gradient-to-br from-indigo-100 via-blue-100 to-cyan-100 rounded-full flex items-center justify-center">
-                    <UserCheck className="w-8 h-8 sm:w-12 sm:h-12 text-indigo-500" aria-hidden="true" />
+                  <div className="w-16 h-16 sm:w-24 sm:h-24 bg-gradient-to-br from-purple-100 via-indigo-100 to-purple-100 rounded-full flex items-center justify-center">
+                    <UserCheck className="w-8 h-8 sm:w-12 sm:h-12 text-purple-500" aria-hidden="true" />
                   </div>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">No Users Match Your Filters</h3>
-                <p className="text-gray-600 text-base sm:text-lg">Try adjusting your search criteria or clear the filters.</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3">Không có người dùng phù hợp với bộ lọc</h3>
+                <p className="text-gray-600 text-base sm:text-lg">Thử điều chỉnh tiêu chí tìm kiếm hoặc xóa bộ lọc.</p>
               </div>
             ) : (
               <UserTable 
@@ -225,15 +252,15 @@ export default function UserManagement() {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-8 h-8 text-red-500" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Component Error</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Lỗi Component</h2>
           <p className="text-gray-600 mb-4">
-            There was an error rendering the User Management page.
+            Đã xảy ra lỗi khi hiển thị trang Quản lý người dùng.
           </p>
           <button 
             onClick={() => window.location.reload()} 
             className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
           >
-            Reload Page
+            Tải lại trang
           </button>
         </div>
       </div>

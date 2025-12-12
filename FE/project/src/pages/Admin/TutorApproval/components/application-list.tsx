@@ -28,9 +28,9 @@ export function ApplicationList({
     };
 
     const labels = {
-      pending: 'Pending',
-      approved: 'Approved',
-      rejected: 'Rejected',
+      pending: 'Chờ duyệt',
+      approved: 'Đã duyệt',
+      rejected: 'Từ chối',
     };
 
     return (
@@ -45,13 +45,13 @@ export function ApplicationList({
       <Table>
         <TableHeader>
           <TableRow className="bg-gradient-to-r from-indigo-50 to-blue-50 hover:from-indigo-50 hover:to-blue-50">
-            <TableHead className="w-[60px] text-center font-bold text-indigo-900">No.</TableHead>
-            <TableHead className="font-bold text-indigo-900">Applicant Name</TableHead>
-            <TableHead className="font-bold text-indigo-900">Teaching Languages</TableHead>
-            <TableHead className="font-bold text-indigo-900">Specialization</TableHead>
-            <TableHead className="text-center font-bold text-indigo-900">Status</TableHead>
-            <TableHead className="text-center font-bold text-indigo-900">Applied Date</TableHead>
-            <TableHead className="text-center font-bold text-indigo-900 w-[120px]">Actions</TableHead>
+            <TableHead className="w-[60px] text-center font-bold text-indigo-900">STT</TableHead>
+            <TableHead className="font-bold text-indigo-900">Tên người đăng ký</TableHead>
+            <TableHead className="font-bold text-indigo-900">Ngôn ngữ giảng dạy</TableHead>
+            <TableHead className="font-bold text-indigo-900">Chuyên môn</TableHead>
+            <TableHead className="text-center font-bold text-indigo-900">Trạng thái</TableHead>
+            <TableHead className="text-center font-bold text-indigo-900">Ngày đăng ký</TableHead>
+            <TableHead className="text-center font-bold text-indigo-900 w-[120px]">Hành động</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -99,7 +99,7 @@ export function ApplicationList({
                   className="bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-semibold"
                 >
                   <Eye className="w-4 h-4 mr-1" />
-                  View
+                  Xem
                 </Button>
               </TableCell>
             </TableRow>

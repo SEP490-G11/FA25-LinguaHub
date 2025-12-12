@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Trash2, User, Calendar, MapPin, Phone, Mail } from 'lucide-react';
+import { Ban, User, Calendar, Phone, Mail } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 import { Badge } from '@/components/ui/badge';
@@ -9,15 +9,14 @@ import { User as UserType } from '../types';
 
 interface UserRowProps {
   user: UserType;
-  onRemoveUser: (userID: number) => void;
-  onAddUser: (user: UserType) => void;
+  onRefresh?: () => void;
 }
 
 /**
  * UserRow component for individual user display
  * Requirements: 1.2, 3.1, 3.2, 3.3 - display all user fields, action buttons
  */
-const UserRow: React.FC<UserRowProps> = ({ user, onRemoveUser, onAddUser }) => {
+const UserRow: React.FC<UserRowProps> = ({ user, onRefresh }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Format dates for display
@@ -34,12 +33,6 @@ const UserRow: React.FC<UserRowProps> = ({ user, onRemoveUser, onAddUser }) => {
   };
 
 
-
-  // Truncate long text for display
-  const truncateText = (text: string, maxLength: number) => {
-    if (!text) return 'N/A';
-    return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
-  };
 
   return (
     <>
@@ -79,12 +72,6 @@ const UserRow: React.FC<UserRowProps> = ({ user, onRemoveUser, onAddUser }) => {
                 <span>{user.phone}</span>
               </div>
             )}
-            {user.country && (
-              <div className="text-xs text-gray-600 flex items-center gap-1">
-                <MapPin className="w-3 h-3" aria-hidden="true" />
-                <span>{user.country}</span>
-              </div>
-            )}
           </div>
         </TableCell>
 
@@ -96,17 +83,10 @@ const UserRow: React.FC<UserRowProps> = ({ user, onRemoveUser, onAddUser }) => {
               ? "bg-green-100 text-green-800 hover:bg-green-200" 
               : "bg-gray-100 text-gray-800 hover:bg-gray-200"
             }
-            aria-label={`User status: ${user.isActive ? 'Active' : 'Inactive'}`}
+            aria-label={`Trạng thái người dùng: ${user.isActive ? 'Hoạt động' : 'Không hoạt động'}`}
           >
-            {user.isActive ? 'Active' : 'Inactive'}
+            {user.isActive ? 'Hoạt động' : 'Không hoạt động'}
           </Badge>
-        </TableCell>
-
-        {/* ========== GENDER ========== */}
-        <TableCell>
-          <div className="text-sm text-gray-700">
-            {user.gender || 'N/A'}
-          </div>
         </TableCell>
 
         {/* ========== ROLE ========== */}
@@ -116,21 +96,11 @@ const UserRow: React.FC<UserRowProps> = ({ user, onRemoveUser, onAddUser }) => {
           </Badge>
         </TableCell>
 
-        {/* ========== DATES ========== */}
+        {/* ========== CREATED DATE ========== */}
         <TableCell>
-          <div className="space-y-1">
-            <div className="text-xs text-gray-600 flex items-center gap-1">
-              <Calendar className="w-3 h-3" aria-hidden="true" />
-              <span>Created: {formatDate(user.createdAt)}</span>
-            </div>
-            <div className="text-xs text-gray-500">
-              Updated: {formatDate(user.updatedAt)}
-            </div>
-            {user.dob && (
-              <div className="text-xs text-gray-500">
-                DOB: {formatDate(user.dob)}
-              </div>
-            )}
+          <div className="text-sm text-gray-700 flex items-center gap-1">
+            <Calendar className="w-4 h-4 text-gray-500" aria-hidden="true" />
+            <span>{formatDate(user.createdAt)}</span>
           </div>
         </TableCell>
 
@@ -141,11 +111,12 @@ const UserRow: React.FC<UserRowProps> = ({ user, onRemoveUser, onAddUser }) => {
               variant="outline"
               size="sm"
               onClick={() => setShowDeleteModal(true)}
-              className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-              aria-label={`Delete user ${user.fullName || user.username}`}
+              className="text-orange-600 border-orange-200 hover:bg-orange-50 hover:border-orange-300 focus:ring-2 focus:ring-orange-500 focus:ring-offset-2"
+              aria-label={`Dừng hoạt động ${user.fullName || user.username}`}
+              title="Dừng hoạt động"
             >
-              <Trash2 className="w-4 h-4" aria-hidden="true" />
-              <span className="sr-only">Delete</span>
+              <Ban className="w-4 h-4" aria-hidden="true" />
+              <span className="sr-only">Dừng hoạt động</span>
             </Button>
           </div>
         </TableCell>
@@ -156,8 +127,7 @@ const UserRow: React.FC<UserRowProps> = ({ user, onRemoveUser, onAddUser }) => {
         isOpen={showDeleteModal}
         onClose={() => setShowDeleteModal(false)}
         user={user}
-        onRemoveUser={onRemoveUser}
-        onAddUser={onAddUser}
+        onRefresh={onRefresh}
       />
     </>
   );

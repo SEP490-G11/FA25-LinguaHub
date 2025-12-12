@@ -9,8 +9,52 @@ import {
   Video,
   Link as LinkIcon,
   ExternalLink,
+  HelpCircle,
 } from 'lucide-react';
-import { CourseDetail } from '../types';
+import { CourseDetail, Lesson } from '../types';
+
+// Component to display quiz questions from lesson data
+function QuizQuestionDisplay({ lesson }: { lesson: Lesson }) {
+  const questions = lesson.quizQuestions || [];
+
+  if (questions.length === 0) {
+    return (
+      <div className="text-center py-4 text-gray-500 text-sm italic">
+        Chưa có câu hỏi nào
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {questions.map((question, qIndex) => (
+        <div
+          key={question.questionID}
+          className="flex items-center justify-between p-3 bg-white rounded border border-gray-200"
+        >
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            <span className="text-sm font-medium text-gray-700 flex-shrink-0">
+              {qIndex + 1}.
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-gray-900">
+                {question.questionText}
+              </p>
+              <div className="flex items-center gap-3 mt-1">
+                <span className="text-xs text-gray-500">
+                  Điểm: {question.score}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {question.options.length} lựa chọn
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface CourseContentSectionProps {
   course: CourseDetail;
@@ -100,6 +144,8 @@ export function CourseContentSection({ course }: CourseContentSectionProps) {
                       )}
                       {lesson.lessonType === 'Video' ? (
                         <Video className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                      ) : lesson.lessonType === 'Quiz' ? (
+                        <HelpCircle className="w-4 h-4 text-purple-500 flex-shrink-0" />
                       ) : (
                         <FileText className="w-4 h-4 text-green-500 flex-shrink-0" />
                       )}
@@ -122,79 +168,91 @@ export function CourseContentSection({ course }: CourseContentSectionProps) {
                     {/* Lesson Details - Collapsible */}
                     {expandedLessons.get(`${sectionIndex}-${lessonIndex}`) && (
                       <div className="px-4 pb-4 space-y-4 bg-gray-50 border-t border-gray-200">
-                        {/* Lesson Content */}
-                        {lesson.content && (
+                        {/* Quiz Questions - Only for Quiz lessons */}
+                        {lesson.lessonType === 'Quiz' ? (
                           <div className="pt-4">
                             <p className="text-xs font-semibold text-gray-600 uppercase mb-2">
-                              Nội dung bài học
+                              Câu hỏi
                             </p>
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {lesson.content}
-                            </p>
+                            <QuizQuestionDisplay lesson={lesson} />
                           </div>
-                        )}
+                        ) : (
+                          <>
+                            {/* Lesson Content */}
+                            {lesson.content && (
+                              <div className="pt-4">
+                                <p className="text-xs font-semibold text-gray-600 uppercase mb-2">
+                                  Nội dung bài học
+                                </p>
+                                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                                  {lesson.content}
+                                </p>
+                              </div>
+                            )}
 
-                        {/* Video URL */}
-                        {lesson.videoURL && (
-                          <div>
-                            <p className="text-xs font-semibold text-gray-600 uppercase mb-2">
-                              Video
-                            </p>
-                            <a
-                              href={lesson.videoURL}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline bg-white p-3 rounded-lg border border-blue-200"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                              <span className="flex-1 truncate">{lesson.videoURL}</span>
-                            </a>
-                          </div>
-                        )}
-
-                        {/* Resources */}
-                        {lesson.resources && lesson.resources.length > 0 && (
-                          <div>
-                            <p className="text-xs font-semibold text-gray-600 uppercase mb-2">
-                              Tài liệu ({lesson.resources.length})
-                            </p>
-                            <div className="space-y-2">
-                              {lesson.resources.map((resource) => (
-                                <div
-                                  key={resource.resourceID}
-                                  className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
+                            {/* Video URL */}
+                            {lesson.videoURL && (
+                              <div>
+                                <p className="text-xs font-semibold text-gray-600 uppercase mb-2">
+                                  Video
+                                </p>
+                                <a
+                                  href={lesson.videoURL}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 hover:underline bg-white p-3 rounded-lg border border-blue-200"
                                 >
-                                  <FileText className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-900 mb-1">
-                                      {resource.resourceTitle}
-                                    </p>
-                                    <a
-                                      href={resource.resourceURL}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 truncate"
-                                    >
-                                      <LinkIcon className="w-3 h-3 flex-shrink-0" />
-                                      <span className="truncate">{resource.resourceURL}</span>
-                                    </a>
-                                  </div>
-                                  <Badge variant="outline" className="text-xs flex-shrink-0">
-                                    {resource.resourceType}
-                                  </Badge>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                                  <ExternalLink className="w-4 h-4" />
+                                  <span className="flex-1 truncate">{lesson.videoURL}</span>
+                                </a>
+                              </div>
+                            )}
 
-                        {/* No content message */}
-                        {!lesson.content && !lesson.videoURL && (!lesson.resources || lesson.resources.length === 0) && (
-                          <div className="pt-4 text-center">
-                            <p className="text-sm text-gray-500 italic">
-                              Bài học chưa có nội dung chi tiết
-                            </p>
-                          </div>
+                            {/* Resources */}
+                            {lesson.resources && lesson.resources.length > 0 && (
+                              <div>
+                                <p className="text-xs font-semibold text-gray-600 uppercase mb-2">
+                                  Tài liệu ({lesson.resources.length})
+                                </p>
+                                <div className="space-y-2">
+                                  {lesson.resources.map((resource) => (
+                                    <div
+                                      key={resource.resourceID}
+                                      className="flex items-start gap-3 p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-300 transition-colors"
+                                    >
+                                      <FileText className="w-4 h-4 text-orange-500 flex-shrink-0 mt-0.5" />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-gray-900 mb-1">
+                                          {resource.resourceTitle}
+                                        </p>
+                                        <a
+                                          href={resource.resourceURL}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-xs text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 truncate"
+                                        >
+                                          <LinkIcon className="w-3 h-3 flex-shrink-0" />
+                                          <span className="truncate">{resource.resourceURL}</span>
+                                        </a>
+                                      </div>
+                                      <Badge variant="outline" className="text-xs flex-shrink-0">
+                                        {resource.resourceType}
+                                      </Badge>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* No content message */}
+                            {!lesson.content && !lesson.videoURL && (!lesson.resources || lesson.resources.length === 0) && (
+                              <div className="pt-4 text-center">
+                                <p className="text-sm text-gray-500 italic">
+                                  Bài học chưa có nội dung chi tiết
+                                </p>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     )}

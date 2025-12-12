@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, Loader2, CreditCard, Filter, DollarSign, Settings } from 'lucide-react';
-import { ROUTES } from '@/constants/routes';
+import { AlertCircle, Loader2, CreditCard, Filter, DollarSign, CheckCircle } from 'lucide-react';
+import { StandardPageHeading, PageHeadingStatistic, StandardFilters, FilterConfig } from '@/components/shared';
 import { paymentApi } from './api';
 import { Payment, PaymentFilters } from './types';
-import { calculateStats } from './utils';
-import { Filters, PaymentTable, PaymentStats, Pagination } from './components';
+import { calculateStats, formatCurrency } from './utils';
+import { PaymentTable, Pagination } from './components';
 
 export default function PaymentManagementPage() {
-  const navigate = useNavigate();
 
   // State management
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -19,7 +17,7 @@ export default function PaymentManagementPage() {
   const [limit] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
-  
+
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
@@ -36,7 +34,7 @@ export default function PaymentManagementPage() {
 
       // Build filter object
       const filters: PaymentFilters = {};
-      
+
       if (searchQuery.trim()) {
         filters.search = searchQuery;
       }
@@ -51,7 +49,7 @@ export default function PaymentManagementPage() {
       }
 
       const response = await paymentApi.getPayments(page, limit, filters);
-      
+
       setPayments(response.data);
       setTotalPages(response.totalPages);
       setTotal(response.total);
@@ -84,10 +82,10 @@ export default function PaymentManagementPage() {
   /**
    * Check if any filters are active
    */
-  const hasActiveFilters = 
-    searchQuery.trim() !== '' || 
-    selectedType !== 'all' || 
-    selectedStatus !== 'all' || 
+  const hasActiveFilters =
+    searchQuery.trim() !== '' ||
+    selectedType !== 'all' ||
+    selectedStatus !== 'all' ||
     selectedMethod !== 'all';
 
   // Fetch payments on mount and when filters change
@@ -98,63 +96,98 @@ export default function PaymentManagementPage() {
   // Calculate statistics from current payments
   const stats = calculateStats(payments);
 
+  // Prepare statistics for StandardPageHeading
+  const headingStatistics: PageHeadingStatistic[] = [
+    {
+      label: 'Tổng giao dịch',
+      value: stats.totalPayments.toString(),
+      icon: CreditCard,
+    },
+    {
+      label: 'Tổng doanh thu',
+      value: formatCurrency(stats.totalAmount),
+      icon: DollarSign,
+    },
+    {
+      label: 'Đã thanh toán',
+      value: stats.paidCount.toString(),
+      icon: CheckCircle,
+    },
+  ];
+
+  // Configure filters for StandardFilters component
+  const filterConfigs: FilterConfig[] = [
+    {
+      id: 'search',
+      type: 'search',
+      placeholder: 'Tìm theo mã đơn, ID người dùng, mô tả...',
+      value: searchQuery,
+      onChange: setSearchQuery,
+    },
+    {
+      id: 'payment-type',
+      type: 'select',
+      placeholder: 'Loại thanh toán',
+      value: selectedType,
+      onChange: setSelectedType,
+      options: [
+        { value: 'all', label: 'Tất cả' },
+        { value: 'Course', label: 'Khóa học' },
+        { value: 'Booking', label: 'Đặt lịch' },
+        { value: 'Subscription', label: 'Đăng ký' },
+      ],
+    },
+    {
+      id: 'payment-status',
+      type: 'select',
+      placeholder: 'Trạng thái',
+      value: selectedStatus,
+      onChange: setSelectedStatus,
+      options: [
+        { value: 'all', label: 'Tất cả trạng thái' },
+        { value: 'PAID', label: 'Đã thanh toán' },
+        { value: 'PENDING', label: 'Chờ thanh toán' },
+        { value: 'REFUNDED', label: 'Đã hoàn tiền' },
+        { value: 'FAILED', label: 'Thất bại' },
+      ],
+    },
+    {
+      id: 'payment-method',
+      type: 'select',
+      placeholder: 'Phương thức',
+      value: selectedMethod,
+      onChange: setSelectedMethod,
+      options: [
+        { value: 'all', label: 'Tất cả' },
+        { value: 'PAYOS', label: 'PayOS' },
+        { value: 'MOMO', label: 'MoMo' },
+        { value: 'VNPAY', label: 'VNPay' },
+      ],
+    },
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ========== STICKY HEADER ========== */}
-      <div className="sticky top-0 z-10 bg-white shadow-md">
-        {/* Gradient Top Bar with Stats */}
-        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700">
-          <div className="max-w-[1600px] mx-auto px-6 py-5">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center border border-white/30">
-                  <CreditCard className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-white">Quản lý thanh toán</h1>
-                  <p className="text-blue-100 text-sm">Theo dõi và quản lý giao dịch thanh toán</p>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  onClick={() => navigate(ROUTES.ADMIN_WITHDRAW_REQUESTS)}
-                  className="bg-white text-emerald-600 hover:bg-emerald-50 font-semibold shadow-lg"
-                >
-                  <DollarSign className="w-4 h-4 mr-2" />
-                  Withdraw Requests
-                </Button>
-                <Button
-                  onClick={() => navigate('/admin/commission-settings')}
-                  className="bg-white text-blue-600 hover:bg-blue-50 font-semibold shadow-lg"
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  Commission Settings
-                </Button>
-              </div>
-            </div>
-            
-            {/* Payment Statistics */}
-            <PaymentStats stats={stats} isLoading={isLoading} />
-          </div>
-        </div>
+      <div>
+        {/* Page Heading with Statistics */}
+        <StandardPageHeading
+          title="Quản lý thanh toán"
+          description="Theo dõi và quản lý giao dịch thanh toán"
+          icon={CreditCard}
+          gradientFrom="from-purple-600"
+          gradientVia="via-purple-600"
+          gradientTo="to-purple-500"
+          statistics={headingStatistics}
+        />
 
         {/* Filters Bar */}
         <div className="bg-white border-t border-gray-100">
-          <div className="max-w-[1600px] mx-auto px-6 py-4">
+          <div className="max-w-7xl mx-auto px-4 py-4">
             <div className="flex items-center gap-4">
               <Filter className="w-5 h-5 text-gray-500 flex-shrink-0" />
               <div className="flex-1">
-                <Filters
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                  selectedType={selectedType}
-                  onTypeChange={setSelectedType}
-                  selectedStatus={selectedStatus}
-                  onStatusChange={setSelectedStatus}
-                  selectedMethod={selectedMethod}
-                  onMethodChange={setSelectedMethod}
-                />
+                <StandardFilters filters={filterConfigs} />
               </div>
               <Button
                 onClick={handleResetFilters}
@@ -170,7 +203,7 @@ export default function PaymentManagementPage() {
       </div>
 
       {/* ========== MAIN CONTENT ========== */}
-      <div className="max-w-[1600px] mx-auto px-6 py-6">
+      <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Error State */}
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -195,7 +228,7 @@ export default function PaymentManagementPage() {
         {isLoading ? (
           <div className="flex justify-center items-center py-20">
             <div className="text-center">
-              <Loader2 className="w-10 h-10 animate-spin text-blue-600 mx-auto mb-3" />
+              <Loader2 className="w-10 h-10 animate-spin text-purple-600 mx-auto mb-3" />
               <p className="text-gray-600 font-medium">Đang tải giao dịch...</p>
             </div>
           </div>
@@ -218,7 +251,7 @@ export default function PaymentManagementPage() {
           /* Payment Table */
           <>
             <PaymentTable payments={payments} />
-            
+
             {/* Pagination */}
             <div className="mt-6">
               <Pagination

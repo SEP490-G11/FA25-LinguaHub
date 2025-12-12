@@ -38,18 +38,11 @@ export const paymentApi = {
         params.method = filters.method;
       }
 
-      console.log('🔍 Fetching payments with params:', params);
-
       // Make API request
       const response = await axios.get('/api/payments/admin', { params });
       
-      console.log('📊 Full API response:', response);
-      console.log('📊 Response data:', response?.data);
-      
       // Extract data from response - handle multiple possible structures
       const result = response?.data?.result || response?.data || {};
-      
-      console.log('📊 Extracted result:', result);
       
       // Try to find the payments array in different possible locations
       let paymentsArray: any[] = [];
@@ -63,8 +56,6 @@ export const paymentApi = {
       } else if (Array.isArray(result)) {
         paymentsArray = result;
       }
-      
-      console.log('📊 Payments array:', paymentsArray);
 
       // Transform API response to match frontend types
       const payments: Payment[] = paymentsArray.map((payment: any) => ({
@@ -97,7 +88,6 @@ export const paymentApi = {
         totalPages: result.totalPages || Math.ceil((result.total || payments.length) / limit),
       };
     } catch (error: any) {
-      console.error('❌ Error fetching payments:', error);
       
       // Handle different error scenarios with Vietnamese messages
       if (error.response) {

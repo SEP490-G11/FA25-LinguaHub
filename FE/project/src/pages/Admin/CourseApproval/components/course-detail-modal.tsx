@@ -24,6 +24,7 @@ import {
   Link as LinkIcon,
   Loader2,
 } from 'lucide-react';
+import { useLanguages } from '@/hooks/useLanguages';
 import { CourseDetail } from '../types';
 
 interface CourseDetailModalProps {
@@ -46,6 +47,28 @@ export function CourseDetailModal({
   const [adminNotes, setAdminNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
+  const { languages } = useLanguages();
+
+  // Helper function to get Vietnamese display name for language
+  const getLanguageDisplayName = (languageName?: string): string => {
+    if (!languageName) return 'N/A';
+
+    // Find the language in the fetched languages list
+    const language = languages.find(lang => lang.name === languageName);
+
+    // Return displayName if found, otherwise return the original name
+    return language?.displayName || languageName;
+  };
+
+  // Helper function to translate level to Vietnamese
+  const getLevelLabel = (level?: string): string => {
+    const levelMap: Record<string, string> = {
+      'BEGINNER': 'Cơ bản',
+      'INTERMEDIATE': 'Trung cấp',
+      'ADVANCED': 'Nâng cao',
+    };
+    return levelMap[level?.toUpperCase() || 'BEGINNER'] || level || 'Cơ bản';
+  };
 
   if (!course) return null;
 
@@ -106,9 +129,9 @@ export function CourseDetailModal({
               {course.title}
             </h3>
             <div className="flex gap-2 mb-4">
-              <Badge>{course.level}</Badge>
+              <Badge>{getLevelLabel(course.level)}</Badge>
               <Badge variant="outline">{course.categoryName}</Badge>
-              <Badge variant="outline">{course.language}</Badge>
+              <Badge variant="outline">{getLanguageDisplayName(course.language)}</Badge>
             </div>
             <p className="text-gray-600 mb-4">{course.shortDescription}</p>
           </div>
@@ -162,7 +185,10 @@ export function CourseDetailModal({
               <FileText className="w-5 h-5" />
               Mô tả chi tiết
             </h4>
-            <p className="text-gray-600 whitespace-pre-wrap">{course.description}</p>
+            <div
+              className="text-gray-600 prose max-w-none"
+              dangerouslySetInnerHTML={{ __html: course.description }}
+            />
           </div>
 
           {/* Requirements */}
@@ -171,7 +197,10 @@ export function CourseDetailModal({
               <h4 className="text-lg font-semibold text-gray-900 mb-2">
                 Yêu cầu
               </h4>
-              <p className="text-gray-600 whitespace-pre-wrap">{course.requirement}</p>
+              <div
+                className="text-gray-600 prose max-w-none"
+                dangerouslySetInnerHTML={{ __html: course.requirement }}
+              />
             </div>
           )}
 

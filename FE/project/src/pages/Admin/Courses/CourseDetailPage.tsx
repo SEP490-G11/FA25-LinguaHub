@@ -19,14 +19,6 @@ export default function CourseDetailPage() {
     try {
       setLoading(true);
       const data = await coursesApi.getCourseDetail(courseId!);
-      console.log('📚 Course detail loaded:', {
-        title: data.title,
-        status: data.status,
-        hasSections: !!data.section,
-        sectionsCount: data.section?.length || 0,
-        adminNotes: data.adminNotes,
-        hasAdminNotes: !!data.adminNotes
-      });
       setCourse(data);
     } catch (error) {
       console.error('Error fetching course detail:', error);
@@ -41,7 +33,6 @@ export default function CourseDetailPage() {
       loading={loading}
       backUrl="/admin/courses"
       backLabel="Quay lại danh sách"
-      showAdminActions={true}
     />
   );
 }

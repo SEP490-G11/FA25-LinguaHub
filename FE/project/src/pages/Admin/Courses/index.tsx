@@ -1,13 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BookOpen } from 'lucide-react';
 import { coursesApi } from './api';
-import { CourseCard, CourseFilters, Pagination } from './components';
+import { CourseCard, Pagination } from './components';
 import type { Course, CoursesFilters } from './types';
+import { routeHelpers } from '@/constants/routes';
+import { StandardPageHeading, StandardFilters } from '@/components/shared';
+import { useLanguages } from '@/hooks/useLanguages';
 
 export default function CoursesPage() {
   const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
+  const { languages } = useLanguages();
 
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<CoursesFilters>({});
@@ -16,9 +22,10 @@ export default function CoursesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
 
-  // Fetch all courses and pending count
+  // Fetch all courses and categories
   useEffect(() => {
     fetchData();
+    fetchCategories();
   }, []);
 
   const fetchData = async () => {
@@ -28,23 +35,40 @@ export default function CoursesPage() {
       setCourses(coursesData);
       setFilteredCourses(coursesData);
     } catch (error) {
-      console.error('Error fetching courses:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const axios = (await import('@/config/axiosConfig')).default;
+      const response = await axios.get('/categories');
+      
+      let rawData = [];
+      if (response?.data?.result) {
+        rawData = response.data.result;
+      } else if (Array.isArray(response?.data)) {
+        rawData = response.data;
+      } else if (response?.data?.data) {
+        rawData = response.data.data;
+      }
+      
+      const categoriesData = rawData.map((cat: any) => ({
+        id: cat.categoryId || cat.id,
+        name: cat.categoryName || cat.name,
+      }));
+      
+      setCategories(categoriesData);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      setCategories([]);
     }
   };
 
   // Apply filters
   useEffect(() => {
     let result = [...courses];
-    
-    console.log('🔍 Applying filters:', {
-      totalCourses: courses.length,
-      filters,
-      hasSearch: !!filters.search,
-      hasCategory: !!filters.category,
-      hasStatus: !!filters.status
-    });
 
     // Search filter
     if (filters.search) {
@@ -58,7 +82,6 @@ export default function CoursesPage() {
     // Category filter
     if (filters.category) {
       result = result.filter(course => 
-        course.category === filters.category || 
         course.categoryID?.toString() === filters.category ||
         course.categoryName === filters.category
       );
@@ -82,17 +105,13 @@ export default function CoursesPage() {
           case 'price':
             return (b.price || 0) - (a.price || 0);
           case 'rating':
-            return (b.rating || 0) - (a.rating || 0);
+            // Rating is not available in CourseDetail type, skip sorting
+            return 0;
           default:
             return 0;
         }
       });
     }
-
-    console.log('✅ Filter result:', {
-      filteredCount: result.length,
-      originalCount: courses.length
-    });
     
     setFilteredCourses(result);
     setCurrentPage(1);
@@ -104,20 +123,20 @@ export default function CoursesPage() {
   const paginatedCourses = filteredCourses.slice(startIndex, startIndex + itemsPerPage);
 
   const handleCourseClick = (courseId: string | number) => {
-    navigate(`/admin/courses/${courseId}`);
+    navigate(routeHelpers.adminCourseDetail(courseId));
   };
 
   // Convert Course to PendingCourse format for CourseCard
   const convertToPendingCourse = (course: Course) => {
     const converted = {
-      id: course.courseID || course.id,
+      id: course.id,
       title: course.title,
       shortDescription: course.shortDescription || '',
       description: course.description || '',
       requirement: course.requirement || '',
       level: course.level || 'BEGINNER',
       categoryID: course.categoryID || 0,
-      categoryName: course.categoryName || course.category || 'Unknown',
+      categoryName: course.categoryName || 'Unknown',
       language: course.language || 'English',
       duration: course.duration || 0,
       price: course.price || 0,
@@ -131,15 +150,6 @@ export default function CoursesPage() {
       isDraft: false,
     };
     
-    // Debug: Log courses with Draft status
-    if (course.status?.toLowerCase().includes('draft')) {
-      console.log('🔍 Draft course found:', {
-        title: course.title,
-        status: course.status,
-        converted: converted.status
-      });
-    }
-    
     return converted;
   };
 
@@ -147,33 +157,93 @@ export default function CoursesPage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Đang tải...</p>
         </div>
       </div>
     );
   }
 
+  // Prepare filter configurations for StandardFilters
+  const filterConfigs = [
+    {
+      id: 'search',
+      type: 'search' as const,
+      placeholder: 'Tìm theo tên khóa học...',
+      value: filters.search || '',
+      onChange: (value: string) => setFilters({ ...filters, search: value }),
+    },
+    {
+      id: 'category',
+      type: 'select' as const,
+      placeholder: 'Danh mục',
+      value: filters.category || 'all',
+      onChange: (value: string) => 
+        setFilters({ ...filters, category: value === 'all' ? undefined : value }),
+      options: [
+        { value: 'all', label: 'Tất cả danh mục' },
+        ...categories.map((cat) => ({
+          value: cat.id.toString(),
+          label: cat.name,
+        })),
+      ],
+    },
+    {
+      id: 'status',
+      type: 'select' as const,
+      placeholder: 'Trạng thái',
+      value: filters.status || 'all',
+      onChange: (value: string) =>
+        setFilters({ ...filters, status: value === 'all' ? undefined : value as any }),
+      options: [
+        { value: 'all', label: 'Tất cả trạng thái' },
+        { value: 'PENDING', label: 'Chờ duyệt' },
+        { value: 'APPROVED', label: 'Đã duyệt' },
+        { value: 'REJECTED', label: 'Từ chối' },
+        { value: 'DRAFT', label: 'Nháp' },
+        { value: 'DISABLED', label: 'Vô hiệu' },
+      ],
+    },
+    {
+      id: 'sort',
+      type: 'select' as const,
+      placeholder: 'Sắp xếp',
+      value: filters.sortBy || 'newest',
+      onChange: (value: string) =>
+        setFilters({ ...filters, sortBy: value as any }),
+      options: [
+        { value: 'newest', label: 'Mới nhất' },
+        { value: 'oldest', label: 'Cũ nhất' },
+        { value: 'price', label: 'Giá cao nhất' },
+        { value: 'rating', label: 'Đánh giá cao' },
+      ],
+    },
+  ];
+
   return (
-    <div className="container mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          Quản lý khóa học
-        </h1>
-        <p className="text-gray-600">
-          Tổng số {courses.length} khóa học trên hệ thống
-        </p>
-      </div>
-
-
-
-      {/* Filters */}
-      <CourseFilters
-        filters={filters}
-        onFilterChange={setFilters}
-        totalCount={filteredCourses.length}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header with StandardPageHeading */}
+      <StandardPageHeading
+        title="Quản lý khóa học"
+        description="Quản lý và theo dõi tất cả khóa học trên hệ thống"
+        icon={BookOpen}
+        gradientFrom="from-purple-600"
+        gradientVia="via-purple-600"
+        gradientTo="to-purple-500"
+        statistics={[
+          {
+            label: 'Tổng khóa học',
+            value: courses.length,
+          },
+        ]}
       />
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+          <StandardFilters filters={filterConfigs} />
+        </div>
 
       {/* Course Grid */}
       {paginatedCourses.length === 0 ? (
@@ -185,13 +255,14 @@ export default function CoursesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
             {paginatedCourses.map((course) => (
               <CourseCard
-                key={course.courseID || course.id}
+                key={course.id}
                 course={convertToPendingCourse(course)}
-                onClick={() => handleCourseClick(course.courseID || course.id)}
+                onClick={() => handleCourseClick(course.id)}
                 variant="management"
                 showPendingBadge={true}
                 showDraftBadge={false}
                 buttonText="Xem chi tiết"
+                languages={languages}
               />
             ))}
           </div>
@@ -209,6 +280,7 @@ export default function CoursesPage() {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

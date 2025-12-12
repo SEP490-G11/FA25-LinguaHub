@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { WithdrawRequestStats } from '../types';
 import { formatCurrency } from '../utils';
+import { StandardStatisticsCards, StatCardData } from '@/components/shared';
 
 interface WithdrawRequestStatsProps {
   stats: WithdrawRequestStats;
@@ -33,74 +34,44 @@ export default function WithdrawRequestStatsComponent({
     );
   }
 
-  const statCards = [
+  const statCards: StatCardData[] = [
     {
       icon: FileText,
-      label: 'Total Requests',
+      label: 'Tổng yêu cầu',
       value: stats.totalRequests.toString(),
-      iconColor: 'text-blue-300',
-      bgColor: 'bg-white/15',
+      iconColor: '#93C5FD', // blue-300
     },
     {
       icon: Clock,
-      label: 'Pending',
+      label: 'Chờ xử lý',
       value: stats.pendingCount.toString(),
-      iconColor: 'text-yellow-300',
-      bgColor: 'bg-white/15',
+      iconColor: '#FCD34D', // yellow-300
     },
     {
       icon: CheckCircle,
-      label: 'Approved',
+      label: 'Đã duyệt',
       value: stats.approvedCount.toString(),
-      iconColor: 'text-green-300',
-      bgColor: 'bg-white/15',
+      iconColor: '#86EFAC', // green-300
     },
     {
       icon: XCircle,
-      label: 'Rejected',
+      label: 'Đã từ chối',
       value: stats.rejectedCount.toString(),
-      iconColor: 'text-red-300',
-      bgColor: 'bg-white/15',
+      iconColor: '#FCA5A5', // red-300
     },
     {
       icon: DollarSign,
-      label: 'Total Withdrawal',
+      label: 'Tổng tiền rút',
       value: formatCurrency(stats.totalWithdrawAmount),
-      iconColor: 'text-green-300',
-      bgColor: 'bg-white/15',
+      iconColor: '#86EFAC', // green-300
     },
     {
       icon: DollarSign,
-      label: 'Total Commission',
+      label: 'Tổng hoa hồng',
       value: formatCurrency(stats.totalCommission),
-      iconColor: 'text-blue-300',
-      bgColor: 'bg-white/15',
+      iconColor: '#93C5FD', // blue-300
     },
   ];
 
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-      {statCards.map((card, index) => {
-        const Icon = card.icon;
-        return (
-          <div
-            key={index}
-            className={`${card.bgColor} backdrop-blur-md rounded-lg px-4 py-3 border border-white/20 transition-all hover:bg-white/20`}
-          >
-            <div className="flex items-center gap-3">
-              <Icon className={`w-5 h-5 ${card.iconColor}`} />
-              <div className="flex-1 min-w-0">
-                <p className="text-blue-100 text-xs font-medium truncate">
-                  {card.label}
-                </p>
-                <p className="text-xl font-bold text-white truncate">
-                  {card.value}
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
+  return <StandardStatisticsCards stats={statCards} variant="compact" />;
 }

@@ -19,7 +19,6 @@ export const withdrawRequestApi = {
       // Ensure we return an array
       return Array.isArray(data) ? data : [];
     } catch (error: any) {
-      console.error('❌ Error fetching withdrawal requests:', error);
       
       // Handle specific error cases
       if (error?.response?.status === 403) {
@@ -52,7 +51,6 @@ export const withdrawRequestApi = {
         message: 'Withdrawal request approved successfully',
       };
     } catch (error: any) {
-      console.error('❌ Error approving withdrawal request:', error);
       
       // Handle specific error cases
       if (error?.response?.status === 404) {
@@ -93,7 +91,6 @@ export const withdrawRequestApi = {
         message: 'Withdrawal request rejected successfully',
       };
     } catch (error: any) {
-      console.error('❌ Error rejecting withdrawal request:', error);
       
       // Handle specific error cases
       if (error?.response?.status === 404) {

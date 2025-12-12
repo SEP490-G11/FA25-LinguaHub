@@ -24,26 +24,27 @@ export const useDeleteUser = () => {
     onRollback?: (user: User) => void,
     userToDelete?: User
   ): Promise<void> => {
+    setIsDeleting(true);
+    setError(null);
+    
+    console.log('🗑️ useDeleteUser: Starting deletion for user:', userID);
+    
+    // Optimistic update - remove user from UI immediately
+    if (onOptimisticUpdate) {
+      onOptimisticUpdate(userID);
+      console.log('✨ useDeleteUser: Optimistic update applied');
+    }
+    
     try {
-      setIsDeleting(true);
-      setError(null);
-      
-      console.log('🗑️ useDeleteUser: Starting deletion for user:', userID);
-      
-      // Optimistic update - remove user from UI immediately
-      if (onOptimisticUpdate) {
-        onOptimisticUpdate(userID);
-        console.log('✨ useDeleteUser: Optimistic update applied');
-      }
-      
       // Call API to delete user
       await userManagementApi.deleteUser(userID);
       
       console.log('✅ useDeleteUser: User deleted successfully');
+      // Success - no error to throw
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to delete user';
+      const errorMessage = err.message || 'Failed to deactivate user';
       setError(errorMessage);
-      console.error('❌ useDeleteUser: Error deleting user:', errorMessage);
+      console.error('❌ useDeleteUser: Error deactivating user:', errorMessage);
       
       // Rollback optimistic update - restore user in UI
       if (onRollback && userToDelete) {

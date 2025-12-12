@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Loader2, User, Mail, Calendar } from 'lucide-react';
+import { AlertTriangle, Loader2, User, Mail, Calendar, Ban } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -19,8 +19,7 @@ interface DeleteConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
   user: UserType;
-  onRemoveUser: (userID: number) => void;
-  onAddUser: (user: UserType) => void;
+  onRefresh?: () => void;
 }
 
 /**
@@ -31,8 +30,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
   isOpen,
   onClose,
   user,
-  onRemoveUser,
-  onAddUser,
+  onRefresh,
 }) => {
   const { deleteUser, isDeleting, error, clearError } = useDeleteUser();
   const { toast } = useToast();
@@ -67,32 +65,32 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
     try {
       clearError();
       
-      await deleteUser(
-        user.userID,
-        onRemoveUser, // Optimistic update callback
-        onAddUser,    // Rollback callback
-        user          // User data for rollback
-      );
+      // Don't use optimistic update - just call API
+      await deleteUser(user.userID);
       
       // Show success toast
       toast({
-        title: "User deleted successfully",
-        description: `${user.fullName || user.username} has been removed from the system.`,
-        variant: "success",
+        title: "Dừng hoạt động thành công",
+        description: `${user.fullName || user.username} đã bị dừng hoạt động.`,
       });
       
-      // Close modal on successful deletion
+      // Close modal
       onClose();
-    } catch (err) {
-      // Show error toast
+      
+      // Refresh data from server to show updated status
+      if (onRefresh) {
+        onRefresh();
+      }
+    } catch (err: any) {
+      // Show error toast only if there's an actual error
+      const errorMessage = err?.message || error || "Đã xảy ra lỗi không mong muốn. Vui lòng thử lại.";
       toast({
-        title: "Failed to delete user",
-        description: error || "An unexpected error occurred. Please try again.",
+        title: "Dừng hoạt động thất bại",
+        description: errorMessage,
         variant: "destructive",
       });
       
       // Error is handled by the hook, modal stays open to show error
-      console.error('Delete failed:', err);
     }
   };
 
@@ -108,12 +106,12 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[500px]" aria-describedby="delete-description">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-red-600">
+          <DialogTitle className="flex items-center gap-2 text-orange-600">
             <AlertTriangle className="w-5 h-5" aria-hidden="true" />
-            Confirm User Deletion
+            Xác nhận dừng hoạt động
           </DialogTitle>
           <DialogDescription id="delete-description">
-            This action cannot be undone. The user will be permanently removed from the system.
+            Bạn có chắc chắn muốn dừng hoạt động của người dùng này? Người dùng sẽ không thể đăng nhập vào hệ thống.
           </DialogDescription>
         </DialogHeader>
 
@@ -159,9 +157,9 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
                     ? "bg-green-100 text-green-800" 
                     : "bg-gray-100 text-gray-800"
                   }
-                  aria-label={`User status: ${user.isActive ? 'Active' : 'Inactive'}`}
+                  aria-label={`Trạng thái người dùng: ${user.isActive ? 'Hoạt động' : 'Không hoạt động'}`}
                 >
-                  {user.isActive ? 'Active' : 'Inactive'}
+                  {user.isActive ? 'Hoạt động' : 'Không hoạt động'}
                 </Badge>
                 <Badge variant="outline">
                   {user.role || 'User'}
@@ -170,7 +168,7 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
 
               <div className="flex items-center justify-center sm:justify-start gap-2 text-xs text-gray-500">
                 <Calendar className="w-3 h-3" aria-hidden="true" />
-                <span>Created: {formatDate(user.createdAt)}</span>
+                <span>Tạo: {formatDate(user.createdAt)}</span>
               </div>
             </div>
           </div>
@@ -178,13 +176,13 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
 
         {/* ========== ERROR MESSAGE ========== */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
             <div className="flex items-start justify-between">
               <div className="flex-1">
-                <p className="text-red-800 text-sm font-medium mb-1">
-                  Failed to delete user
+                <p className="text-orange-800 text-sm font-medium mb-1">
+                  Dừng hoạt động thất bại
                 </p>
-                <p className="text-red-700 text-sm">
+                <p className="text-orange-700 text-sm">
                   {error}
                 </p>
               </div>
@@ -193,9 +191,9 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
                 size="sm"
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="ml-3 text-red-600 border-red-300 hover:bg-red-50"
+                className="ml-3 text-orange-600 border-orange-300 hover:bg-orange-50"
               >
-                Retry
+                Thử lại
               </Button>
             </div>
           </div>
@@ -208,24 +206,26 @@ export const DeleteConfirmModal: React.FC<DeleteConfirmModalProps> = ({
             onClick={handleClose}
             disabled={isDeleting}
             className="w-full sm:w-auto"
-            aria-label="Cancel deletion"
+            aria-label="Hủy"
           >
-            Cancel
+            Hủy
           </Button>
           <Button
-            variant="destructive"
             onClick={handleDelete}
             disabled={isDeleting}
-            className="min-w-[100px] w-full sm:w-auto"
-            aria-label={isDeleting ? 'Deleting user, please wait' : `Delete user ${user.fullName || user.username}`}
+            className="min-w-[100px] w-full sm:w-auto bg-orange-600 hover:bg-orange-700 text-white"
+            aria-label={isDeleting ? 'Đang xử lý, vui lòng đợi' : `Dừng hoạt động ${user.fullName || user.username}`}
           >
             {isDeleting ? (
               <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" aria-hidden="true" />
-                Deleting...
+                Đang xử lý...
               </>
             ) : (
-              'Delete User'
+              <>
+                <Ban className="w-4 h-4 mr-2" aria-hidden="true" />
+                Dừng hoạt động
+              </>
             )}
           </Button>
         </DialogFooter>

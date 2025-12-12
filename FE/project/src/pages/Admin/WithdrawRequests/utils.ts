@@ -74,7 +74,6 @@ export const formatDate = (isoDate: string): string => {
       hour12: true,
     }).format(date);
   } catch (error) {
-    console.error('Error formatting date:', error);
     return 'Invalid Date';
   }
 };

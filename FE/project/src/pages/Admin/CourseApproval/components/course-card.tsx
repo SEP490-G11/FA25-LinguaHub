@@ -4,6 +4,12 @@ import { Badge } from '@/components/ui/badge';
 import { Clock, DollarSign, User, Calendar, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PendingCourse } from '../types';
+import { routeHelpers } from '@/constants/routes';
+
+interface Language {
+  name: string;
+  displayName: string;
+}
 
 interface CourseCardProps {
   course: PendingCourse;
@@ -12,6 +18,7 @@ interface CourseCardProps {
   showPendingBadge?: boolean;
   buttonText?: string;
   variant?: 'approval' | 'management';
+  languages?: Language[];
 }
 
 export function CourseCard({ 
@@ -20,16 +27,38 @@ export function CourseCard({
   showDraftBadge = true,
   showPendingBadge = true,
   buttonText,
-  variant = 'approval'
+  variant = 'approval',
+  languages = []
 }: CourseCardProps) {
   const navigate = useNavigate();
+
+  // Helper function to get Vietnamese display name for language
+  const getLanguageDisplayName = (languageName?: string): string => {
+    if (!languageName) return 'English';
+    
+    // Find the language in the fetched languages list
+    const language = languages.find(lang => lang.name === languageName);
+    
+    // Return displayName if found, otherwise return the original name
+    return language?.displayName || languageName;
+  };
+
+  // Helper function to translate level to Vietnamese
+  const getLevelLabel = (level?: string): string => {
+    const levelMap: Record<string, string> = {
+      'BEGINNER': 'Cơ bản',
+      'INTERMEDIATE': 'Trung cấp',
+      'ADVANCED': 'Nâng cao',
+    };
+    return levelMap[level?.toUpperCase() || 'BEGINNER'] || level || 'Cơ bản';
+  };
 
   const handleViewDetails = () => {
     if (onClick) {
       onClick();
     } else {
       const isDraftParam = course.isDraft ? '?isDraft=true' : '';
-      navigate(`/admin/course-approval/${course.id}${isDraftParam}`);
+      navigate(routeHelpers.adminCourseApprovalDetail(course.id) + isDraftParam);
     }
   };
 
@@ -67,12 +96,17 @@ export function CourseCard({
           {/* Status Badge */}
           {course.status === 'Pending' && showPendingBadge && (
             <Badge className="bg-yellow-500 text-white font-semibold shadow-md">
-              Pending
+              Chờ duyệt
             </Badge>
           )}
           {course.status === 'Pending Review' && showPendingBadge && (
             <Badge className="bg-orange-500 text-white font-semibold shadow-md">
-              Pending Review
+              Chờ xem xét
+            </Badge>
+          )}
+          {course.status === 'Chờ xem xét' && showPendingBadge && (
+            <Badge className="bg-orange-500 text-white font-semibold shadow-md">
+              Chờ xem xét
             </Badge>
           )}
           {course.status === 'Approved' && (
@@ -124,10 +158,10 @@ export function CourseCard({
             {course.categoryName || 'No Category'}
           </Badge>
           <Badge variant="outline" className="text-xs">
-            {course.level || 'BEGINNER'}
+            {getLevelLabel(course.level)}
           </Badge>
           <Badge variant="outline" className="text-xs">
-            {course.language || 'English'}
+            {getLanguageDisplayName(course.language)}
           </Badge>
         </div>
 

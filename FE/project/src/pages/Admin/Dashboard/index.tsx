@@ -1,86 +1,135 @@
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, BookOpen, FileCheck, CreditCard } from 'lucide-react';
+import React, { useState, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+import { startOfMonth } from 'date-fns';
+import { useDashboardData, useKeyboardShortcuts } from './hooks';
+import { 
+  ActionableItemsSection, 
+  FinancialOverviewSection, 
+  RevenueByLanguageSection, 
+  GrowthMetricsSection, 
+  RecentUsersTable, 
+  RecentCoursesTable, 
+  FullDashboardSkeleton,
+  DashboardErrorState,
+  ChartSkeleton
+} from './components';
+import { DashboardHeader } from '@/pages/TutorPages/Dashboard/components/DashboardHeader';
+import type { AdminDashboardResponse } from './types';
+
+const RevenueBreakdownChart = lazy(() => import('./components/RevenueBreakdownChart'));
+const MonthlyGrowthChart = lazy(() => import('./components/MonthlyGrowthChart'));
 
 const AdminDashboard: React.FC = () => {
-  const stats = [
-    {
-      title: 'Tổng người học',
-      value: '1,234',
-      icon: Users,
-      color: 'bg-blue-500',
-      change: '+12%',
-    },
-    {
-      title: 'Tổng khóa học',
-      value: '456',
-      icon: BookOpen,
-      color: 'bg-green-500',
-      change: '+8%',
-    },
-    {
-      title: 'Chờ duyệt',
-      value: '23',
-      icon: FileCheck,
-      color: 'bg-yellow-500',
-      change: '-5%',
-    },
-    {
-      title: 'Doanh thu tháng',
-      value: '₫125M',
-      icon: CreditCard,
-      color: 'bg-purple-500',
-      change: '+18%',
-    },
-  ];
+  const [startDate, setStartDate] = useState<Date>(startOfMonth(new Date()));
+  const [endDate, setEndDate] = useState<Date>(new Date());
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleDateChange = useCallback((start: Date, end: Date) => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+
+    debounceTimeoutRef.current = setTimeout(() => {
+      setStartDate(start);
+      setEndDate(end);
+    }, 500);
+  }, []);
+
+  const { data, isLoading, error, refetch } = useDashboardData(startDate, endDate) as {
+    data: AdminDashboardResponse | undefined;
+    isLoading: boolean;
+    error: Error | null;
+    refetch: () => void;
+  };
+
+  const handleRefresh = useCallback(() => {
+    refetch();
+  }, [refetch]);
+
+  useKeyboardShortcuts({
+    onRefresh: handleRefresh,
+  });
+
+  const hasActionableItems = useMemo(() => !!data?.actionableItems, [data]);
+  const hasFinancialOverview = useMemo(() => !!data?.financialOverview, [data]);
+  const hasRevenueBreakdown = useMemo(() => !!data?.revenueBreakdown, [data]);
+  const hasRevenueByLanguage = useMemo(() => !!data?.revenueByLanguage, [data]);
+  const hasGrowthMetrics = useMemo(() => !!data?.growthMetrics, [data]);
+  const hasMonthlyGrowth = useMemo(() => !!data?.monthlyGrowth, [data]);
+  const hasRecentUsers = useMemo(() => !!data?.recentUsers, [data]);
+  const hasRecentCourses = useMemo(() => !!data?.recentCourses, [data]);
+
+  if (isLoading) {
+    return <FullDashboardSkeleton />;
+  }
+
+  if (error) {
+    return <DashboardErrorState error={error} onRetry={handleRefresh} />;
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">Chào mừng đến với trang quản trị LinguaHub</p>
-      </div>
+    <>
+      
+      <main 
+        id="dashboard-main-content"
+        className="container mx-auto px-4 py-4 md:px-6 md:py-6 lg:px-8"
+        role="main"
+        aria-label="Admin Dashboard"
+        tabIndex={-1}
+      >
+        <DashboardHeader
+          userName="Quản trị viên"
+          startDate={startDate}
+          endDate={endDate}
+          onDateChange={handleDateChange}
+          subtitle="Quản lý và giám sát toàn bộ hoạt động của nền tảng."
+          bgGradient="from-purple-600 to-purple-800"
+        />
+      
+      {hasActionableItems && data && (
+        <ActionableItemsSection actionableItems={data.actionableItems} />
+      )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => {
-          const Icon = stat.icon;
-          return (
-            <Card key={index}>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-600">
-                  {stat.title}
-                </CardTitle>
-                <div className={`${stat.color} p-2 rounded-lg`}>
-                  <Icon className="w-5 h-5 text-white" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-gray-900">{stat.value}</div>
-                <p className="text-xs text-gray-600 mt-1">
-                  <span className={stat.change.startsWith('+') ? 'text-green-600' : 'text-red-600'}>
-                    {stat.change}
-                  </span>
-                  {' '}so với tháng trước
-                </p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      {hasFinancialOverview && data && (
+        <FinancialOverviewSection financialOverview={data.financialOverview} />
+      )}
 
-      {/* Content Placeholder */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tổng quan hệ thống</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-12 text-gray-500">
-            Dashboard management will be implemented here.
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+      {hasRevenueBreakdown && data && (
+        <section className="mt-4 md:mt-6" aria-labelledby="revenue-breakdown-heading">
+          <Suspense fallback={<ChartSkeleton />}>
+            <RevenueBreakdownChart data={data.revenueBreakdown} />
+          </Suspense>
+        </section>
+      )}
+
+      {hasRevenueByLanguage && data && (
+        <RevenueByLanguageSection revenueByLanguage={data.revenueByLanguage} />
+      )}
+
+      {hasGrowthMetrics && data && (
+        <GrowthMetricsSection growthMetrics={data.growthMetrics} />
+      )}
+
+      {hasMonthlyGrowth && data && (
+        <section className="mt-4 md:mt-6" aria-labelledby="monthly-growth-heading">
+          <Suspense fallback={<ChartSkeleton />}>
+            <MonthlyGrowthChart data={data.monthlyGrowth} />
+          </Suspense>
+        </section>
+      )}
+
+      {hasRecentUsers && data && (
+        <section className="mt-4 md:mt-6" aria-labelledby="recent-users-heading">
+          <RecentUsersTable users={data.recentUsers} />
+        </section>
+      )}
+
+      {hasRecentCourses && data && (
+        <section className="mt-4 md:mt-6" aria-labelledby="recent-courses-heading">
+          <RecentCoursesTable courses={data.recentCourses} />
+        </section>
+      )}
+      </main>
+    </>
   );
 };
 

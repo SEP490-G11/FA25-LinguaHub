@@ -1,7 +1,7 @@
 // Unified types for Course Approval
 // These types match the structure from TutorPages for consistency
 
-export type CourseStatus = 'Pending' | 'Approved' | 'Rejected' | 'Draft' | 'DRAFT' | 'DISABLED';
+export type CourseStatus = 'Pending' | 'Approved' | 'Rejected' | 'Draft' | 'DRAFT' | 'DISABLED' | 'Pending Review';
 
 export interface Objective {
   objectiveID: number;
@@ -16,15 +16,32 @@ export interface Resource {
   resourceURL: string;
 }
 
+export interface QuizOption {
+  optionID: number;
+  optionText: string;
+  isCorrect: boolean;
+  orderIndex: number;
+}
+
+export interface QuizQuestionData {
+  questionID: number;
+  questionText: string;
+  orderIndex: number;
+  explanation: string;
+  score: number;
+  options: QuizOption[];
+}
+
 export interface Lesson {
   lessonID: number;
   title: string;
   duration: number;
-  lessonType: 'Video' | 'Reading';
+  lessonType: 'Video' | 'Reading' | 'Quiz';
   videoURL?: string;
   content?: string;
   orderIndex: number;
   resources: Resource[];
+  quizQuestions?: QuizQuestionData[] | null;
 }
 
 export interface Section {
@@ -61,8 +78,13 @@ export interface CourseDetail extends PendingCourse {
   section: Section[];
   objectives: Objective[];
   adminNotes?: string;
+  adminReviewNote?: string;
   rejectionReason?: string;
   isDraft?: boolean;
+  totalRatings?: number;
+  avgRating?: number;
+  learnerCount?: number;
+  isEnabled?: boolean;
 }
 
 export interface ApprovalFilters {

@@ -21,14 +21,8 @@ export const courseApprovalApi = {
 
       const liveCourses = liveCoursesResponse?.data?.result || [];
 
-      console.log('📊 Live courses response:', liveCourses);
-
       // Map to PendingCourse format (only live courses)
       let allCourses: PendingCourse[] = liveCourses.map((course: any) => {
-        console.log('🔍 Mapping live course:', course);
-        console.log('  - categoryName:', course.categoryName);
-        console.log('  - level:', course.level);
-        console.log('  - language:', course.language);
         return {
           id: course.id, // AdminCourseResponse uses 'id' field
           title: course.title,
@@ -51,8 +45,6 @@ export const courseApprovalApi = {
           isDraft: false,
         };
       });
-
-      console.log('✅ All mapped courses:', allCourses);
 
       // Apply filters
       if (filters?.search) {
@@ -118,12 +110,8 @@ export const courseApprovalApi = {
         ? `/admin/courses/drafts/${courseId}/detail`
         : `/admin/courses/${courseId}/detail`;
       
-      console.log('🔍 Fetching course detail:', { courseId, isDraft, endpoint });
-      
       const response = await axios.get(endpoint);
       const data = response?.data?.result || response?.data || {};
-
-      console.log('📊 Course detail response:', data);
 
       // Map objectives from string[] to Objective[]
       const objectives = (data.objectives || []).map((text: string, index: number) => ({
@@ -146,17 +134,21 @@ export const courseApprovalApi = {
         duration: data.duration || 0,
         price: data.price || 0,
         thumbnailURL: data.thumbnailURL || '',
-        status: 'Pending',
+        status: data.status || 'Pending',
         tutorID: 0, // Not provided in response
         tutorName: data.tutorName,
         tutorEmail: data.tutorEmail,
         createdAt: data.createdAt || new Date().toISOString(),
         updatedAt: data.updatedAt || new Date().toISOString(),
-        section: data.sections || [],
+        section: data.section || data.sections || [],
         objectives: objectives,
         adminNotes: data.adminReviewNote,
+        adminReviewNote: data.adminReviewNote,
         rejectionReason: data.adminReviewNote,
         isDraft: data.draft || isDraft,
+        totalRatings: data.totalRatings ?? 0,
+        avgRating: data.avgRating ?? 0,
+        learnerCount: data.learnerCount ?? 0,
       };
     } catch (error: any) {
       console.error('❌ Error fetching course detail:', error);
@@ -285,12 +277,8 @@ export const courseApprovalApi = {
    */
   getDraftChanges: async (draftID: number): Promise<CourseChangeData> => {
     try {
-      console.log('🔍 Fetching draft changes for draftID:', draftID);
-      
       const response = await axios.get(`/admin/courses/drafts/${draftID}/changes`);
       const data = response?.data?.result || response?.data || {};
-
-      console.log('📊 Draft changes response:', data);
 
       return {
         courseId: data.courseId || 0,

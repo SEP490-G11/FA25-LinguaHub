@@ -1,32 +1,30 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
-  ArrowLeft,
   Loader2,
   AlertCircle,
   DollarSign,
   Clock,
   CheckCircle,
   XCircle,
+  FileText,
+  TrendingUp,
 } from 'lucide-react';
-import { ROUTES } from '@/constants/routes';
 import { withdrawRequestApi } from './api';
 import { WithdrawRequest } from './types';
-import { 
-  calculateStats, 
-  filterByStatus, 
-  sortByDate 
+import {
+  calculateStats,
+  filterByStatus,
+  sortByDate
 } from './utils';
-import WithdrawRequestStatsComponent from './components/WithdrawRequestStats';
-import { Filters } from './components/Filters';
+import { formatCurrency } from './utils';
+import { StandardPageHeading, StandardFilters, FilterConfig } from '@/components/shared';
 import { WithdrawRequestTable } from './components/WithdrawRequestTable';
 import { Pagination } from './components/Pagination';
+import { ArrowUpDown } from 'lucide-react';
 
 export default function AdminWithdrawRequestsPage() {
-  const navigate = useNavigate();
-  
   // State management as per task requirements
   const [withdrawRequests, setWithdrawRequests] = useState<WithdrawRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,6 +89,35 @@ export default function AdminWithdrawRequestsPage() {
   // Calculate statistics from all withdrawal requests
   const stats = calculateStats(withdrawRequests);
 
+  // Configure filters for StandardFilters component
+  const filterConfigs: FilterConfig[] = [
+    {
+      id: 'status',
+      type: 'select',
+      placeholder: 'Trạng thái',
+      value: selectedStatus,
+      onChange: (value) => handleStatusChange(value as 'all' | 'PENDING' | 'APPROVED' | 'REJECTED'),
+      options: [
+        { value: 'all', label: 'Tất cả' },
+        { value: 'PENDING', label: 'Chờ xử lý' },
+        { value: 'APPROVED', label: 'Đã duyệt' },
+        { value: 'REJECTED', label: 'Đã từ chối' },
+      ],
+    },
+    {
+      id: 'sort',
+      type: 'select',
+      placeholder: 'Sắp xếp',
+      value: sortOrder,
+      onChange: (value) => handleSortOrderChange(value as 'newest' | 'oldest'),
+      options: [
+        { value: 'newest', label: 'Mới nhất' },
+        { value: 'oldest', label: 'Cũ nhất' },
+      ],
+      icon: ArrowUpDown,
+    },
+  ];
+
   // Handler for retry on error
   const handleRetry = () => {
     fetchWithdrawRequests();
@@ -118,18 +145,18 @@ export default function AdminWithdrawRequestsPage() {
     try {
       // Add withdrawId to processingIds set during API call to disable buttons
       setProcessingIds(prev => new Set(prev).add(withdrawId));
-      
+
       // Clear any previous messages
       setSuccessMessage(null);
       setErrorMessage(null);
 
       // Call approveWithdrawRequest API
       const response = await withdrawRequestApi.approveWithdrawRequest(withdrawId);
-      
+
       // Update withdrawal request status in state on successful API response
-      setWithdrawRequests(prev => 
-        prev.map(request => 
-          request.withdrawId === withdrawId 
+      setWithdrawRequests(prev =>
+        prev.map(request =>
+          request.withdrawId === withdrawId
             ? { ...request, status: 'APPROVED' as const }
             : request
         )
@@ -137,15 +164,15 @@ export default function AdminWithdrawRequestsPage() {
 
       // Display success notification
       setSuccessMessage(response.message || 'Withdrawal request approved successfully');
-      
+
       // Refresh withdrawal requests data after successful approve action
       await fetchWithdrawRequests();
-      
+
       // Auto-hide success message after 5 seconds
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
       const errorMsg = err.message || 'Failed to approve withdrawal request';
-      
+
       // Handle 404 and 409 errors by showing toast notification and refreshing data
       if (errorMsg.includes('not found') || errorMsg.includes('already processed')) {
         setErrorMessage(errorMsg);
@@ -174,18 +201,18 @@ export default function AdminWithdrawRequestsPage() {
     try {
       // Add withdrawId to processingIds set during API call to disable buttons
       setProcessingIds(prev => new Set(prev).add(withdrawId));
-      
+
       // Clear any previous messages
       setSuccessMessage(null);
       setErrorMessage(null);
 
       // Call rejectWithdrawRequest API
       const response = await withdrawRequestApi.rejectWithdrawRequest(withdrawId);
-      
+
       // Update withdrawal request status in state on successful API response
-      setWithdrawRequests(prev => 
-        prev.map(request => 
-          request.withdrawId === withdrawId 
+      setWithdrawRequests(prev =>
+        prev.map(request =>
+          request.withdrawId === withdrawId
             ? { ...request, status: 'REJECTED' as const }
             : request
         )
@@ -193,15 +220,15 @@ export default function AdminWithdrawRequestsPage() {
 
       // Display success notification
       setSuccessMessage(response.message || 'Withdrawal request rejected successfully');
-      
+
       // Refresh withdrawal requests data after successful reject action
       await fetchWithdrawRequests();
-      
+
       // Auto-hide success message after 5 seconds
       setTimeout(() => setSuccessMessage(null), 5000);
     } catch (err: any) {
       const errorMsg = err.message || 'Failed to reject withdrawal request';
-      
+
       // Handle 404 and 409 errors by showing toast notification and refreshing data
       if (errorMsg.includes('not found') || errorMsg.includes('already processed')) {
         setErrorMessage(errorMsg);
@@ -228,47 +255,55 @@ export default function AdminWithdrawRequestsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Sticky Header Section */}
-      <div className="sticky top-0 z-10 bg-white shadow-md">
-        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700">
-          <div className="max-w-[1600px] mx-auto px-6 py-5">
-            {/* Page Title and Back Button */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="ghost"
-                  onClick={() => navigate(ROUTES.ADMIN_PAYMENTS)}
-                  className="text-white hover:bg-white/20"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Payments
-                </Button>
-                <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center border border-white/30">
-                  <DollarSign className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-white">Withdraw Requests Management</h1>
-                  <p className="text-blue-100 text-sm">Manage tutor withdrawal requests</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Statistics Component */}
-            <WithdrawRequestStatsComponent stats={stats} isLoading={isLoading} />
-          </div>
-        </div>
+      <div>
+        <StandardPageHeading
+          title="Quản lý yêu cầu rút tiền"
+          description="Quản lý yêu cầu rút tiền của giảng viên"
+          icon={DollarSign}
+          gradientFrom="from-purple-600"
+          gradientVia="via-purple-600"
+          gradientTo="to-purple-500"
+          statistics={isLoading ? undefined : [
+            {
+              label: 'Tổng yêu cầu',
+              value: stats.totalRequests.toString(),
+              icon: FileText,
+            },
+            {
+              label: 'Chờ xử lý',
+              value: stats.pendingCount.toString(),
+              icon: Clock,
+            },
+            {
+              label: 'Đã duyệt',
+              value: stats.approvedCount.toString(),
+              icon: CheckCircle,
+            },
+            {
+              label: 'Đã từ chối',
+              value: stats.rejectedCount.toString(),
+              icon: XCircle,
+            },
+            {
+              label: 'Tổng tiền rút',
+              value: formatCurrency(stats.totalWithdrawAmount),
+              icon: DollarSign,
+            },
+            {
+              label: 'Tổng hoa hồng',
+              value: formatCurrency(stats.totalCommission),
+              icon: TrendingUp,
+            },
+          ]}
+        />
 
         {/* Filters Bar Section */}
         <div className="bg-white border-t border-gray-100">
           <div className="max-w-[1600px] mx-auto px-6 py-4">
             <div className="flex items-center justify-between flex-wrap gap-4">
-              <Filters
-                selectedStatus={selectedStatus}
-                onStatusChange={handleStatusChange}
-                sortOrder={sortOrder}
-                onSortOrderChange={handleSortOrderChange}
-              />
+              <StandardFilters filters={filterConfigs} />
               <div className="text-sm text-gray-600">
-                Showing {paginatedRequests.length} of {total} requests
+                Hiển thị {paginatedRequests.length} / {total} yêu cầu
               </div>
             </div>
           </div>
@@ -281,7 +316,7 @@ export default function AdminWithdrawRequestsPage() {
         {successMessage && (
           <Alert className="mb-4 bg-green-50 border-green-200">
             <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertTitle className="text-green-800">Success</AlertTitle>
+            <AlertTitle className="text-green-800">Thành công</AlertTitle>
             <AlertDescription className="flex items-center justify-between text-green-700">
               <span>{successMessage}</span>
               <Button
@@ -300,7 +335,7 @@ export default function AdminWithdrawRequestsPage() {
         {errorMessage && (
           <Alert variant="destructive" className="mb-4">
             <XCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
+            <AlertTitle>Lỗi</AlertTitle>
             <AlertDescription className="flex items-center justify-between">
               <span>{errorMessage}</span>
               <Button
@@ -327,7 +362,7 @@ export default function AdminWithdrawRequestsPage() {
                 onClick={handleRetry}
                 className="ml-4"
               >
-                Retry
+                Thử lại
               </Button>
             </AlertDescription>
           </Alert>
@@ -337,8 +372,8 @@ export default function AdminWithdrawRequestsPage() {
         {isLoading ? (
           <div className="flex justify-center items-center py-20">
             <div className="text-center">
-              <Loader2 className="w-10 h-10 animate-spin text-blue-600 mx-auto mb-3" />
-              <p className="text-gray-600 font-medium">Loading withdrawal requests...</p>
+              <Loader2 className="w-10 h-10 animate-spin text-purple-600 mx-auto mb-3" />
+              <p className="text-gray-600 font-medium">Đang tải yêu cầu rút tiền...</p>
             </div>
           </div>
         ) : paginatedRequests.length === 0 ? (
@@ -347,11 +382,11 @@ export default function AdminWithdrawRequestsPage() {
             <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Clock className="w-8 h-8 text-gray-400" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No withdrawal requests</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Không có yêu cầu rút tiền</h3>
             <p className="text-gray-500 text-sm">
-              {selectedStatus !== 'all' 
-                ? `No ${selectedStatus.toLowerCase()} requests found` 
-                : 'No withdrawal requests available'}
+              {selectedStatus !== 'all'
+                ? `Không tìm thấy yêu cầu ${selectedStatus === 'PENDING' ? 'chờ xử lý' : selectedStatus === 'APPROVED' ? 'đã duyệt' : 'đã từ chối'}`
+                : 'Không có yêu cầu rút tiền nào'}
             </p>
           </div>
         ) : (

@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, Settings, AlertCircle, Loader2, Save, Percent } from 'lucide-react';
+import { Settings, AlertCircle, Loader2, Save, Percent } from 'lucide-react';
 import { commissionSettingsApi } from './api';
 import { CommissionFormData } from './types';
 import { toast } from 'sonner';
 
+
 export default function CommissionSettingsPage() {
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,24 +86,16 @@ export default function CommissionSettingsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="sticky top-0 z-10 bg-white shadow-md">
-        <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-700">
+      <div>
+        <div className="bg-gradient-to-r from-purple-600 via-purple-600 to-purple-500">
           <div className="max-w-4xl mx-auto px-6 py-5">
             <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                onClick={() => navigate('/admin/payments')}
-                className="text-white hover:bg-white/20"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Quay lại
-              </Button>
               <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center border border-white/30">
                 <Settings className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-white">Cài đặt hoa hồng</h1>
-                <p className="text-blue-100 text-sm">Quản lý phần trăm hoa hồng nền tảng</p>
+                <p className="text-purple-100 text-sm">Quản lý phần trăm hoa hồng nền tảng</p>
               </div>
             </div>
           </div>
@@ -122,7 +113,7 @@ export default function CommissionSettingsPage() {
         {isLoading ? (
           <div className="flex justify-center items-center py-20">
             <div className="text-center">
-              <Loader2 className="w-10 h-10 animate-spin text-blue-600 mx-auto mb-3" />
+              <Loader2 className="w-10 h-10 animate-spin text-purple-600 mx-auto mb-3" />
               <p className="text-gray-600 font-medium">Đang tải cài đặt...</p>
             </div>
           </div>
@@ -201,9 +192,9 @@ export default function CommissionSettingsPage() {
                   </div>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="font-semibold text-blue-900 mb-2">Ví dụ:</h4>
-                  <ul className="text-sm text-blue-800 space-y-2">
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <h4 className="font-semibold text-purple-900 mb-2">Ví dụ:</h4>
+                  <ul className="text-sm text-purple-800 space-y-2">
                     <li>
                       • Khóa học giá 1.000.000 ₫ với hoa hồng {formData.commissionCourse}%:
                       <br />
@@ -243,17 +234,9 @@ export default function CommissionSettingsPage() {
 
                 <div className="flex gap-3 pt-4">
                   <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => navigate('/admin/payments')}
-                    className="flex-1"
-                  >
-                    Hủy
-                  </Button>
-                  <Button
                     type="submit"
                     disabled={isSaving}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
+                    className="flex-1 bg-gradient-to-r from-purple-600 to-purple-500 hover:from-purple-700 hover:to-purple-600"
                   >
                     {isSaving ? (
                       <>

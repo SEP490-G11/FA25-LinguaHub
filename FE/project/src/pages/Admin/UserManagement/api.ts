@@ -68,15 +68,32 @@ export const userManagementApi = {
       // Backend endpoint: DELETE /users/{userID}
       const response = await axios.delete<DeleteUserResponse>(`/users/${userID}`);
       
-      // Check if response indicates success (code 0)
-      if (response?.data?.code !== 0) {
-        throw new Error(response?.data?.message || 'Failed to delete user');
+      // Handle 204 No Content response (successful deletion with no body)
+      if (response.status === 204) {
+        return;
+      }
+      
+      // Handle 200 OK response (successful deletion with body)
+      if (response.status === 200) {
+        // Check if response indicates success (code 0)
+        if (response?.data?.code === 0 || !response?.data?.code) {
+          return; // Success
+        }
+        // Only throw if code explicitly indicates failure
+        if (response?.data?.code !== 0) {
+          throw new Error(response?.data?.message || 'Failed to deactivate user');
+        }
       }
     } catch (error: any) {
+      // Don't throw error for successful status codes
+      if (error.response?.status === 200 || error.response?.status === 204) {
+        return;
+      }
+      
       throw new Error(
         error?.response?.data?.message || 
         error.message || 
-        'Failed to delete user'
+        'Failed to deactivate user'
       );
     }
   },

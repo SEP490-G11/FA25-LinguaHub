@@ -30,9 +30,7 @@ export function Filters({
     const fetchCategories = async () => {
       try {
         setIsLoading(true);
-        console.log('🔍 [Filters] Fetching categories...');
         const response = await axios.get('/categories');
-        console.log('📊 [Filters] Response:', response?.data);
         
         // Try different response formats
         let rawData = [];
@@ -50,10 +48,8 @@ export function Filters({
           name: cat.categoryName || cat.name,
         }));
         
-        console.log('✅ [Filters] Categories:', categoriesData);
         setCategories(categoriesData);
       } catch (error) {
-        console.error('❌ [Filters] Error fetching categories:', error);
         setCategories([]);
       } finally {
         setIsLoading(false);

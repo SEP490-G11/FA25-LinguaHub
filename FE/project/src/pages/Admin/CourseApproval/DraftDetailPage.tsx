@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { GitCompare } from 'lucide-react';
 import CourseDetailPage from './CourseDetailPage';
 import { ChangeComparisonModal } from './components/change-comparison-modal';
+import { ROUTES } from '@/constants/routes';
 
 export default function DraftDetailPage() {
   const { draftId } = useParams<{ draftId: string }>();
@@ -24,8 +25,8 @@ export default function DraftDetailPage() {
             Không thể xác định khóa học. Vui lòng quay lại danh sách và thử lại.
           </p>
           <Button
-            onClick={() => navigate('/admin/course-approval/drafts')}
-            className="bg-blue-600 hover:bg-blue-700"
+            onClick={() => navigate(ROUTES.ADMIN_COURSE_APPROVAL_DRAFTS)}
+            className="bg-purple-600 hover:bg-purple-700"
           >
             Quay lại danh sách
           </Button>
@@ -42,21 +43,23 @@ export default function DraftDetailPage() {
     setShowChanges(false);
   };
 
+  const additionalActionsButton = (
+    <Button
+      onClick={handleShowChanges}
+      variant="outline"
+      className="w-full gap-2 border-purple-300 text-purple-700 hover:bg-purple-50"
+    >
+      <GitCompare className="w-4 h-4" />
+      Xem thay đổi
+    </Button>
+  );
+
   return (
     <>
       <CourseDetailPage
         courseId={draftId}
         isDraft={true}
-        additionalActions={
-          <Button
-            onClick={handleShowChanges}
-            variant="outline"
-            className="w-full gap-2 border-blue-300 text-blue-700 hover:bg-blue-50"
-          >
-            <GitCompare className="w-4 h-4" />
-            Show Changes
-          </Button>
-        }
+        additionalActions={additionalActionsButton}
       />
       
       <ChangeComparisonModal

@@ -53,7 +53,7 @@ const ChangeGroup = ({ title, changeType, fieldChanges, warning, icon }: ChangeG
         <Alert className="mb-3 bg-yellow-50 border-yellow-300">
           <AlertTriangle className="h-4 w-4 text-yellow-600" />
           <AlertDescription className="text-yellow-800 text-sm">
-            This change requires resetting user progress
+            Thay đổi này yêu cầu đặt lại tiến độ học viên
           </AlertDescription>
         </Alert>
       )}
@@ -126,10 +126,10 @@ export function ChangeComparisonModal({
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="text-2xl font-bold text-gray-900">
-            Course Changes
+            Thay đổi khóa học
           </DialogTitle>
           <DialogDescription>
-            Review all modifications made to this course
+            Xem xét tất cả các thay đổi được thực hiện cho khóa học này
           </DialogDescription>
         </DialogHeader>
 
@@ -137,7 +137,7 @@ export function ChangeComparisonModal({
           {isLoading && (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-              <span className="ml-3 text-gray-600">Loading changes...</span>
+              <span className="ml-3 text-gray-600">Đang tải thay đổi...</span>
             </div>
           )}
 
@@ -177,7 +177,7 @@ export function ChangeComparisonModal({
                 <div>
                   <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                     <FileText className="w-5 h-5 text-blue-500" />
-                    Course Information
+                    Thông tin khóa học
                   </h4>
                   <div className="space-y-3">
                     {changeData.courseChanges.map((change, index) => (
@@ -199,13 +199,13 @@ export function ChangeComparisonModal({
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <Target className="w-5 h-5 text-green-500" />
-                      Learning Objectives ({changeData.objectives.length})
+                      Mục tiêu học tập ({changeData.objectives.length})
                     </h4>
                     <div className="space-y-3">
                       {changeData.objectives.map((objective, index) => (
                         <ChangeGroup
                           key={index}
-                          title={`Objective #${objective.draftObjectiveId || index + 1}`}
+                          title={`Mục tiêu #${objective.draftObjectiveId || index + 1}`}
                           changeType={objective.changeType}
                           fieldChanges={objective.fieldChanges}
                           icon={<Target className="w-4 h-4 text-green-500" />}
@@ -223,13 +223,13 @@ export function ChangeComparisonModal({
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <BookOpen className="w-5 h-5 text-purple-500" />
-                      Course Sections ({changeData.sections.length})
+                      Nội dung khóa học ({changeData.sections.length} chương)
                     </h4>
                     <div className="space-y-3">
                       {changeData.sections.map((section, index) => (
                         <ChangeGroup
                           key={index}
-                          title={section.title || `Section #${section.draftSectionId || index + 1}`}
+                          title={section.title || `Chương #${section.draftSectionId || index + 1}`}
                           changeType={section.changeType}
                           fieldChanges={section.fieldChanges}
                           icon={<BookOpen className="w-4 h-4 text-purple-500" />}
@@ -247,13 +247,13 @@ export function ChangeComparisonModal({
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <Video className="w-5 h-5 text-blue-500" />
-                      Lessons ({changeData.lessons.length})
+                      Bài học ({changeData.lessons.length})
                     </h4>
                     <div className="space-y-3">
                       {changeData.lessons.map((lesson, index) => (
                         <ChangeGroup
                           key={index}
-                          title={`${lesson.title || `Lesson #${lesson.draftLessonId || index + 1}`} (${lesson.lessonType})`}
+                          title={`${lesson.title || `Bài học #${lesson.draftLessonId || index + 1}`} (${lesson.lessonType})`}
                           changeType={lesson.changeType}
                           fieldChanges={lesson.fieldChanges}
                           warning={lesson.resetUserProgressRequired}
@@ -272,13 +272,13 @@ export function ChangeComparisonModal({
                   <div>
                     <h4 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
                       <LinkIcon className="w-5 h-5 text-orange-500" />
-                      Resources ({changeData.resources.length})
+                      Tài nguyên ({changeData.resources.length})
                     </h4>
                     <div className="space-y-3">
                       {changeData.resources.map((resource, index) => (
                         <ChangeGroup
                           key={index}
-                          title={resource.resourceTitle || `Resource #${resource.draftResourceId || index + 1}`}
+                          title={resource.resourceTitle || `Tài nguyên #${resource.draftResourceId || index + 1}`}
                           changeType={resource.changeType}
                           fieldChanges={resource.fieldChanges}
                           icon={<LinkIcon className="w-4 h-4 text-orange-500" />}
