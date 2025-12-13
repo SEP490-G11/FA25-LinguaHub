@@ -67,14 +67,14 @@ export const adminApi = {
         ...filters,
       };
 
-      console.log('📤 Fetching pending courses:', params);
+      console.log(' Fetching pending courses:', params);
 
       const response = await api.get('/courses', { params });
       
       // Handle different response formats
       const data = response?.data || response || {};
 
-      console.log('✅ Pending courses fetched:', data);
+      console.log(' Pending courses fetched:', data);
 
       return {
         data: Array.isArray(data) ? data : data.data || [],
@@ -84,7 +84,7 @@ export const adminApi = {
         totalPages: data.totalPages || Math.ceil((data.total || 0) / limit),
       };
     } catch (error: any) {
-      console.error('❌ Error fetching pending courses:', error);
+      console.error(' Error fetching pending courses:', error);
       const message =
         error?.response?.data?.message ||
         error.message ||
@@ -105,11 +105,11 @@ export const adminApi = {
       const response = await api.get(`/courses/${courseId}`);
       const data = response?.data || response || {};
 
-      console.log('✅ Course detail fetched:', data);
+      console.log(' Course detail fetched:', data);
 
       return data;
     } catch (error: any) {
-      console.error('❌ Error fetching course detail:', error);
+      console.error(' Error fetching course detail:', error);
       const message =
         error?.response?.data?.message || 
         error.message || 
@@ -129,7 +129,7 @@ export const adminApi = {
     adminNotes?: string
   ): Promise<{ success: boolean; message: string }> => {
     try {
-      console.log('📤 Approving course:', courseId);
+      console.log(' Approving course:', courseId);
 
       const payload: ApprovalPayload = {
         status: 'published',
@@ -138,14 +138,14 @@ export const adminApi = {
 
       const response = await api.patch(`/courses/${courseId}`, payload);
       
-      console.log('✅ Course approved:', response);
+      console.log(' Course approved:', response);
 
       return {
         success: true,
         message: 'Course approved successfully',
       };
     } catch (error: any) {
-      console.error('❌ Error approving course:', error);
+      console.error(' Error approving course:', error);
       const message =
         error?.response?.data?.message || 
         error.message || 
@@ -165,7 +165,7 @@ export const adminApi = {
     rejectionReason: string
   ): Promise<{ success: boolean; message: string }> => {
     try {
-      console.log('📤 Rejecting course:', courseId);
+      console.log(' Rejecting course:', courseId);
 
       const payload: ApprovalPayload = {
         status: 'rejected',
@@ -174,14 +174,14 @@ export const adminApi = {
 
       const response = await api.patch(`/courses/${courseId}`, payload);
       
-      console.log('✅ Course rejected:', response);
+      console.log(' Course rejected:', response);
 
       return {
         success: true,
         message: 'Course rejected successfully',
       };
     } catch (error: any) {
-      console.error('❌ Error rejecting course:', error);
+      console.error(' Error rejecting course:', error);
       const message =
         error?.response?.data?.message || 
         error.message || 

@@ -1,21 +1,12 @@
 import api from "@/config/axiosConfig";
 
-/**
- * Response from backend /api/files/upload
- */
+
 export interface FileUploadResponse {
   viewUrl: string;
   downloadUrl: string;
 }
 
-/**
- * Upload file to backend API (uses Cloudinary)
- * Supports: PDF, DOC, DOCX, PPT, PPTX, XLS, XLSX, images, videos, etc.
- * 
- * Backend returns:
- * - viewUrl: URL for preview (Google Docs Viewer for documents, direct URL for images/videos)
- * - downloadUrl: URL for downloading with correct filename and extension
- */
+
 export async function uploadFileToBackend(file: File): Promise<FileUploadResponse> {
   const formData = new FormData();
   formData.append('file', file);
@@ -43,11 +34,7 @@ export async function uploadFileToBackend(file: File): Promise<FileUploadRespons
   }
 }
 
-/**
- * Main upload function - uses backend API
- * @deprecated Use uploadFileToBackend instead
- */
 export async function uploadFile(file: File): Promise<string> {
   const result = await uploadFileToBackend(file);
-  return result.downloadUrl; // Return download URL for backward compatibility
+  return result.downloadUrl; 
 }
