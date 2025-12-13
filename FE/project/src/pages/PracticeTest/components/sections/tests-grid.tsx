@@ -92,7 +92,7 @@ const PracticeTestsGrid = ({ tests }: PracticeTestsGridProps) => {
                   </div>
                   <div className="flex items-center space-x-2">
                     <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span className="text-gray-600">{test.rating}</span>
+                    <span className="text-gray-600">{test.rating?.toFixed(1) || '0.0'}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <TrendingUp className="w-4 h-4 text-green-500" />

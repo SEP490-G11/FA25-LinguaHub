@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Loader2, Languages, Edit } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Loader2, Languages, Edit, Upload, X, ImageIcon } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/components/ui/use-toast';
 import { TeachingLanguage } from '../types';
+import { uploadFile } from '@/utils/fileUpload';
 
 interface LanguageFormProps {
   isOpen: boolean;
@@ -75,7 +76,11 @@ export const LanguageForm: React.FC<LanguageFormProps> = ({
   const nameEnRef = useRef<HTMLInputElement>(null);
   const difficultyRef = useRef<HTMLInputElement>(null);
   const certificatesRef = useRef<HTMLTextAreaElement>(null);
-  const thumbnailUrlRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Image upload state
+  const [isUploading, setIsUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Initialize form data when modal opens or initialData changes
   useEffect(() => {
@@ -92,6 +97,8 @@ export const LanguageForm: React.FC<LanguageFormProps> = ({
         setFormData(editData);
         // Store original nameEn for LANGUAGE_NAME_EN_IN_USE handling (Requirement 3.5)
         setOriginalNameEn(initialData.nameEn || '');
+        // Set image preview if thumbnailUrl exists
+        setImagePreview(initialData.thumbnailUrl || null);
       } else {
         // Reset form for create mode
         setFormData({
@@ -103,6 +110,7 @@ export const LanguageForm: React.FC<LanguageFormProps> = ({
           thumbnailUrl: '',
         });
         setOriginalNameEn('');
+        setImagePreview(null);
       }
       // Clear errors when modal opens
       setErrors({});
@@ -112,15 +120,79 @@ export const LanguageForm: React.FC<LanguageFormProps> = ({
   }, [isOpen, mode, initialData]);
 
   /**
-   * Validate URL format
-   * Requirement 10.2 - URL format validation
+   * Handle image file selection and upload
    */
-  const isValidUrl = (url: string): boolean => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: 'Lỗi',
+        description: 'Vui lòng chọn file hình ảnh (jpg, png, gif, ...)',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast({
+        title: 'Lỗi',
+        description: 'Kích thước file không được vượt quá 5MB',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsUploading(true);
+    // Clear previous error
+    setErrors((prev) => ({ ...prev, thumbnailUrl: undefined }));
+
     try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
+      // Upload file to cloud
+      const uploadedUrl = await uploadFile(file);
+      
+      // Update form data with uploaded URL
+      setFormData((prev) => ({
+        ...prev,
+        thumbnailUrl: uploadedUrl,
+      }));
+      
+      // Set preview
+      setImagePreview(uploadedUrl);
+      
+      toast({
+        title: 'Thành công',
+        description: 'Tải ảnh lên thành công',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Lỗi tải ảnh',
+        description: error.message || 'Không thể tải ảnh lên. Vui lòng thử lại.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  /**
+   * Remove selected image
+   */
+  const handleRemoveImage = () => {
+    setFormData((prev) => ({
+      ...prev,
+      thumbnailUrl: '',
+    }));
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
@@ -175,11 +247,9 @@ export const LanguageForm: React.FC<LanguageFormProps> = ({
       newErrors.certificates = 'Chứng chỉ không được vượt quá 200 ký tự';
     }
 
-    // Validate thumbnailUrl (required, valid URL format)
+    // Validate thumbnailUrl (required)
     if (!formData.thumbnailUrl || formData.thumbnailUrl.trim() === '') {
-      newErrors.thumbnailUrl = 'Trường này là bắt buộc';
-    } else if (!isValidUrl(formData.thumbnailUrl.trim())) {
-      newErrors.thumbnailUrl = 'URL không hợp lệ. Vui lòng nhập URL đầy đủ (ví dụ: https://example.com/image.jpg)';
+      newErrors.thumbnailUrl = 'Vui lòng tải lên hình ảnh';
     }
 
     setErrors(newErrors);
@@ -194,8 +264,6 @@ export const LanguageForm: React.FC<LanguageFormProps> = ({
         difficultyRef.current.focus();
       } else if (newErrors.certificates && certificatesRef.current) {
         certificatesRef.current.focus();
-      } else if (newErrors.thumbnailUrl && thumbnailUrlRef.current) {
-        thumbnailUrlRef.current.focus();
       }
       return false;
     }
@@ -303,6 +371,7 @@ export const LanguageForm: React.FC<LanguageFormProps> = ({
         thumbnailUrl: '',
       });
       setOriginalNameEn('');
+      setImagePreview(null);
       setErrors({});
       setBackendError(null);
       onClose();
@@ -481,24 +550,91 @@ export const LanguageForm: React.FC<LanguageFormProps> = ({
               )}
             </div>
 
-            {/* Thumbnail URL Field */}
+            {/* Thumbnail Image Upload Field */}
             <div className="space-y-2">
-              <Label htmlFor="thumbnailUrl" className="text-sm font-medium">
-                URL hình ảnh <span className="text-red-500">*</span>
+              <Label className="text-sm font-medium">
+                Hình ảnh <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="thumbnailUrl"
-                ref={thumbnailUrlRef}
-                type="url"
-                placeholder="https://example.com/image.jpg"
-                value={formData.thumbnailUrl}
-                onChange={(e) => handleInputChange('thumbnailUrl', e.target.value)}
-                disabled={isSubmitting}
-                className={errors.thumbnailUrl ? 'border-red-500 focus-visible:ring-red-500' : ''}
-                aria-invalid={!!errors.thumbnailUrl}
-                aria-describedby={errors.thumbnailUrl ? 'thumbnailUrl-error' : undefined}
+              
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+                disabled={isSubmitting || isUploading}
               />
-              {/* Field-level error (Requirement 10.2 - URL validation) */}
+
+              {/* Image preview or upload button */}
+              {imagePreview ? (
+                <div className="relative w-full">
+                  <div className="relative w-full h-40 rounded-lg overflow-hidden border border-gray-200">
+                    <img
+                      src={imagePreview}
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    {/* Remove button */}
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      disabled={isSubmitting || isUploading}
+                      className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors disabled:opacity-50"
+                      aria-label="Xóa ảnh"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {/* Change image button */}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isSubmitting || isUploading}
+                    className="mt-2"
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Đang tải...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Đổi ảnh khác
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <div
+                  onClick={() => !isSubmitting && !isUploading && fileInputRef.current?.click()}
+                  className={`
+                    w-full h-40 border-2 border-dashed rounded-lg
+                    flex flex-col items-center justify-center gap-2
+                    cursor-pointer transition-colors
+                    ${errors.thumbnailUrl ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'}
+                    ${(isSubmitting || isUploading) ? 'opacity-50 cursor-not-allowed' : ''}
+                  `}
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                      <span className="text-sm text-gray-600">Đang tải ảnh lên...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="w-8 h-8 text-gray-400" />
+                      <span className="text-sm text-gray-600">Nhấn để chọn ảnh</span>
+                      <span className="text-xs text-gray-400">PNG, JPG, GIF (tối đa 5MB)</span>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Field-level error */}
               {errors.thumbnailUrl && (
                 <p 
                   id="thumbnailUrl-error" 

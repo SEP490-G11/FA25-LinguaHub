@@ -19,6 +19,12 @@ interface RefundRequest {
   createdAt: string;
   processedAt: string | null;
   tutorId: number;
+  reason: string | null;
+  refundType: 'COMPLAINT' | 'TUTOR_RESCHEDULE' | 'SLOT_REJECT' | null;
+  learnerAttend: boolean | null;
+  tutorAttend: boolean | null;
+  learnerEvidence: string | null;
+  tutorEvidence: string | null;
 }
 
 interface UserInfo {
@@ -26,6 +32,19 @@ interface UserInfo {
   fullName: string;
   avatarURL: string | null;
   email: string;
+}
+
+interface TutorInfo {
+  tutorID: number;
+  fullName: string;
+  avatarURL: string | null;
+  email: string;
+}
+
+interface SlotInfo {
+  slotID: number;
+  startTime: string;
+  endTime: string;
 }
 
 type FilterStatus = 'ALL' | 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
@@ -36,6 +55,8 @@ const AdminRefundManagement = () => {
   const [filteredRequests, setFilteredRequests] = useState<RefundRequest[]>([]);
   const [displayedRequests, setDisplayedRequests] = useState<RefundRequest[]>([]);
   const [usersMap, setUsersMap] = useState<Map<number, UserInfo>>(new Map());
+  const [tutorsMap, setTutorsMap] = useState<Map<number, TutorInfo>>(new Map());
+  const [slotsMap, setSlotsMap] = useState<Map<number, SlotInfo>>(new Map());
   const [activeFilter, setActiveFilter] = useState<FilterStatus>('ALL');
   const [sortOrder, setSortOrder] = useState<SortOrder>('newest');
   const [currentPage, setCurrentPage] = useState(1);
@@ -55,17 +76,94 @@ const AdminRefundManagement = () => {
     }
   };
 
+  const fetchTutors = async () => {
+    try {
+      // Gọi API /admin/tutors/all để lấy tất cả tutors (bao gồm cả suspended)
+      const response = await api.get('/admin/tutors/all');
+      const tutors = response.data || [];
+      const map = new Map<number, TutorInfo>();
+      tutors.forEach((tutor: any) => {
+        const tutorId = tutor.tutorId ?? tutor.tutorID ?? tutor.tutor_id;
+        if (tutorId) {
+          map.set(tutorId, {
+            tutorID: tutorId,
+            fullName: tutor.userName || tutor.fullName || tutor.user?.fullName || 'Tutor',
+            avatarURL: tutor.avatarURL || tutor.avatar_url || tutor.user?.avatarURL || null,
+            email: tutor.userEmail || tutor.email || tutor.user?.email || '',
+          });
+        }
+      });
+      setTutorsMap(map);
+    } catch (error) {
+      console.error('Error fetching tutors:', error);
+      // Fallback: thử gọi /tutors/approved nếu admin API không hoạt động
+      try {
+        const fallbackResponse = await api.get('/tutors/approved');
+        const tutors = fallbackResponse.data || [];
+        const map = new Map<number, TutorInfo>();
+        tutors.forEach((tutor: any) => {
+          const tutorId = tutor.tutorId ?? tutor.tutorID ?? tutor.tutor_id;
+          if (tutorId) {
+            map.set(tutorId, {
+              tutorID: tutorId,
+              fullName: tutor.userName || tutor.fullName || 'Tutor',
+              avatarURL: tutor.avatarURL || tutor.avatar_url || null,
+              email: tutor.userEmail || tutor.email || '',
+            });
+          }
+        });
+        setTutorsMap(map);
+      } catch (fallbackError) {
+        console.error('Error fetching tutors (fallback):', fallbackError);
+      }
+    }
+  };
+
   const fetchRefundRequests = async () => {
     try {
       setLoading(true);
       const response = await api.get('/admin/refund/all');
-      setRefundRequests(response.data.result);
-      filterRequests(response.data.result, activeFilter);
-    } catch (error) {
-      console.error('Error fetching refund requests:', error);
+      const rawRefunds = response.data.result || response.data || [];
+      
+      console.log('[Admin Refund] Raw API response:', response.data);
+      console.log('[Admin Refund] Raw refunds count:', rawRefunds.length);
+      
+      // Transform API response để handle cả camelCase và snake_case
+      const refunds: RefundRequest[] = rawRefunds.map((r: any) => ({
+        refundRequestId: r.refundRequestId ?? r.refund_request_id ?? 0,
+        bookingPlanId: r.bookingPlanId ?? r.booking_plan_id ?? 0,
+        slotId: r.slotId ?? r.slot_id ?? 0,
+        userId: r.userId ?? r.user_id ?? 0,
+        packageId: r.packageId ?? r.package_id ?? null,
+        refundAmount: r.refundAmount ?? r.refund_amount ?? 0,
+        bankAccountNumber: r.bankAccountNumber ?? r.bank_account_number ?? null,
+        bankOwnerName: r.bankOwnerName ?? r.bank_owner_name ?? null,
+        bankName: r.bankName ?? r.bank_name ?? null,
+        status: r.status ?? 'PENDING',
+        createdAt: r.createdAt ?? r.created_at ?? '',
+        processedAt: r.processedAt ?? r.processed_at ?? null,
+        tutorId: r.tutorId ?? r.tutor_id ?? 0,
+        reason: r.reason ?? null,
+        refundType: r.refundType ?? r.refund_type ?? null,
+        learnerAttend: r.learnerAttend ?? r.learner_attend ?? null,
+        tutorAttend: r.tutorAttend ?? r.tutor_attend ?? null,
+        learnerEvidence: r.learnerEvidence ?? r.learner_evidence ?? null,
+        tutorEvidence: r.tutorEvidence ?? r.tutor_evidence ?? null,
+      }));
+      
+      console.log('[Admin Refund] Transformed refunds:', refunds);
+      
+      setRefundRequests(refunds);
+      filterRequests(refunds, activeFilter);
+      
+      // Fetch slot info cho các refund requests
+      await fetchSlotsInfo(refunds);
+    } catch (error: any) {
+      console.error('[Admin Refund] Error fetching refund requests:', error);
+      console.error('[Admin Refund] Error response:', error.response?.data);
       toast({
         title: 'Lỗi',
-        description: 'Không thể tải danh sách yêu cầu hoàn tiền',
+        description: error.response?.data?.message || 'Không thể tải danh sách yêu cầu hoàn tiền',
         variant: 'destructive',
       });
     } finally {
@@ -73,16 +171,100 @@ const AdminRefundManagement = () => {
     }
   };
 
+  // Fetch thông tin slots từ các tutors liên quan
+  const fetchSlotsInfo = async (refunds: RefundRequest[]) => {
+    try {
+      const map = new Map<number, SlotInfo>();
+      
+      // Lấy danh sách unique tutorIds từ refunds
+      const tutorIds = [...new Set(refunds.map(r => r.tutorId))];
+      
+      // Fetch slots cho từng tutor - thử nhiều API để lấy được tất cả slots
+      for (const tutorId of tutorIds) {
+        try {
+          // Thử API paid trước
+          const paidResponse = await api.get(`/booking-slots/public/tutors/${tutorId}/slots/paid`);
+          const paidSlots = paidResponse.data || [];
+          paidSlots.forEach((slot: any) => {
+            const slotId = slot.slotID ?? slot.slotId ?? slot.slot_id;
+            if (slotId) {
+              map.set(slotId, {
+                slotID: slotId,
+                startTime: slot.startTime ?? slot.start_time ?? '',
+                endTime: slot.endTime ?? slot.end_time ?? '',
+              });
+            }
+          });
+        } catch (err) {
+          console.error(`Error fetching paid slots for tutor ${tutorId}:`, err);
+        }
+        
+        try {
+          // Thử API all slots (có thể bao gồm rejected)
+          const allResponse = await api.get(`/booking-slots/public/tutors/${tutorId}/slots`);
+          const allSlots = allResponse.data || [];
+          allSlots.forEach((slot: any) => {
+            const slotId = slot.slotID ?? slot.slotId ?? slot.slot_id;
+            if (slotId && !map.has(slotId)) {
+              map.set(slotId, {
+                slotID: slotId,
+                startTime: slot.startTime ?? slot.start_time ?? '',
+                endTime: slot.endTime ?? slot.end_time ?? '',
+              });
+            }
+          });
+        } catch (err) {
+          // Ignore - API có thể không tồn tại
+        }
+      }
+      
+      // Nếu vẫn còn slot chưa có info, thử fetch từ my-slots của các learners
+      const missingSlotIds = refunds
+        .filter(r => !map.has(r.slotId))
+        .map(r => r.slotId);
+      
+      if (missingSlotIds.length > 0) {
+        try {
+          // Thử gọi my-slots (admin có thể có quyền xem tất cả)
+          const mySlotsResponse = await api.get('/booking-slots/my-slots');
+          const mySlots = mySlotsResponse.data?.result || mySlotsResponse.data || [];
+          mySlots.forEach((slot: any) => {
+            const slotId = slot.slotID ?? slot.slotId ?? slot.slot_id;
+            if (slotId && !map.has(slotId)) {
+              map.set(slotId, {
+                slotID: slotId,
+                startTime: slot.startTime ?? slot.start_time ?? '',
+                endTime: slot.endTime ?? slot.end_time ?? '',
+              });
+            }
+          });
+        } catch (err) {
+          console.error('Error fetching my-slots:', err);
+        }
+      }
+      
+      setSlotsMap(map);
+    } catch (error) {
+      console.error('Error fetching slots info:', error);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
+    fetchTutors();
     fetchRefundRequests();
   }, []);
 
   const filterRequests = (requests: RefundRequest[], filter: FilterStatus) => {
+    // Hiển thị tất cả refund requests, không loại trừ gì
+    console.log('[Admin Refund] Total requests:', requests.length);
+    
     if (filter === 'ALL') {
       setFilteredRequests(requests);
     } else {
-      setFilteredRequests(requests.filter(req => req.status === filter));
+      const filtered = requests.filter(req => req.status === filter);
+      console.log(`[Admin Refund] After status filter (${filter}):`, filtered.length);
+      setFilteredRequests(filtered);
     }
   };
 
@@ -154,6 +336,7 @@ const AdminRefundManagement = () => {
     }
   };
 
+  // Tính stats từ tất cả refund requests
   const stats = {
     pending: refundRequests.filter(r => r.status === 'PENDING').length,
     submitted: refundRequests.filter(r => r.status === 'SUBMITTED').length,
@@ -313,6 +496,8 @@ const AdminRefundManagement = () => {
                   key={request.refundRequestId}
                   request={request}
                   userInfo={usersMap.get(request.userId)}
+                  tutorInfo={tutorsMap.get(request.tutorId)}
+                  slotInfo={slotsMap.get(request.slotId)}
                   onApprove={handleApprove}
                   onReject={handleReject}
                 />

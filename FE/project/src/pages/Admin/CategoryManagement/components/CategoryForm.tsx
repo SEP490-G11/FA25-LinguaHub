@@ -91,9 +91,9 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
     if (!formData.name || formData.name.trim() === '') {
       newErrors.categoryName = 'Trường này là bắt buộc';
     } else if (formData.name.trim().length < 2) {
-      newErrors.categoryName = 'Tên category phải có ít nhất 2 ký tự';
+      newErrors.categoryName = 'Tên danh mục phải có ít nhất 2 ký tự';
     } else if (formData.name.trim().length > 100) {
-      newErrors.categoryName = 'Tên category không được vượt quá 100 ký tự';
+      newErrors.categoryName = 'Tên danh mục không được vượt quá 100 ký tự';
     }
 
     // Validate description (optional, max 500)
@@ -154,10 +154,10 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
       const errorMessage = error?.message || 'Đã xảy ra lỗi. Vui lòng thử lại.';
       
       // Check if it's a CATEGORY_ALREADY_EXISTS error
-      if (errorMessage.includes('đã tồn tại') || errorMessage.includes('CATEGORY_ALREADY_EXISTS')) {
+      if (errorMessage.includes('đã tồn tại') || errorMessage.includes('CATEGORY_ALREADY_EXISTS') || errorMessage.includes('already exists')) {
         // Show as field error (Requirement 6.4)
         setErrors({
-          categoryName: 'Category đã tồn tại',
+          categoryName: 'Danh mục đã tồn tại',
         });
         // Focus on the field
         if (categoryNameRef.current) {
@@ -229,19 +229,19 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
               {mode === 'create' ? (
                 <>
                   <FolderPlus className="w-5 h-5 text-purple-600" aria-hidden="true" />
-                  Thêm Category
+                  Thêm danh mục
                 </>
               ) : (
                 <>
                   <Edit className="w-5 h-5 text-purple-600" aria-hidden="true" />
-                  Chỉnh sửa Category
+                  Chỉnh sửa danh mục
                 </>
               )}
             </DialogTitle>
             <DialogDescription id="category-form-description">
               {mode === 'create'
-                ? 'Tạo mới category cho hệ thống khóa học.'
-                : 'Cập nhật thông tin category.'}
+                ? 'Tạo mới danh mục cho hệ thống khóa học.'
+                : 'Cập nhật thông tin danh mục.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -250,13 +250,13 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
             {/* Category Name Field */}
             <div className="space-y-2">
               <Label htmlFor="categoryName" className="text-sm font-medium">
-                Tên Category <span className="text-red-500">*</span>
+                Tên danh mục <span className="text-red-500">*</span>
               </Label>
               <Input
                 id="categoryName"
                 ref={categoryNameRef}
                 type="text"
-                placeholder="Nhập tên category"
+                placeholder="Nhập tên danh mục"
                 value={formData.name}
                 onChange={(e) => handleInputChange('name', e.target.value)}
                 disabled={isSubmitting}
@@ -284,7 +284,7 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
               <Textarea
                 id="description"
                 ref={descriptionRef}
-                placeholder="Nhập mô tả category (tùy chọn)"
+                placeholder="Nhập mô tả danh mục (tùy chọn)"
                 value={formData.description}
                 onChange={(e) => handleInputChange('description', e.target.value)}
                 disabled={isSubmitting}
@@ -337,8 +337,8 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({
                 isSubmitting
                   ? 'Đang xử lý, vui lòng đợi'
                   : mode === 'create'
-                  ? 'Tạo category mới'
-                  : 'Cập nhật category'
+                  ? 'Tạo danh mục mới'
+                  : 'Cập nhật danh mục'
               }
             >
               {isSubmitting ? (

@@ -41,7 +41,7 @@ export function useCategories(): UseCategoriesReturn {
       
       setCategories(fetchedCategories);
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to load categories';
+      const errorMessage = err.message || 'Không thể tải danh sách danh mục';
       setError(errorMessage);
       
       // Requirements: 5.5 - show error toast when API call fails
@@ -78,11 +78,11 @@ export function useCategories(): UseCategoriesReturn {
       // Show success toast
       toast({
         title: "Thành công",
-        description: "Tạo category thành công",
+        description: "Tạo danh mục thành công",
         variant: "default",
       });
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to create category';
+      const errorMessage = err.message || 'Không thể tạo danh mục';
       
       // Requirements: 6.2 - handle API errors
       // Error is thrown to be handled by the form component for field-level validation
@@ -109,11 +109,11 @@ export function useCategories(): UseCategoriesReturn {
       // Show success toast
       toast({
         title: "Thành công",
-        description: "Cập nhật category thành công",
+        description: "Cập nhật danh mục thành công",
         variant: "default",
       });
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to update category';
+      const errorMessage = err.message || 'Không thể cập nhật danh mục';
       
       // Requirements: 7.2 - handle API errors
       // Error is thrown to be handled by the form component
@@ -138,16 +138,16 @@ export function useCategories(): UseCategoriesReturn {
       // Show success toast
       toast({
         title: "Thành công",
-        description: "Xóa category thành công",
+        description: "Xóa danh mục thành công",
         variant: "default",
       });
     } catch (err: any) {
-      const errorMessage = err.message || 'Failed to delete category';
+      const errorMessage = err.message || 'Không thể xóa danh mục';
       
       // Requirements: 8.2 - handle API errors (e.g., CATEGORY_IN_USE)
       // Show error toast
       toast({
-        title: "Lỗi xóa category",
+        title: "Lỗi xóa danh mục",
         description: errorMessage,
         variant: "destructive",
       });

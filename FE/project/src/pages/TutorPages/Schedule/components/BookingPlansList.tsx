@@ -62,11 +62,11 @@ export const BookingPlansList: React.FC<BookingPlansListProps> = memo(({
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader className="pb-2">
+      <Card className="flex flex-col h-full overflow-hidden">
+        <CardHeader className="pb-2 flex-shrink-0">
           <CardTitle className="text-sm font-semibold">Danh sách lịch làm việc</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 overflow-y-auto">
           <div className="flex items-center justify-center py-8">
             <div className="text-center text-gray-400">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mx-auto mb-2"></div>
@@ -80,11 +80,11 @@ export const BookingPlansList: React.FC<BookingPlansListProps> = memo(({
 
   if (bookingPlans.length === 0) {
     return (
-      <Card>
-        <CardHeader className="pb-2">
+      <Card className="flex flex-col h-full overflow-hidden">
+        <CardHeader className="pb-2 flex-shrink-0">
           <CardTitle className="text-sm font-semibold">Danh sách lịch làm việc</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 overflow-y-auto">
           <div className="flex items-center justify-center py-8">
             <div className="text-center text-gray-400">
               <Calendar className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -98,8 +98,8 @@ export const BookingPlansList: React.FC<BookingPlansListProps> = memo(({
   }
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
+    <Card className="flex flex-col h-full overflow-hidden">
+      <CardHeader className="pb-2 flex-shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-semibold">
             Danh sách lịch làm việc ({bookingPlans.length})
@@ -118,7 +118,7 @@ export const BookingPlansList: React.FC<BookingPlansListProps> = memo(({
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 flex-1 overflow-y-auto">
         {bookingPlans.map((plan) => (
           <div
             key={plan.booking_planid}

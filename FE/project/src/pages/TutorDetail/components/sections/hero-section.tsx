@@ -165,7 +165,7 @@ const TutorHeroSection = ({ tutor, certificates = [] }: TutorHeroSectionProps) =
                     <div className="flex items-center space-x-1">
                       <Star className="w-5 h-5 fill-yellow-400 text-yellow-400" />
                       <span className="font-medium">
-                      {tutor.rating?.toFixed(2) || "5.00"}
+                      {tutor.rating?.toFixed(1) || "5.0"}
                     </span>
                       <span className="text-gray-500">(Đánh giá)</span>
                     </div>

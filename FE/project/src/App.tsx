@@ -7,6 +7,7 @@ import FloatingChat from '@/components/FloatingChat';
 import { SidebarProvider } from '@/contexts/SidebarContext';
 import { ScrollToTop } from "@/hooks/ScrollToTop";
 import { Toaster } from "@/components/ui/toaster.tsx";
+import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { useLocation } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
 
@@ -46,6 +47,7 @@ function App() {
                 <main>
                     <AppRoutes />
                     <Toaster />
+                    <SonnerToaster richColors />
                 </main>
                 {!hideFooter && <Footer />}
                 <FloatingChat />

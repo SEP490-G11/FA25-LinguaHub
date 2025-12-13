@@ -19,17 +19,27 @@ interface UserRowProps {
 const UserRow: React.FC<UserRowProps> = ({ user, onRefresh }) => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  // Format dates for display
+  // Format dates for display - Vietnamese format
   const formatDate = (dateString: string) => {
     try {
-      return new Date(dateString).toLocaleDateString('en-US', {
+      return new Date(dateString).toLocaleDateString('vi-VN', {
         year: 'numeric',
-        month: 'short',
+        month: 'long',
         day: 'numeric'
       });
     } catch {
       return 'N/A';
     }
+  };
+
+  // Translate role to Vietnamese
+  const getRoleLabel = (role: string) => {
+    const roleMap: Record<string, string> = {
+      'Admin': 'Quản trị viên',
+      'Tutor': 'Gia sư',
+      'Learner': 'Học viên',
+    };
+    return roleMap[role] || role;
   };
 
 
@@ -92,7 +102,7 @@ const UserRow: React.FC<UserRowProps> = ({ user, onRefresh }) => {
         {/* ========== ROLE ========== */}
         <TableCell>
           <Badge variant="outline" className="font-medium">
-            {user.role || 'User'}
+            {getRoleLabel(user.role || 'User')}
           </Badge>
         </TableCell>
 

@@ -1,4 +1,4 @@
-import { Calendar, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, Clock, CheckCircle, XCircle, Ban } from 'lucide-react';
 import type { BookingStats } from '@/types/MyBooking';
 
 interface HeroSectionProps {
@@ -34,7 +34,7 @@ const HeroSection = ({ stats }: HeroSectionProps) => {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <StatBox
             label="Sắp tới"
             value={stats.upcoming}
@@ -43,7 +43,12 @@ const HeroSection = ({ stats }: HeroSectionProps) => {
           <StatBox
             label="Đã qua"
             value={stats.expired}
-            icon={<XCircle className="w-4 h-4 text-red-300" />}
+            icon={<XCircle className="w-4 h-4 text-slate-300" />}
+          />
+          <StatBox
+            label="Bị hủy"
+            value={stats.cancelled}
+            icon={<Ban className="w-4 h-4 text-red-300" />}
           />
           <StatBox
             label="Tổng buổi"

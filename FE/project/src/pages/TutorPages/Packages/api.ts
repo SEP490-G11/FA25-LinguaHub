@@ -14,10 +14,10 @@ export const tutorPackageApi = {
   getMyPackages: async (): Promise<Package[]> => {
     try {
       const response = await axios.get('/tutor/package/me');
-      
+
       // Extract data from response - handle multiple possible structures
       let packagesArray: any[] = [];
-      
+
       if (Array.isArray(response?.data?.packages)) {
         packagesArray = response.data.packages;
       } else if (Array.isArray(response?.data?.result)) {
@@ -36,6 +36,7 @@ export const tutorPackageApi = {
         tutor_id: pkg.tutor_id,
         max_slots: pkg.max_slots || pkg.max_slot || 0,
         slot_content: pkg.slot_content || [],
+        min_booking_price_per_hour: pkg.min_booking_price_per_hour || 0,
         is_active: pkg.is_active,
         created_at: pkg.created_at,
         updated_at: pkg.updated_at,
@@ -44,7 +45,7 @@ export const tutorPackageApi = {
       return packages;
     } catch (error: any) {
       console.error('❌ Error fetching tutor packages:', error);
-      
+
       // Handle different error scenarios with Vietnamese messages
       if (error.response) {
         const status = error.response.status;
@@ -94,26 +95,29 @@ export const tutorPackageApi = {
 
       return {
         success: true,
-        message: response.data?.message || 'Package đã được tạo thành công.',
+        message: 'Gói dịch vụ đã được tạo thành công.',
       };
     } catch (error: any) {
       console.error('❌ Error creating package:', error);
-      
+
       if (error.response) {
         const status = error.response.status;
         const message = error.response.data?.message;
 
         switch (status) {
           case 400:
+            if (message && (message.toLowerCase().includes('exist') || message.toLowerCase().includes('tồn tại') || message.toLowerCase().includes('duplicate'))) {
+              throw new Error('Tên gói dịch vụ này đã tồn tại');
+            }
             throw new Error(message || 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.');
           case 401:
             throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
           case 403:
-            throw new Error('Bạn không có quyền tạo package.');
+            throw new Error('Bạn không có quyền tạo gói dịch vụ.');
           case 500:
-            throw new Error('Lỗi server. Vui lòng thử lại sau.');
+            throw new Error('Lỗi máy chủ. Vui lòng thử lại sau.');
           default:
-            throw new Error(message || 'Không thể tạo package. Vui lòng thử lại.');
+            throw new Error('Không thể tạo gói dịch vụ. Vui lòng thử lại.');
         }
       } else if (error.request) {
         throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
@@ -134,7 +138,7 @@ export const tutorPackageApi = {
       const response = await axios.get(`/tutor/package/${packageId}`);
 
       const pkg = response.data;
-      
+
       return {
         packageid: pkg.packageid,
         name: pkg.name,
@@ -151,7 +155,7 @@ export const tutorPackageApi = {
       };
     } catch (error: any) {
       console.error('❌ Error fetching package details:', error);
-      
+
       if (error.response) {
         const status = error.response.status;
         const message = error.response.data?.message;
@@ -199,28 +203,31 @@ export const tutorPackageApi = {
 
       return {
         success: true,
-        message: response.data?.message || 'Package đã được cập nhật thành công.',
+        message: 'Gói dịch vụ đã được cập nhật thành công.',
       };
     } catch (error: any) {
       console.error('❌ Error updating package:', error);
-      
+
       if (error.response) {
         const status = error.response.status;
         const message = error.response.data?.message;
 
         switch (status) {
           case 400:
+            if (message && (message.toLowerCase().includes('exist') || message.toLowerCase().includes('tồn tại') || message.toLowerCase().includes('duplicate'))) {
+              throw new Error('Tên gói dịch vụ này đã tồn tại');
+            }
             throw new Error(message || 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.');
           case 401:
             throw new Error('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
           case 403:
-            throw new Error('Bạn không có quyền chỉnh sửa package này.');
+            throw new Error('Bạn không có quyền chỉnh sửa gói dịch vụ này.');
           case 404:
-            throw new Error('Không tìm thấy package.');
+            throw new Error('Không tìm thấy gói dịch vụ.');
           case 500:
-            throw new Error('Lỗi server. Vui lòng thử lại sau.');
+            throw new Error('Lỗi máy chủ. Vui lòng thử lại sau.');
           default:
-            throw new Error(message || 'Không thể cập nhật package. Vui lòng thử lại.');
+            throw new Error('Không thể cập nhật gói dịch vụ. Vui lòng thử lại.');
         }
       } else if (error.request) {
         throw new Error('Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.');
@@ -246,7 +253,7 @@ export const tutorPackageApi = {
       };
     } catch (error: any) {
       console.error('❌ Error deleting package:', error);
-      
+
       if (error.response) {
         const status = error.response.status;
         const message = error.response.data?.message;

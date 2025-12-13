@@ -66,10 +66,10 @@ export const CategoryDeleteModal: React.FC<CategoryDeleteModalProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-red-600">
             <AlertTriangle className="w-5 h-5" aria-hidden="true" />
-            Xác nhận xóa category
+            Xác nhận xóa danh mục
           </DialogTitle>
           <DialogDescription id="delete-description">
-            Bạn có chắc chắn muốn xóa category này? Hành động này không thể hoàn tác.
+            Bạn có chắc chắn muốn xóa danh mục này? Hành động này không thể hoàn tác.
           </DialogDescription>
         </DialogHeader>
 
@@ -114,7 +114,7 @@ export const CategoryDeleteModal: React.FC<CategoryDeleteModalProps> = ({
         {/* ========== WARNING MESSAGE ========== */}
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-red-800 text-sm">
-            <strong>Lưu ý:</strong> Nếu category này đang được sử dụng bởi các khóa học, 
+            <strong>Lưu ý:</strong> Nếu danh mục này đang được sử dụng bởi các khóa học, 
             bạn sẽ không thể xóa nó.
           </p>
         </div>
@@ -144,7 +144,7 @@ export const CategoryDeleteModal: React.FC<CategoryDeleteModalProps> = ({
             ) : (
               <>
                 <Trash2 className="w-4 h-4 mr-2" aria-hidden="true" />
-                Xóa category
+                Xóa danh mục
               </>
             )}
           </Button>

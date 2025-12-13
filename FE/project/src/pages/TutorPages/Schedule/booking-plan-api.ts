@@ -7,21 +7,25 @@ const BASE_URL = '/tutor/booking-plan';
 const handleApiError = (error: unknown): never => {
   if (error instanceof AxiosError) {
     const axiosError = error as AxiosError;
-    
+
     // Network error
     if (!axiosError.response) {
       throw new Error('Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.');
     }
-    
+
     // Server error responses
     const status = axiosError.response.status;
     const responseData = axiosError.response.data as any;
-    
+
     // Check for specific database deadlock error
     if (responseData?.message && responseData.message.includes('Deadlock found')) {
       throw new Error('Hệ thống đang bận, vui lòng thử lại sau vài giây.');
     }
-    
+
+    if (responseData?.message && responseData.message.includes('Tutor schedule conflict at this time')) {
+      throw new Error('Lịch làm việc bị trùng lặp thời gian hoặc ngày đã có lịch.');
+    }
+
     switch (status) {
       case 400:
         throw new Error(responseData?.message || 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.');
@@ -43,7 +47,7 @@ const handleApiError = (error: unknown): never => {
         throw new Error(responseData?.message || `Có lỗi xảy ra (${status}). Vui lòng thử lại.`);
     }
   }
-  
+
   // Generic error
   throw new Error('Có lỗi không xác định xảy ra. Vui lòng thử lại.');
 };
@@ -53,19 +57,19 @@ export const bookingPlanApi = {
   createBookingPlan: async (data: BookingPlanRequest, retryCount = 0): Promise<BookingPlanResponse> => {
     const maxRetries = 3;
     const retryDelay = 1000 + (retryCount * 500); // Increasing delay: 1s, 1.5s, 2s
-    
+
     try {
       const response = await axios.post<BookingPlanResponse>(BASE_URL, data);
       return response.data;
     } catch (error) {
       // Check if it's a deadlock error and we haven't exceeded max retries
-      if (error instanceof AxiosError && 
-          error.response?.data?.message?.includes('Deadlock found') && 
-          retryCount < maxRetries) {
+      if (error instanceof AxiosError &&
+        error.response?.data?.message?.includes('Deadlock found') &&
+        retryCount < maxRetries) {
         await new Promise(resolve => setTimeout(resolve, retryDelay));
         return bookingPlanApi.createBookingPlan(data, retryCount + 1);
       }
-      
+
       return handleApiError(error);
     }
   },

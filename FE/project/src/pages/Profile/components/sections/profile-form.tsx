@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import api from "@/config/axiosConfig";
-import { Camera, Save, User, Mail, Phone, Calendar, MapPin, Globe, FileText, Edit, Loader2 } from "lucide-react";
+import { Camera, Save, User, Mail, Phone, Calendar, MapPin, Globe, FileText, Edit, Loader2, Award, Eye, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,6 +11,13 @@ import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { useUser } from "@/contexts/UserContext";
 import { uploadFileToBackend } from "@/utils/fileUpload";
+import { getTutorIdFromToken } from "@/utils/jwt-decode";
+
+interface TutorCertificate {
+  certificateId: number;
+  certificateName: string;
+  documentUrl: string;
+}
 
 // ================== VALIDATION ==================
 const profileSchema = z.object({
@@ -29,7 +36,7 @@ type ProfileFormData = z.infer<typeof profileSchema>;
 
 export const ProfileForm = () => {
   const { toast } = useToast();
-  const { refreshUser } = useUser();
+  const { user, refreshUser } = useUser();
   const [userId, setUserId] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -39,6 +46,11 @@ export const ProfileForm = () => {
   const [gender, setGender] = useState<string>("Male"); // State riêng cho gender (chỉ hiển thị)
   const [fullName, setFullName] = useState<string>(""); // State để lưu fullName cho fallback avatar
   const [avatarError, setAvatarError] = useState(false); // Track if avatar failed to load
+  const [certificates, setCertificates] = useState<TutorCertificate[]>([]); // Chứng chỉ của tutor
+  const [loadingCertificates, setLoadingCertificates] = useState(false);
+  const [selectedCertIndex, setSelectedCertIndex] = useState<number | null>(null); // Index của chứng chỉ đang xem trong modal
+  const [certPage, setCertPage] = useState(0); // Trang hiện tại của danh sách chứng chỉ
+  const CERTS_PER_PAGE = 4; // Số chứng chỉ mỗi trang
 
   const {
     register,
@@ -55,22 +67,22 @@ export const ProfileForm = () => {
       try {
         const res = await api.get("/users/myInfo");
 
-        const user = res.data.result;
-        setUserId(user.userID);
-        setAvatarPreview(user.avatarURL);
-        setFullName(user.fullName || "");
-        setAvatarError(!user.avatarURL); // Set error if no avatar
-        setGender(user.gender || "Male"); // Lưu gender vào state riêng
+        const userData = res.data.result;
+        setUserId(userData.userID);
+        setAvatarPreview(userData.avatarURL);
+        setFullName(userData.fullName || "");
+        setAvatarError(!userData.avatarURL); // Set error if no avatar
+        setGender(userData.gender || "Male"); // Lưu gender vào state riêng
 
         reset({
-          username: user.username,
-          fullName: user.fullName,
-          email: user.email,
-          phone: user.phone,
-          dob: user.dob,
-          country: user.country,
-          address: user.address,
-          bio: user.bio,
+          username: userData.username,
+          fullName: userData.fullName,
+          email: userData.email,
+          phone: userData.phone,
+          dob: userData.dob,
+          country: userData.country,
+          address: userData.address,
+          bio: userData.bio,
         });
       } catch (error) {
         console.error(" Failed to fetch user info:", error);
@@ -79,6 +91,29 @@ export const ProfileForm = () => {
 
     fetchUserInfo();
   }, [reset]);
+
+  // Fetch certificates nếu là Tutor
+  useEffect(() => {
+    const fetchCertificates = async () => {
+      if (user?.role !== "Tutor") return;
+      
+      const tutorId = getTutorIdFromToken();
+      if (!tutorId) return;
+
+      setLoadingCertificates(true);
+      try {
+        const res = await api.get(`/tutors/${tutorId}`, { skipAuth: true });
+        const tutorData = res.data;
+        setCertificates(tutorData.certificates || []);
+      } catch (error) {
+        console.error("Failed to fetch tutor certificates:", error);
+      } finally {
+        setLoadingCertificates(false);
+      }
+    };
+
+    fetchCertificates();
+  }, [user?.role]);
 
   // ================== Update profile ==================
   const onSubmit = async (data: ProfileFormData) => {
@@ -479,6 +514,175 @@ export const ProfileForm = () => {
                 />
               </div>
             </div>
+
+            {/* Certificates Section - Only for Tutor */}
+            {user?.role === "Tutor" && (
+              <div className="bg-amber-50 p-6 rounded-xl border border-amber-100">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Award className="w-5 h-5 text-amber-600" />
+                  Chứng chỉ
+                </h3>
+                {loadingCertificates ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-amber-600" />
+                    <span className="ml-2 text-gray-500">Đang tải chứng chỉ...</span>
+                  </div>
+                ) : certificates.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">Chưa có chứng chỉ nào</p>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {certificates
+                        .slice(certPage * CERTS_PER_PAGE, (certPage + 1) * CERTS_PER_PAGE)
+                        .map((cert) => (
+                        <div
+                          key={cert.certificateId}
+                          className="bg-white p-4 rounded-lg border border-amber-200 shadow-sm hover:shadow-md transition-shadow"
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="bg-amber-100 p-2 rounded-lg">
+                                <Award className="w-5 h-5 text-amber-600" />
+                              </div>
+                              <div>
+                                <h4 className="font-medium text-gray-900">{cert.certificateName}</h4>
+                              </div>
+                            </div>
+                            {cert.documentUrl && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedCertIndex(certificates.findIndex(c => c.certificateId === cert.certificateId))}
+                                className="text-amber-600 hover:text-amber-700 p-2 hover:bg-amber-50 rounded-lg transition-colors"
+                                title="Xem chứng chỉ"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    {/* Pagination cho danh sách chứng chỉ */}
+                    {certificates.length > CERTS_PER_PAGE && (
+                      <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-amber-200">
+                        <button
+                          type="button"
+                          onClick={() => setCertPage(prev => Math.max(0, prev - 1))}
+                          disabled={certPage === 0}
+                          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                          Trước
+                        </button>
+                        
+                        <span className="text-sm text-gray-600">
+                          Trang {certPage + 1} / {Math.ceil(certificates.length / CERTS_PER_PAGE)}
+                        </span>
+                        
+                        <button
+                          type="button"
+                          onClick={() => setCertPage(prev => Math.min(Math.ceil(certificates.length / CERTS_PER_PAGE) - 1, prev + 1))}
+                          disabled={certPage >= Math.ceil(certificates.length / CERTS_PER_PAGE) - 1}
+                          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-amber-700 bg-white border border-amber-300 rounded-lg hover:bg-amber-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Sau
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Certificate Image Modal */}
+            {selectedCertIndex !== null && certificates[selectedCertIndex] && (
+              <div 
+                className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+                onClick={() => setSelectedCertIndex(null)}
+              >
+                {/* Nút Back - bên trái */}
+                {certificates.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedCertIndex(prev => prev !== null ? (prev - 1 + certificates.length) % certificates.length : 0);
+                    }}
+                    className="absolute left-4 md:left-8 bg-white/90 hover:bg-white p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10"
+                    title="Chứng chỉ trước"
+                  >
+                    <ChevronLeft className="w-6 h-6 text-gray-700" />
+                  </button>
+                )}
+
+                <div 
+                  className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Header */}
+                  <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Award className="w-6 h-6 text-white" />
+                      <div>
+                        <h3 className="text-lg font-semibold text-white">{certificates[selectedCertIndex].certificateName}</h3>
+                        {certificates.length > 1 && (
+                          <p className="text-white/80 text-sm">{selectedCertIndex + 1} / {certificates.length}</p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedCertIndex(null)}
+                      className="text-white/80 hover:text-white p-1 hover:bg-white/20 rounded-lg transition-colors"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                  </div>
+                  
+                  {/* Content */}
+                  <div className="p-4 flex items-center justify-center bg-gray-100 overflow-auto max-h-[calc(90vh-80px)]">
+                    <img
+                      src={certificates[selectedCertIndex].documentUrl}
+                      alt={certificates[selectedCertIndex].certificateName}
+                      className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                    <div className="hidden flex-col items-center justify-center py-12 text-gray-500">
+                      <Award className="w-16 h-16 mb-4 text-gray-300" />
+                      <p className="text-center">Không thể tải ảnh chứng chỉ</p>
+                      <a
+                        href={certificates[selectedCertIndex].documentUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-4 text-amber-600 hover:text-amber-700 underline"
+                      >
+                        Mở link gốc
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Nút Next - bên phải */}
+                {certificates.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedCertIndex(prev => prev !== null ? (prev + 1) % certificates.length : 0);
+                    }}
+                    className="absolute right-4 md:right-8 bg-white/90 hover:bg-white p-3 rounded-full shadow-lg transition-all hover:scale-110 z-10"
+                    title="Chứng chỉ tiếp theo"
+                  >
+                    <ChevronRight className="w-6 h-6 text-gray-700" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Buttons */}

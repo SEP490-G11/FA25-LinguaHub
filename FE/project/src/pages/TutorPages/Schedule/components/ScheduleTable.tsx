@@ -34,7 +34,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = memo(({
     if (!plan || !plan.start_hours || !plan.end_hours || !plan.slot_duration) {
       return [];
     }
-    
+
     const slots: TimeSlot[] = [];
     const startTime = timeObjectToString(plan.start_hours);
     const endTime = timeObjectToString(plan.end_hours);
@@ -85,7 +85,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = memo(({
   // Get all time slots including both new schedule and existing booking plans
   const getAllTimeSlotsIncludingExisting = (): string[] => {
     const allSlots = new Set<string>();
-    
+
     // Add slots from current schedule (new/preview slots)
     if (schedule && Array.isArray(schedule)) {
       schedule.forEach(day => {
@@ -118,31 +118,31 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = memo(({
         if (!a || !b || typeof a !== 'string' || typeof b !== 'string') {
           return 0;
         }
-        
+
         const aParts = a.split('-');
         const bParts = b.split('-');
-        
+
         if (aParts.length < 1 || bParts.length < 1) {
           return 0;
         }
-        
+
         const [aStartTime] = aParts;
         const [bStartTime] = bParts;
-        
+
         const aTimeParts = aStartTime.split(':');
         const bTimeParts = bStartTime.split(':');
-        
+
         if (aTimeParts.length < 2 || bTimeParts.length < 2) {
           return 0;
         }
-        
+
         const [aHour, aMin] = aTimeParts.map(Number);
         const [bHour, bMin] = bTimeParts.map(Number);
-        
+
         if (isNaN(aHour) || isNaN(aMin) || isNaN(bHour) || isNaN(bMin)) {
           return 0;
         }
-        
+
         const aMinutes = aHour * 60 + aMin;
         const bMinutes = bHour * 60 + bMin;
         return aMinutes - bMinutes;
@@ -155,7 +155,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = memo(({
   // Get all days to display (both enabled days and days with existing booking plans)
   const getAllDaysToDisplay = () => {
     const daysMap = new Map<string, DaySchedule>();
-    
+
     // Add enabled days from current schedule
     if (enabledDays && Array.isArray(enabledDays)) {
       enabledDays.forEach(day => {
@@ -202,7 +202,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = memo(({
         <div className="text-center text-gray-400">
           <p className="text-sm">Chưa có lịch làm việc</p>
           <p className="text-xs mt-1">
-            {bookingPlans.length > 0 
+            {bookingPlans.length > 0
               ? "Chọn ngày và nhấn 'Xem lịch' để hiển thị lịch hiện có"
               : "Vui lòng cấu hình và nhấn 'Tạo lịch'"
             }
@@ -223,10 +223,10 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = memo(({
             {displayDays.map((day) => {
               const hasExistingPlan = getExistingBookingPlan(day.shortName);
               const hasNewSchedule = day.isEnabled;
-              
+
               // Simplified header styling
               let headerClasses = 'text-white font-semibold text-center py-2 border-r border-gray-300 last:border-r-0 min-w-[80px] ';
-              
+
               if (hasNewSchedule || hasExistingPlan) {
                 headerClasses += 'bg-blue-600';
               } else {
@@ -259,7 +259,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = memo(({
                   const newSlot = getSlotForTime(day, timeId);
                   // Check for existing booking plan slot
                   const existingSlot = getExistingSlotForTime(day.shortName, timeId);
-                  
+
                   // Determine which slot to display and its type
                   const hasNewSlot = !!newSlot;
                   const hasExistingSlot = !!existingSlot;
@@ -267,7 +267,7 @@ export const ScheduleTable: React.FC<ScheduleTableProps> = memo(({
                   // Simplified cell styling - just show available/unavailable
                   let cellClasses = 'text-center py-2 border-r border-b border-gray-200 last:border-r-0 ';
                   let content = '';
-                  
+
                   if (hasNewSlot || hasExistingSlot) {
                     // Has schedule - show as available
                     cellClasses += 'bg-green-100 text-green-700';
