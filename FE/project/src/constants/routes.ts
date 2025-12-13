@@ -28,7 +28,7 @@ export const ROUTES = {
   CHANGE_PASSWORD: '/change-password',
   PAYMENT_HISTORY: '/payment-history',
   MY_ENROLLMENTS: '/my-enrollments',
-  MY_BOOKINGS: '/my-bookings',
+  MY_BOOKINGS: '/learner/bookings',
   WISHLIST: '/wishlist',
   NOTIFICATIONS: '/notifications',
   MESSAGES: '/messages',

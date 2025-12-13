@@ -34,8 +34,8 @@ interface RefundRequest {
   processedAt: string | null;
   tutorId: number | null;
   reason: string | null;
-  learnerAttend: boolean | null;
-  tutorAttend: boolean | null;
+  learnerJoin: boolean | null;
+  tutorJoin: boolean | null;
   learnerEvidence: string | null;
   tutorEvidence: string | null;
 }
@@ -230,15 +230,22 @@ const RefundList = ({ requests, currentUserId, onRefresh, slotsMap }: RefundList
     }
   };
 
-  // Helper function để xác định trạng thái tutor
+  // Helper function để xác định trạng thái gia sư dựa trên tutorEvidence + learnerJoin
   const getTutorStatus = (request: RefundRequest) => {
-    if (request.tutorAttend === true) {
-      return { text: 'Đã tham gia', color: 'text-emerald-600' };
+    const hasTutorEvidence = !!request.tutorEvidence;
+    
+    // Có tutorEvidence → Gia sư đã phản đối
+    if (hasTutorEvidence) {
+      return { text: 'Đã phản đối (có bằng chứng)', color: 'text-purple-600' };
     }
-    if (request.tutorAttend === false && request.tutorEvidence) {
-      return { text: 'Không tham gia', color: 'text-red-600' };
+    
+    // Không có tutorEvidence + learnerJoin = true → Gia sư đã đồng ý hoàn tiền
+    if (!hasTutorEvidence && request.learnerJoin === true) {
+      return { text: 'Đã đồng ý hoàn tiền', color: 'text-blue-600' };
     }
-    return { text: 'Chưa phản hồi', color: 'text-slate-500' };
+    
+    // Không có tutorEvidence + learnerJoin = false → Gia sư chưa phản hồi
+    return { text: 'Chưa phản hồi', color: 'text-orange-500' };
   };
 
   return (
@@ -319,7 +326,7 @@ const RefundList = ({ requests, currentUserId, onRefresh, slotsMap }: RefundList
                       {request.refundType === 'COMPLAINT' && (
                         <>
                           <span className="text-slate-300">|</span>
-                          <span>👨‍🏫 Tutor: <span className={`font-medium ${tutorStatus.color}`}>{tutorStatus.text}</span></span>
+                          <span>👨‍🏫 Gia sư: <span className={`font-medium ${tutorStatus.color}`}>{tutorStatus.text}</span></span>
                         </>
                       )}
                     </div>

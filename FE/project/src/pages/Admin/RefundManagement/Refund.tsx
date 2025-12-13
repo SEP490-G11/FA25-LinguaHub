@@ -21,8 +21,8 @@ interface RefundRequest {
   tutorId: number;
   reason: string | null;
   refundType: 'COMPLAINT' | 'TUTOR_RESCHEDULE' | 'SLOT_REJECT' | null;
-  learnerAttend: boolean | null;
-  tutorAttend: boolean | null;
+  learnerJoin: boolean | null;
+  tutorJoin: boolean | null;
   learnerEvidence: string | null;
   tutorEvidence: string | null;
 }
@@ -45,6 +45,12 @@ interface SlotInfo {
   slotID: number;
   startTime: string;
   endTime: string;
+  // Thêm các trường để lấy từ API slots/paid
+  learnerJoin: boolean | null;
+  tutorJoin: boolean | null;
+  learnerEvidence: string | null;
+  tutorEvidence: string | null;
+  reason: string | null;
 }
 
 type FilterStatus = 'ALL' | 'PENDING' | 'SUBMITTED' | 'APPROVED' | 'REJECTED';
@@ -145,8 +151,8 @@ const AdminRefundManagement = () => {
         tutorId: r.tutorId ?? r.tutor_id ?? 0,
         reason: r.reason ?? null,
         refundType: r.refundType ?? r.refund_type ?? null,
-        learnerAttend: r.learnerAttend ?? r.learner_attend ?? null,
-        tutorAttend: r.tutorAttend ?? r.tutor_attend ?? null,
+        learnerJoin: r.learnerAttend ?? r.learner_attend ?? r.learnerJoin ?? r.learner_join ?? null,
+        tutorJoin: r.tutorAttend ?? r.tutor_attend ?? r.tutorJoin ?? r.tutor_join ?? null,
         learnerEvidence: r.learnerEvidence ?? r.learner_evidence ?? null,
         tutorEvidence: r.tutorEvidence ?? r.tutor_evidence ?? null,
       }));
@@ -171,7 +177,8 @@ const AdminRefundManagement = () => {
     }
   };
 
-  // Fetch thông tin slots từ các tutors liên quan
+  // Fetch thông tin slots từ API /booking-slots/public/tutors/{tutorId}/slots/paid
+  // Mỗi refund sẽ call API riêng để lấy đúng dữ liệu slot tương ứng
   const fetchSlotsInfo = async (refunds: RefundRequest[]) => {
     try {
       const map = new Map<number, SlotInfo>();
@@ -179,73 +186,71 @@ const AdminRefundManagement = () => {
       // Lấy danh sách unique tutorIds từ refunds
       const tutorIds = [...new Set(refunds.map(r => r.tutorId))];
       
-      // Fetch slots cho từng tutor - thử nhiều API để lấy được tất cả slots
+      console.log('[Admin Refund] Fetching slots for tutors:', tutorIds);
+      
+      // Fetch slots cho từng tutor từ API /booking-slots/public/tutors/{tutorId}/slots/paid
       for (const tutorId of tutorIds) {
         try {
-          // Thử API paid trước
           const paidResponse = await api.get(`/booking-slots/public/tutors/${tutorId}/slots/paid`);
           const paidSlots = paidResponse.data || [];
+          
+          console.log(`[Admin Refund] Tutor ${tutorId} paid slots:`, paidSlots);
+          
           paidSlots.forEach((slot: any) => {
             const slotId = slot.slotID ?? slot.slotId ?? slot.slot_id;
             if (slotId) {
+              // Lấy đầy đủ thông tin từ slot bao gồm learnerJoin, tutorJoin, evidence
               map.set(slotId, {
                 slotID: slotId,
                 startTime: slot.startTime ?? slot.start_time ?? '',
                 endTime: slot.endTime ?? slot.end_time ?? '',
+                // Lấy thông tin điểm danh và bằng chứng từ slot
+                learnerJoin: slot.learnerAttend ?? slot.learner_attend ?? slot.learnerJoin ?? slot.learner_join ?? null,
+                tutorJoin: slot.tutorAttend ?? slot.tutor_attend ?? slot.tutorJoin ?? slot.tutor_join ?? null,
+                learnerEvidence: slot.learnerEvidence ?? slot.learner_evidence ?? null,
+                tutorEvidence: slot.tutorEvidence ?? slot.tutor_evidence ?? null,
+                reason: slot.reason ?? slot.complaintReason ?? slot.complaint_reason ?? null,
+              });
+              
+              console.log(`[Admin Refund] Slot ${slotId} info:`, {
+                learnerJoin: slot.learnerAttend ?? slot.learner_attend ?? slot.learnerJoin,
+                tutorJoin: slot.tutorAttend ?? slot.tutor_attend ?? slot.tutorJoin,
+                learnerEvidence: slot.learnerEvidence ?? slot.learner_evidence,
+                tutorEvidence: slot.tutorEvidence ?? slot.tutor_evidence,
               });
             }
           });
         } catch (err) {
-          console.error(`Error fetching paid slots for tutor ${tutorId}:`, err);
-        }
-        
-        try {
-          // Thử API all slots (có thể bao gồm rejected)
-          const allResponse = await api.get(`/booking-slots/public/tutors/${tutorId}/slots`);
-          const allSlots = allResponse.data || [];
-          allSlots.forEach((slot: any) => {
-            const slotId = slot.slotID ?? slot.slotId ?? slot.slot_id;
-            if (slotId && !map.has(slotId)) {
-              map.set(slotId, {
-                slotID: slotId,
-                startTime: slot.startTime ?? slot.start_time ?? '',
-                endTime: slot.endTime ?? slot.end_time ?? '',
-              });
-            }
-          });
-        } catch (err) {
-          // Ignore - API có thể không tồn tại
-        }
-      }
-      
-      // Nếu vẫn còn slot chưa có info, thử fetch từ my-slots của các learners
-      const missingSlotIds = refunds
-        .filter(r => !map.has(r.slotId))
-        .map(r => r.slotId);
-      
-      if (missingSlotIds.length > 0) {
-        try {
-          // Thử gọi my-slots (admin có thể có quyền xem tất cả)
-          const mySlotsResponse = await api.get('/booking-slots/my-slots');
-          const mySlots = mySlotsResponse.data?.result || mySlotsResponse.data || [];
-          mySlots.forEach((slot: any) => {
-            const slotId = slot.slotID ?? slot.slotId ?? slot.slot_id;
-            if (slotId && !map.has(slotId)) {
-              map.set(slotId, {
-                slotID: slotId,
-                startTime: slot.startTime ?? slot.start_time ?? '',
-                endTime: slot.endTime ?? slot.end_time ?? '',
-              });
-            }
-          });
-        } catch (err) {
-          console.error('Error fetching my-slots:', err);
+          console.error(`[Admin Refund] Error fetching paid slots for tutor ${tutorId}:`, err);
         }
       }
       
       setSlotsMap(map);
+      
+      // Cập nhật refund requests với dữ liệu từ slots
+      const updatedRefunds = refunds.map(refund => {
+        const slotData = map.get(refund.slotId);
+        if (slotData) {
+          return {
+            ...refund,
+            // Override với dữ liệu từ slot API (nguồn chính xác hơn)
+            learnerJoin: slotData.learnerJoin,
+            tutorJoin: slotData.tutorJoin,
+            learnerEvidence: slotData.learnerEvidence ?? refund.learnerEvidence,
+            tutorEvidence: slotData.tutorEvidence ?? refund.tutorEvidence,
+            reason: slotData.reason ?? refund.reason,
+          };
+        }
+        return refund;
+      });
+      
+      console.log('[Admin Refund] Updated refunds with slot data:', updatedRefunds);
+      
+      setRefundRequests(updatedRefunds);
+      filterRequests(updatedRefunds, activeFilter);
+      
     } catch (error) {
-      console.error('Error fetching slots info:', error);
+      console.error('[Admin Refund] Error fetching slots info:', error);
     }
   };
 

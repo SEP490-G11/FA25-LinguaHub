@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, User, CheckCircle, XCircle, AlertCircle, CreditCard, Clock, FileText, Image, UserCheck, UserX } from 'lucide-react';
+import { Calendar, User, CheckCircle, XCircle, AlertCircle, CreditCard, Clock, FileText, Image, UserCheck, CheckCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -24,6 +24,88 @@ import {
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+// Helper function để xác định trạng thái complaint dựa trên logic:
+// 1. learnerJoin=true + learnerEvidence + reason + !tutorEvidence + tutorJoin=false → "Gia sư đã đồng ý hoàn tiền - Chờ Admin xử lý" (màu xanh dương)
+// 2. learnerJoin=false + learnerEvidence + reason + !tutorEvidence + tutorJoin=false → "Đang chờ gia sư phản hồi khiếu nại" (màu cam)
+// 3. learnerJoin=true + learnerEvidence + !reason + tutorEvidence + tutorJoin=true → "Hoàn thành - Cả hai đã điểm danh" (màu xanh lá)
+// 4. learnerJoin=false + learnerEvidence + reason + tutorEvidence + tutorJoin=true → "Gia sư đang phản đối - Chờ Admin xem xét" (màu tím)
+type ComplaintStatus = 'TUTOR_AGREED' | 'WAITING_TUTOR' | 'COMPLETED' | 'TUTOR_OBJECTING';
+
+// Sử dụng dữ liệu từ slotInfo (API slots/paid) làm nguồn chính xác
+const getComplaintStatus = (request: RefundRequest, slotInfo?: SlotInfo): ComplaintStatus => {
+  // Ưu tiên dữ liệu từ slotInfo (API slots/paid) vì chính xác hơn
+  const learnerJoined = slotInfo?.learnerJoin ?? request.learnerJoin ?? false;
+  const tutorJoined = slotInfo?.tutorJoin ?? request.tutorJoin ?? false;
+  const hasLearnerEvidence = !!(slotInfo?.learnerEvidence ?? request.learnerEvidence);
+  const hasTutorEvidence = !!(slotInfo?.tutorEvidence ?? request.tutorEvidence);
+  const hasReason = !!(slotInfo?.reason ?? request.reason);
+
+  console.log('[ComplaintStatus] Data:', {
+    learnerJoined,
+    tutorJoined,
+    hasLearnerEvidence,
+    hasTutorEvidence,
+    hasReason,
+    slotInfo,
+    request: { learnerJoin: request.learnerJoin, tutorJoin: request.tutorJoin }
+  });
+
+  // Case 3: Hoàn thành - Cả hai đã điểm danh
+  // learnerJoin=true + learnerEvidence + !reason + tutorEvidence + tutorJoin=true
+  if (learnerJoined === true && hasLearnerEvidence && !hasReason && hasTutorEvidence && tutorJoined === true) {
+    return 'COMPLETED';
+  }
+
+  // Case 4: Gia sư đang phản đối - Chờ Admin xem xét
+  // learnerJoin=false + learnerEvidence + reason + tutorEvidence + tutorJoin=true
+  if (learnerJoined === false && hasLearnerEvidence && hasReason && hasTutorEvidence && tutorJoined === true) {
+    return 'TUTOR_OBJECTING';
+  }
+
+  // Case 1: Gia sư đã đồng ý hoàn tiền - Chờ Admin xử lý
+  // learnerJoin=true + learnerEvidence + reason + !tutorEvidence + tutorJoin=false
+  if (learnerJoined === true && hasLearnerEvidence && hasReason && !hasTutorEvidence && tutorJoined === false) {
+    return 'TUTOR_AGREED';
+  }
+
+  // Case 2: Đang chờ gia sư phản hồi khiếu nại (default)
+  // learnerJoin=false + learnerEvidence + reason + !tutorEvidence + tutorJoin=false
+  return 'WAITING_TUTOR';
+};
+
+const getComplaintStatusBadge = (status: ComplaintStatus) => {
+  switch (status) {
+    case 'TUTOR_AGREED':
+      return (
+        <Badge className="bg-blue-100 text-blue-700 border-blue-200 gap-1.5">
+          <CheckCircle className="w-3 h-3" />
+          Gia sư đã đồng ý hoàn tiền - Chờ Admin xử lý
+        </Badge>
+      );
+    case 'WAITING_TUTOR':
+      return (
+        <Badge className="bg-orange-100 text-orange-700 border-orange-200 gap-1.5">
+          <Clock className="w-3 h-3" />
+          Đang chờ gia sư phản hồi khiếu nại
+        </Badge>
+      );
+    case 'COMPLETED':
+      return (
+        <Badge className="bg-green-100 text-green-700 border-green-200 gap-1.5">
+          <CheckCheck className="w-3 h-3" />
+          Hoàn thành - Cả hai đã điểm danh
+        </Badge>
+      );
+    case 'TUTOR_OBJECTING':
+      return (
+        <Badge className="bg-purple-100 text-purple-700 border-purple-200 gap-1.5">
+          <AlertCircle className="w-3 h-3" />
+          Gia sư đang phản đối - Chờ Admin xem xét
+        </Badge>
+      );
+  }
+};
+
 
 interface RefundRequest {
   refundRequestId: number;
@@ -41,8 +123,8 @@ interface RefundRequest {
   tutorId: number;
   reason: string | null;
   refundType: 'COMPLAINT' | 'TUTOR_RESCHEDULE' | 'SLOT_REJECT' | null;
-  learnerAttend: boolean | null;
-  tutorAttend: boolean | null;
+  learnerJoin: boolean | null;
+  tutorJoin: boolean | null;
   learnerEvidence: string | null;
   tutorEvidence: string | null;
 }
@@ -65,6 +147,12 @@ interface SlotInfo {
   slotID: number;
   startTime: string;
   endTime: string;
+  // Thông tin từ API slots/paid để xác định trạng thái complaint
+  learnerJoin?: boolean | null;
+  tutorJoin?: boolean | null;
+  learnerEvidence?: string | null;
+  tutorEvidence?: string | null;
+  reason?: string | null;
 }
 
 interface RefundRequestCardProps {
@@ -95,7 +183,11 @@ const RefundRequestCard = ({ request, userInfo, tutorInfo, slotInfo, onApprove, 
     }
   };
 
-  const hasEvidence = request.learnerEvidence || request.tutorEvidence || request.reason;
+  // Ưu tiên dữ liệu từ slotInfo (API slots/paid)
+  const learnerEvidence = slotInfo?.learnerEvidence ?? request.learnerEvidence;
+  const tutorEvidence = slotInfo?.tutorEvidence ?? request.tutorEvidence;
+  const reason = slotInfo?.reason ?? request.reason;
+  const hasEvidence = learnerEvidence || tutorEvidence || reason;
 
   const getStatusBadge = (status: RefundRequest['status']) => {
     switch (status) {
@@ -126,7 +218,7 @@ const RefundRequestCard = ({ request, userInfo, tutorInfo, slotInfo, onApprove, 
                   {learnerName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div className="text-xs"><span className="text-slate-500">Learner</span></div>
+              <div className="text-xs"><span className="text-slate-500">Người học</span></div>
             </div>
             <div className="flex items-center gap-2">
               <Avatar className="w-12 h-12 border-2 border-purple-200 shadow-sm">
@@ -135,7 +227,7 @@ const RefundRequestCard = ({ request, userInfo, tutorInfo, slotInfo, onApprove, 
                   {tutorName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div className="text-xs"><span className="text-slate-500">Tutor</span></div>
+              <div className="text-xs"><span className="text-slate-500">Gia sư</span></div>
             </div>
           </div>
 
@@ -143,7 +235,7 @@ const RefundRequestCard = ({ request, userInfo, tutorInfo, slotInfo, onApprove, 
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm text-blue-600 font-medium">Learner:</span>
+                  <span className="text-sm text-blue-600 font-medium">Người học:</span>
                   <h3 className="text-lg font-bold text-slate-900">{learnerName}</h3>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-slate-600 mb-3">
@@ -151,7 +243,7 @@ const RefundRequestCard = ({ request, userInfo, tutorInfo, slotInfo, onApprove, 
                   <span>{userInfo?.email || `ID: ${request.userId}`}</span>
                 </div>
                 <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm text-purple-600 font-medium">Tutor:</span>
+                  <span className="text-sm text-purple-600 font-medium">Gia sư:</span>
                   <span className="text-sm font-medium text-slate-700">{tutorName}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -192,40 +284,46 @@ const RefundRequestCard = ({ request, userInfo, tutorInfo, slotInfo, onApprove, 
 
             {request.refundType === 'COMPLAINT' && (
               <div className="flex flex-wrap gap-3 mb-4">
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm ${request.learnerAttend ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                  {request.learnerAttend ? <UserCheck className="w-4 h-4" /> : <UserX className="w-4 h-4" />}
-                  <span>Learner: {request.learnerAttend ? 'Có tham gia' : 'Không tham gia'}</span>
+                {/* Badge trạng thái tổng hợp cho complaint */}
+                {getComplaintStatusBadge(getComplaintStatus(request, slotInfo))}
+                
+                {/* Chi tiết trạng thái từng bên */}
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-blue-100 text-blue-700">
+                  <UserCheck className="w-4 h-4" />
+                  <span>Người học: Đã khiếu nại</span>
                 </div>
-                {/* Tutor đã phản hồi nếu: có evidence HOẶC (tutorAttend có giá trị VÀ status đã chuyển sang SUBMITTED) */}
                 {(() => {
-                  const hasTutorEvidence = !!request.tutorEvidence;
-                  // Tutor đã phản hồi thực sự khi: có evidence hoặc (tutorAttend = false và status = SUBMITTED)
-                  const hasTutorResponded = hasTutorEvidence || (request.tutorAttend === false && request.status === 'SUBMITTED');
+                  const complaintStatus = getComplaintStatus(request, slotInfo);
                   
-                  if (request.tutorAttend === true && hasTutorEvidence) {
-                    // Tutor có tham gia + có evidence
-                    return (
-                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-green-100 text-green-700">
-                        <UserCheck className="w-4 h-4" />
-                        <span>Tutor: Có tham gia</span>
-                      </div>
-                    );
-                  } else if (request.tutorAttend === false && hasTutorResponded) {
-                    // Tutor đồng ý hoàn tiền
-                    return (
-                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-blue-100 text-blue-700">
-                        <UserX className="w-4 h-4" />
-                        <span>Tutor: Đồng ý hoàn tiền</span>
-                      </div>
-                    );
-                  } else {
-                    // Tutor chưa phản hồi
-                    return (
-                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-slate-100 text-slate-600">
-                        <AlertCircle className="w-4 h-4" />
-                        <span>Tutor: Chưa phản hồi</span>
-                      </div>
-                    );
+                  switch (complaintStatus) {
+                    case 'COMPLETED':
+                      return (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-green-100 text-green-700">
+                          <CheckCheck className="w-4 h-4" />
+                          <span>Gia sư: Đã điểm danh</span>
+                        </div>
+                      );
+                    case 'TUTOR_OBJECTING':
+                      return (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-purple-100 text-purple-700">
+                          <UserCheck className="w-4 h-4" />
+                          <span>Gia sư: Đang phản đối (có bằng chứng)</span>
+                        </div>
+                      );
+                    case 'TUTOR_AGREED':
+                      return (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-blue-100 text-blue-700">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>Gia sư: Đã đồng ý hoàn tiền</span>
+                        </div>
+                      );
+                    default:
+                      return (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm bg-orange-100 text-orange-600">
+                          <AlertCircle className="w-4 h-4" />
+                          <span>Gia sư: Chưa phản hồi</span>
+                        </div>
+                      );
                   }
                 })()}
               </div>
@@ -303,71 +401,106 @@ const RefundRequestCard = ({ request, userInfo, tutorInfo, slotInfo, onApprove, 
                     <div className="py-4">
                       <Tabs defaultValue="learner" className="w-full">
                         <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="learner" className="gap-2"><User className="w-4 h-4" />Learner</TabsTrigger>
-                          <TabsTrigger value="tutor" className="gap-2"><User className="w-4 h-4" />Tutor</TabsTrigger>
+                          <TabsTrigger value="learner" className="gap-2"><User className="w-4 h-4" />Người học</TabsTrigger>
+                          <TabsTrigger value="tutor" className="gap-2"><User className="w-4 h-4" />Gia sư</TabsTrigger>
                         </TabsList>
                         <TabsContent value="learner" className="space-y-4 mt-4">
-                          {request.reason && (
+                          {reason && (
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                               <div className="flex items-center gap-2 mb-2">
                                 <FileText className="w-5 h-5 text-blue-600" />
                                 <h4 className="font-semibold text-blue-900">Lý do hoàn tiền</h4>
                               </div>
-                              <p className="text-slate-700 whitespace-pre-wrap">{request.reason}</p>
+                              <p className="text-slate-700 whitespace-pre-wrap">{reason}</p>
                             </div>
                           )}
-                          {request.learnerEvidence ? (
+                          {learnerEvidence ? (
                             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
                               <div className="flex items-center gap-2 mb-3">
                                 <Image className="w-5 h-5 text-slate-600" />
-                                <h4 className="font-semibold text-slate-900">Bằng chứng từ Learner</h4>
+                                <h4 className="font-semibold text-slate-900">Bằng chứng từ người học</h4>
                               </div>
-                              <img src={request.learnerEvidence} alt="Learner Evidence" className="w-full rounded-lg border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(request.learnerEvidence!, '_blank')} />
+                              <img src={learnerEvidence} alt="Learner Evidence" className="w-full rounded-lg border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(learnerEvidence!, '_blank')} />
                               <p className="text-xs text-slate-500 mt-2 text-center">Click vào ảnh để xem kích thước đầy đủ</p>
                             </div>
                           ) : (
                             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-center">
                               <Image className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                              <p className="text-slate-500">Learner chưa cung cấp bằng chứng</p>
+                              <p className="text-slate-500">Người học chưa cung cấp bằng chứng</p>
                             </div>
                           )}
-                          <div className={`flex items-center gap-2 p-3 rounded-lg ${request.learnerAttend ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
-                            {request.learnerAttend ? (<><UserCheck className="w-5 h-5 text-green-600" /><span className="text-green-700 font-medium">Learner xác nhận đã tham gia buổi học</span></>) : (<><UserX className="w-5 h-5 text-red-600" /><span className="text-red-700 font-medium">Learner xác nhận không tham gia được</span></>)}
+                          <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                            <UserCheck className="w-5 h-5 text-blue-600" />
+                            <span className="text-blue-700 font-medium">Người học đã gửi khiếu nại</span>
                           </div>
                         </TabsContent>
                         <TabsContent value="tutor" className="space-y-4 mt-4">
-                          {request.tutorEvidence ? (
+                          {tutorEvidence ? (
                             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
                               <div className="flex items-center gap-2 mb-3">
                                 <Image className="w-5 h-5 text-slate-600" />
-                                <h4 className="font-semibold text-slate-900">Bằng chứng từ Tutor</h4>
+                                <h4 className="font-semibold text-slate-900">Bằng chứng từ gia sư</h4>
                               </div>
-                              <img src={request.tutorEvidence} alt="Tutor Evidence" className="w-full rounded-lg border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(request.tutorEvidence!, '_blank')} />
+                              <img src={tutorEvidence} alt="Tutor Evidence" className="w-full rounded-lg border border-slate-200 cursor-pointer hover:opacity-90 transition-opacity" onClick={() => window.open(tutorEvidence!, '_blank')} />
                               <p className="text-xs text-slate-500 mt-2 text-center">Click vào ảnh để xem kích thước đầy đủ</p>
                             </div>
                           ) : (
                             <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-center">
                               <Image className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-                              <p className="text-slate-500">Tutor chưa cung cấp bằng chứng</p>
+                              <p className="text-slate-500">Gia sư chưa cung cấp bằng chứng</p>
                             </div>
                           )}
-                          <div className={`flex items-center gap-2 p-3 rounded-lg ${request.tutorAttend ? 'bg-green-50 border border-green-200' : request.tutorAttend === false ? 'bg-red-50 border border-red-200' : 'bg-slate-50 border border-slate-200'}`}>
-                            {request.tutorAttend ? (<><UserCheck className="w-5 h-5 text-green-600" /><span className="text-green-700 font-medium">Tutor xác nhận đã tham gia buổi học</span></>) : request.tutorAttend === false ? (<><UserX className="w-5 h-5 text-red-600" /><span className="text-red-700 font-medium">Tutor đồng ý hoàn tiền (không tham gia)</span></>) : (<><AlertCircle className="w-5 h-5 text-slate-500" /><span className="text-slate-600 font-medium">Tutor chưa phản hồi</span></>)}
-                          </div>
+                          {/* Hiển thị trạng thái gia sư dựa trên logic complaint */}
+                          {(() => {
+                            const complaintStatus = getComplaintStatus(request, slotInfo);
+                            
+                            switch (complaintStatus) {
+                              case 'COMPLETED':
+                                return (
+                                  <div className="flex items-center gap-2 p-3 rounded-lg bg-green-50 border border-green-200">
+                                    <CheckCheck className="w-5 h-5 text-green-600" />
+                                    <span className="text-green-700 font-medium">Cả hai đã điểm danh - Buổi học hoàn thành</span>
+                                  </div>
+                                );
+                              case 'TUTOR_OBJECTING':
+                                return (
+                                  <div className="flex items-center gap-2 p-3 rounded-lg bg-purple-50 border border-purple-200">
+                                    <UserCheck className="w-5 h-5 text-purple-600" />
+                                    <span className="text-purple-700 font-medium">Gia sư đang phản đối khiếu nại (có bằng chứng)</span>
+                                  </div>
+                                );
+                              case 'TUTOR_AGREED':
+                                return (
+                                  <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                                    <CheckCircle className="w-5 h-5 text-blue-600" />
+                                    <span className="text-blue-700 font-medium">Gia sư đã đồng ý hoàn tiền cho người học</span>
+                                  </div>
+                                );
+                              default:
+                                return (
+                                  <div className="flex items-center gap-2 p-3 rounded-lg bg-orange-50 border border-orange-200">
+                                    <AlertCircle className="w-5 h-5 text-orange-500" />
+                                    <span className="text-orange-600 font-medium">Gia sư chưa phản hồi khiếu nại</span>
+                                  </div>
+                                );
+                            }
+                          })()}
                         </TabsContent>
                       </Tabs>
                       <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                         <h4 className="font-semibold text-amber-900 mb-2 flex items-center gap-2"><AlertCircle className="w-5 h-5" />Tóm tắt cho Admin</h4>
                         <ul className="text-sm text-amber-800 space-y-1">
                           <li>• Loại yêu cầu: <strong>{getRefundTypeLabel(request.refundType)}</strong></li>
-                          <li>• Learner: {request.learnerAttend ? 'Có tham gia' : 'Không tham gia'} {request.learnerEvidence ? '(có bằng chứng)' : '(không có bằng chứng)'}</li>
-                          <li>• Tutor: {(() => {
-                            const hasTutorEvidence = !!request.tutorEvidence;
-                            const hasTutorResponded = hasTutorEvidence || (request.tutorAttend === false && request.status === 'SUBMITTED');
-                            if (request.tutorAttend === true && hasTutorEvidence) return 'Có tham gia';
-                            if (request.tutorAttend === false && hasTutorResponded) return 'Đồng ý hoàn tiền';
-                            return 'Chưa phản hồi';
-                          })()} {request.tutorEvidence ? '(có bằng chứng)' : '(không có bằng chứng)'}</li>
+                          <li>• Người học: Đã khiếu nại {learnerEvidence ? '(có bằng chứng)' : '(không có bằng chứng)'}</li>
+                          <li>• Gia sư: {(() => {
+                            const complaintStatus = getComplaintStatus(request, slotInfo);
+                            switch (complaintStatus) {
+                              case 'COMPLETED': return 'Đã điểm danh (buổi học hoàn thành)';
+                              case 'TUTOR_OBJECTING': return 'Đang phản đối';
+                              case 'TUTOR_AGREED': return 'Đã đồng ý hoàn tiền';
+                              default: return 'Chưa phản hồi';
+                            }
+                          })()} {tutorEvidence ? '(có bằng chứng)' : '(không có bằng chứng)'}</li>
                         </ul>
                       </div>
                     </div>

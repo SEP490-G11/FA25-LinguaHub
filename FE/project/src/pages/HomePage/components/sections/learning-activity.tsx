@@ -180,7 +180,7 @@ const LearningActivity = () => {
                                         Đặt thêm buổi học
                                     </Button>
                                     <Button 
-                                        onClick={() => navigate('/my-bookings')}
+                                        onClick={() => navigate('/learner/bookings')}
                                         className="border-2 border-white bg-transparent text-white hover:bg-white hover:text-blue-600 font-semibold px-8 py-3 min-w-[200px]"
                                     >
                                         Xem tất cả lịch đặt

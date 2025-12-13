@@ -44,6 +44,7 @@ interface RefundInfo {
   createdAt: string;
   tutorAttend: boolean | null;
   tutorEvidence: string | null;
+  tutorRespondedAt: string | null;
 }
 
 // Modal xem chi tiết khiếu nại
@@ -85,6 +86,7 @@ const ComplaintModal = ({ booking, onClose, onSubmitEvidence, onAgreeRefund, isU
             createdAt: matchingRefund.createdAt ?? matchingRefund.created_at,
             tutorAttend: matchingRefund.tutorAttend ?? matchingRefund.tutor_attend ?? null,
             tutorEvidence: matchingRefund.tutorEvidence ?? matchingRefund.tutor_evidence ?? null,
+            tutorRespondedAt: matchingRefund.tutorRespondedAt ?? matchingRefund.tutor_responded_at ?? null,
           });
         }
       } catch (error) {
@@ -111,26 +113,28 @@ const ComplaintModal = ({ booking, onClose, onSubmitEvidence, onAgreeRefund, isU
     input.click();
   };
 
-  // Xác định trạng thái phản hồi của tutor
-  // tutorAttend = null => Chưa phản hồi
-  // tutorAttend = false => Đồng ý với khiếu nại (chấp nhận hoàn tiền)
-  // tutorAttend = true => Không đồng ý với khiếu nại (phản đối) - cần có evidence
+  // Xác định trạng thái phản hồi của tutor dựa trên tutorAttend + evidence
+  // Logic:
+  // - có tutor_evidence → Tutor đã phản đối (gửi bằng chứng)
+  // - tutorAttend = false + không có tutor_evidence → Tutor đã đồng ý hoàn tiền
+  // - tutorAttend = null/undefined + không có tutor_evidence → Tutor chưa phản hồi
   const getTutorResponseStatus = () => {
-    const tutorAttend = refundInfo?.tutorAttend;
     const hasTutorEvidence = !!booking.tutor_evidence || !!refundInfo?.tutorEvidence;
-
-    // Chưa phản hồi
-    if (tutorAttend === null || tutorAttend === undefined) {
+    const tutorAttendValue = refundInfo?.tutorAttend;
+    
+    // Tutor đã phản đối: có tutorEvidence
+    if (hasTutorEvidence) {
       return { 
-        status: 'pending', 
-        label: 'Chưa phản hồi', 
-        color: 'text-orange-600',
-        bgColor: 'bg-orange-50',
-        borderColor: 'border-orange-200'
+        status: 'rejected', 
+        label: 'Đã phản đối khiếu nại - Đang chờ Admin xem xét', 
+        color: 'text-purple-600',
+        bgColor: 'bg-purple-50',
+        borderColor: 'border-purple-200'
       };
     }
-    // Đồng ý hoàn tiền (tutorAttend = false)
-    if (tutorAttend === false) {
+    
+    // Tutor đã đồng ý hoàn tiền: tutorAttend = false + không có tutorEvidence
+    if (tutorAttendValue === false) {
       return { 
         status: 'accepted', 
         label: 'Đã đồng ý hoàn tiền - Đang chờ Admin xử lý', 
@@ -139,22 +143,14 @@ const ComplaintModal = ({ booking, onClose, onSubmitEvidence, onAgreeRefund, isU
         borderColor: 'border-blue-200'
       };
     }
-    // Không đồng ý (tutorAttend = true) - có evidence
-    if (tutorAttend === true && hasTutorEvidence) {
-      return { 
-        status: 'rejected', 
-        label: 'Không đồng ý với khiếu nại - Đang chờ Admin xem xét', 
-        color: 'text-purple-600',
-        bgColor: 'bg-purple-50',
-        borderColor: 'border-purple-200'
-      };
-    }
+    
+    // Tutor chưa phản hồi (tutorAttend = null/undefined)
     return { 
-      status: 'unknown', 
-      label: 'Không xác định', 
-      color: 'text-slate-600',
-      bgColor: 'bg-slate-50',
-      borderColor: 'border-slate-200'
+      status: 'pending', 
+      label: 'Chưa phản hồi', 
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200'
     };
   };
 
@@ -248,63 +244,53 @@ const ComplaintModal = ({ booking, onClose, onSubmitEvidence, onAgreeRefund, isU
               </span>
             </div>
 
-            {/* Kiểm tra tutor đã phản hồi chưa: từ slot data HOẶC có evidence HOẶC tutorAttend đã có giá trị */}
+            {/* Logic phân biệt trạng thái tutor dựa trên tutorAttend + evidence + learner_join */}
             {(() => {
               const hasTutorEvidence = !!booking.tutor_evidence || !!refundInfo?.tutorEvidence;
-              const tutorAttend = refundInfo?.tutorAttend;
+              const tutorAttendValue = refundInfo?.tutorAttend;
               
-              // Kiểm tra tutor đã đồng ý hoàn tiền từ slot data
-              // Điều kiện: learnerJoin = true, tutorJoin = false, có learnerEvidence
-              const tutorAgreedFromSlot = booking.learner_join === true && 
-                                           booking.tutor_join === false && 
-                                           !!booking.learner_evidence;
+              // Tutor đã phản đối: có tutorEvidence
+              if (hasTutorEvidence) {
+                return (
+                  <div>
+                    <a
+                      href={booking.tutor_evidence || refundInfo?.tutorEvidence || ''}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      <img
+                        src={booking.tutor_evidence || refundInfo?.tutorEvidence || ''}
+                        alt="Bằng chứng tutor"
+                        className="w-full max-h-40 object-contain rounded-lg border border-purple-200"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                        }}
+                      />
+                      <div className="hidden text-center py-4 bg-purple-50 rounded-lg">
+                        <Eye className="w-6 h-6 mx-auto text-purple-600 mb-1" />
+                        <span className="text-sm text-purple-600">Xem file đính kèm</span>
+                      </div>
+                    </a>
+                    <p className="text-xs text-purple-600 mt-2 flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      Bạn đã gửi bằng chứng phản đối - Đang chờ Admin xem xét
+                    </p>
+                  </div>
+                );
+              }
               
-              const hasTutorResponded = tutorAgreedFromSlot || hasTutorEvidence || (tutorAttend !== null && tutorAttend !== undefined);
-              
-              if (hasTutorResponded) {
-                // Tutor đã phản hồi
-                // Kiểm tra đồng ý hoàn tiền: từ slot data hoặc tutorAttend = false (và không có evidence)
-                if (tutorAgreedFromSlot || (tutorAttend === false && !hasTutorEvidence)) {
-                  // Đồng ý hoàn tiền
-                  return (
-                    <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                      <p className="text-sm text-blue-700 flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4" />
-                        Bạn đã đồng ý hoàn tiền - Đang chờ Admin xử lý
-                      </p>
-                    </div>
-                  );
-                } else {
-                  // Không đồng ý (có evidence)
-                  return (
-                    <div>
-                      <a
-                        href={booking.tutor_evidence || refundInfo?.tutorEvidence || ''}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block"
-                      >
-                        <img
-                          src={booking.tutor_evidence || refundInfo?.tutorEvidence || ''}
-                          alt="Bằng chứng tutor"
-                          className="w-full max-h-40 object-contain rounded-lg border border-emerald-200"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                          }}
-                        />
-                        <div className="hidden text-center py-4 bg-emerald-50 rounded-lg">
-                          <Eye className="w-6 h-6 mx-auto text-emerald-600 mb-1" />
-                          <span className="text-sm text-emerald-600">Xem file đính kèm</span>
-                        </div>
-                      </a>
-                      <p className="text-xs text-purple-600 mt-2 flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3" />
-                        Bạn đã gửi bằng chứng phản hồi - Đang chờ Admin xem xét
-                      </p>
-                    </div>
-                  );
-                }
+              // Tutor đã đồng ý hoàn tiền: tutorAttend = false + không có tutorEvidence
+              if (tutorAttendValue === false) {
+                return (
+                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                    <p className="text-sm text-blue-700 flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4" />
+                      Bạn đã đồng ý hoàn tiền - Đang chờ Admin xử lý
+                    </p>
+                  </div>
+                );
               }
               
               // Tutor chưa phản hồi - chỉ hiển thị 2 nút trong khoảng thời gian slot
@@ -365,6 +351,7 @@ interface SlotRefundInfo {
   tutorAttend: boolean | null;
   tutorEvidence: string | null;
   reason: string | null;
+  tutorRespondedAt: string | null;
 }
 
 const UpcomingSessions = ({
@@ -396,8 +383,10 @@ const UpcomingSessions = ({
   }, []);
   
   // Hàm kiểm tra thời gian hiện tại có nằm trong khoảng slot không (1 tiếng)
+  // TODO: Bỏ comment khi test xong
   const isWithinSlotTime = (startTime: Date, endTime: Date): boolean => {
-    return currentTime >= startTime && currentTime <= endTime;
+    // return currentTime >= startTime && currentTime <= endTime;
+    return true; // Tạm thời luôn trả về true để test
   };
 
   // Hàm mở modal xem gói học - fetch từ API
@@ -443,30 +432,32 @@ const UpcomingSessions = ({
     }
   };
 
+  // Hàm fetch thông tin refund - tách ra để có thể gọi lại
+  const fetchRefundInfo = async () => {
+    try {
+      const response = await api.get('/admin/refund/all');
+      const refunds = response.data.result || [];
+      
+      const infoMap: Record<number, SlotRefundInfo> = {};
+      refunds.forEach((r: any) => {
+        const slotId = r.slotId ?? r.slot_id;
+        if (slotId) {
+          infoMap[slotId] = {
+            tutorAttend: r.tutorAttend ?? r.tutor_attend ?? null,
+            tutorEvidence: r.tutorEvidence ?? r.tutor_evidence ?? null,
+            reason: r.reason ?? null,
+            tutorRespondedAt: r.tutorRespondedAt ?? r.tutor_responded_at ?? null,
+          };
+        }
+      });
+      setRefundInfoMap(infoMap);
+    } catch (error) {
+      console.error('Error fetching refund info:', error);
+    }
+  };
+
   // Fetch thông tin refund cho tất cả các slot có khiếu nại
   useEffect(() => {
-    const fetchRefundInfo = async () => {
-      try {
-        const response = await api.get('/admin/refund/all');
-        const refunds = response.data.result || [];
-        
-        const infoMap: Record<number, SlotRefundInfo> = {};
-        refunds.forEach((r: any) => {
-          const slotId = r.slotId ?? r.slot_id;
-          if (slotId) {
-            infoMap[slotId] = {
-              tutorAttend: r.tutorAttend ?? r.tutor_attend ?? null,
-              tutorEvidence: r.tutorEvidence ?? r.tutor_evidence ?? null,
-              reason: r.reason ?? null,
-            };
-          }
-        });
-        setRefundInfoMap(infoMap);
-      } catch (error) {
-        console.error('Error fetching refund info:', error);
-      }
-    };
-
     fetchRefundInfo();
   }, [bookings]);
 
@@ -492,14 +483,17 @@ const UpcomingSessions = ({
         return;
       }
 
-      // Kiểm tra xem tutor đã phản hồi chưa
-      const tutorAttend = matchingRefund.tutorAttend ?? matchingRefund.tutor_attend;
-      if (tutorAttend !== null && tutorAttend !== undefined) {
-        toast.error('Bạn đã phản hồi khiếu nại này rồi');
+      // Kiểm tra xem tutor đã phản đối (gửi evidence) chưa - chỉ chặn nếu đã gửi evidence
+      const tutorEvidence = matchingRefund.tutorEvidence ?? matchingRefund.tutor_evidence;
+      
+      if (tutorEvidence) {
+        toast.error('Bạn đã gửi bằng chứng phản đối khiếu nại này rồi');
         onRefresh?.();
         setSelectedComplaint(null);
         return;
       }
+      
+      // Không chặn nếu tutorAttend = false vì có thể cần gọi lại API để set learnerJoin = true
 
       const refundId = matchingRefund.refundRequestId ?? matchingRefund.refund_request_id ?? matchingRefund.id;
       
@@ -512,6 +506,8 @@ const UpcomingSessions = ({
       await api.patch(`/tutor/refunds/${refundId}/agree-refund`);
       
       toast.success('Đã đồng ý hoàn tiền cho học viên');
+      // Fetch lại refund info để cập nhật UI ngay lập tức
+      await fetchRefundInfo();
       onRefresh?.();
       setSelectedComplaint(null);
     } catch (error: any) {
@@ -545,6 +541,8 @@ const UpcomingSessions = ({
         tutorJoin: tutorJoined,
       });
       
+      // Fetch lại refund info để cập nhật UI ngay lập tức
+      await fetchRefundInfo();
       // Refresh data
       onRefresh?.();
       setSelectedComplaint(null);
@@ -612,41 +610,28 @@ const UpcomingSessions = ({
   };
 
   const hasLearnerComplaint = (booking: BookedSlot) => {
-    // Khiếu nại = có learner_evidence NHƯNG learner_join = false
-    // Nếu learner_join = true thì đó là xác nhận tham gia, không phải khiếu nại
-    // NGOẠI TRỪ trường hợp tutor đã đồng ý hoàn tiền (learner_join = true, tutor_join = false, có learner_evidence)
-    const isTutorAgreedRefund = booking.learner_join === true && booking.tutor_join === false && !!booking.learner_evidence;
-    if (isTutorAgreedRefund) {
-      return true; // Vẫn coi là khiếu nại nhưng tutor đã đồng ý
-    }
-    const hasEvidenceButNotJoined = !!booking.learner_evidence && booking.learner_join !== true;
+    // Khiếu nại = có learner_evidence + CÓ reason (lý do khiếu nại)
+    // Khi tutor đồng ý hoàn tiền, BE set learner_join = true, nhưng vẫn phải hiển thị khiếu nại
+    // để cả người học và tutor có thể xem lại lý do và bằng chứng
+    const slotRefund = refundInfoMap[booking.slotid];
+    const hasReason = !!slotRefund?.reason;
+    // Có khiếu nại nếu: có learner_evidence + có reason (bất kể learner_join là gì)
+    const hasComplaint = !!booking.learner_evidence && hasReason;
     const isRejectedNotByTutor = booking.original_status === 'Rejected' && !isCancelledByTutorUpdate(booking);
-    return hasEvidenceButNotJoined || isRejectedNotByTutor;
-  };
-
-  // Kiểm tra tutor đã đồng ý hoàn tiền dựa trên slot data
-  // Điều kiện: learnerJoin = true, tutorJoin = false, có learnerEvidence
-  const hasTutorAgreedRefundFromSlot = (booking: BookedSlot) => {
-    return booking.learner_join === true && 
-           booking.tutor_join === false && 
-           !!booking.learner_evidence;
+    return hasComplaint || isRejectedNotByTutor;
   };
 
   const getStatusInfo = (booking: BookedSlot) => {
     const isRejected = booking.original_status === 'Rejected';
     const tutorJoined = booking.tutor_join === true;
     const learnerJoined = booking.learner_join === true;
-    const isComplaint = hasLearnerComplaint(booking);
     const isTutorCancelled = isCancelledByTutorUpdate(booking);
     const hasTutorEvidence = !!booking.tutor_evidence;
+    const hasLearnerEvidence = !!booking.learner_evidence;
     
-    // Kiểm tra tutor đã đồng ý hoàn tiền từ slot data
-    const tutorAgreedFromSlot = hasTutorAgreedRefundFromSlot(booking);
-    
-    // Lấy thông tin refund từ map
+    // Lấy thông tin refund để kiểm tra reason
     const slotRefund = refundInfoMap[booking.slotid];
-    const tutorAttend = slotRefund?.tutorAttend;
-    const hasTutorResponded = tutorAttend !== null && tutorAttend !== undefined;
+    const hasReason = !!slotRefund?.reason;
     
     if (isRejected) {
       if (isTutorCancelled) {
@@ -655,39 +640,42 @@ const UpcomingSessions = ({
       return { color: 'text-red-600', label: 'Đã bị từ chối/hoàn tiền', type: 'rejected' };
     }
     
-    // Kiểm tra tutor đã đồng ý hoàn tiền (ưu tiên kiểm tra từ slot data trước)
-    if (tutorAgreedFromSlot) {
-      return { color: 'text-blue-600', label: 'Đã đồng ý hoàn tiền - Chờ Admin xử lý', type: 'agreed_refund' };
+    // Logic phân biệt các trạng thái dựa trên learner_join, tutor_join, evidence, reason:
+    // 1. learner_join=true + learner_evidence + reason + !tutor_evidence + tutorJoin=false → Gia sư đã đồng ý hoàn tiền
+    // 2. learner_join=false + learner_evidence + reason + !tutor_evidence + tutorJoin=false → Chờ gia sư phản hồi
+    // 3. learner_join=true + learner_evidence + !reason + tutor_evidence + tutorJoin=true → Cả 2 đã tham gia
+    // 4. learner_join=false + learner_evidence + reason + tutor_evidence + tutorJoin=true → Tutor đang phản đối khiếu nại
+    
+    // Gia sư đã đồng ý hoàn tiền
+    if (learnerJoined && hasLearnerEvidence && hasReason && !hasTutorEvidence && !tutorJoined) {
+      return { color: 'text-blue-600', label: 'Đã đồng ý hoàn tiền - Chờ Admin xử lý', type: 'tutor_agreed_refund' };
     }
     
-    if (tutorJoined && learnerJoined) {
+    // Gia sư đang phản đối khiếu nại
+    if (!learnerJoined && hasLearnerEvidence && hasReason && hasTutorEvidence && tutorJoined) {
+      return { color: 'text-purple-600', label: 'Đã phản đối - Chờ Admin xem xét', type: 'waiting_admin' };
+    }
+    
+    // Chờ gia sư phản hồi khiếu nại
+    if (!learnerJoined && hasLearnerEvidence && hasReason && !hasTutorEvidence && !tutorJoined) {
+      return { color: 'text-orange-600', label: 'Người học khiếu nại - Chờ phản hồi', type: 'complaint' };
+    }
+    
+    // Cả hai đã điểm danh (không có reason = không phải khiếu nại)
+    if (learnerJoined && hasLearnerEvidence && !hasReason && hasTutorEvidence && tutorJoined) {
       return { color: 'text-emerald-600', label: 'Hoàn thành - Cả hai đã điểm danh', type: 'completed' };
     }
     
-    // Kiểm tra tutor đã phản hồi khiếu nại chưa (dựa vào tutorAttend từ refund API)
-    if (isComplaint && hasTutorResponded) {
-      if (tutorAttend === false) {
-        // Tutor đồng ý hoàn tiền
-        return { color: 'text-blue-600', label: 'Đã đồng ý hoàn tiền - Chờ Admin xử lý', type: 'agreed_refund' };
-      } else {
-        // Tutor không đồng ý (tutorAttend = true)
-        return { color: 'text-purple-600', label: 'Đang chờ Admin xem xét', type: 'waiting_admin' };
-      }
+    // Gia sư đã điểm danh, chờ người học
+    if (tutorJoined && !learnerJoined && !hasReason) {
+      return { color: 'text-blue-600', label: 'Gia sư đã điểm danh - Chờ người học', type: 'tutor_joined' };
     }
     
-    // Tutor đã điểm danh + Learner khiếu nại + có evidence → Đang chờ Admin xem xét
-    if (tutorJoined && isComplaint && hasTutorEvidence) {
-      return { color: 'text-purple-600', label: 'Đang chờ Admin xem xét', type: 'waiting_admin' };
+    // Người học đã điểm danh (không có reason = không phải khiếu nại)
+    if (learnerJoined && !tutorJoined && !hasReason) {
+      return { color: 'text-yellow-600', label: 'Người học đã điểm danh - Chờ gia sư', type: 'learner_joined' };
     }
-    if (tutorJoined && !learnerJoined && !isComplaint) {
-      return { color: 'text-blue-600', label: 'Tutor đã điểm danh - Chờ learner', type: 'tutor_joined' };
-    }
-    if (isComplaint) {
-      return { color: 'text-orange-600', label: 'Learner đã khiếu nại', type: 'complaint' };
-    }
-    if (learnerJoined && !tutorJoined) {
-      return { color: 'text-yellow-600', label: 'Learner đã điểm danh - Chờ tutor', type: 'learner_joined' };
-    }
+    
     return { color: 'text-blue-600', label: 'Đã đặt - Chờ điểm danh', type: 'pending' };
   };
 
@@ -715,10 +703,21 @@ const UpcomingSessions = ({
           const isComplaint = hasLearnerComplaint(booking);
           const isTutorCancelled = isCancelledByTutorUpdate(booking);
           
+          // Kiểm tra tutor đã phản hồi khiếu nại chưa
+          const slotRefund = refundInfoMap[booking.slotid];
+          const hasTutorEvidence = !!booking.tutor_evidence || !!slotRefund?.tutorEvidence;
+          const tutorAttendValue = slotRefund?.tutorAttend;
+          // Tutor đã phản hồi nếu: có evidence HOẶC tutorAttend có giá trị (true hoặc false, không phải null/undefined)
+          // tutorAttend = null → chưa phản hồi
+          // tutorAttend = false → đã đồng ý hoàn tiền
+          // tutorAttend = true hoặc có evidence → đã phản đối
+          const hasTutorResponded = hasTutorEvidence || (tutorAttendValue !== null && tutorAttendValue !== undefined);
+          
           // Chỉ cho phép thao tác trong khoảng thời gian của slot (1 tiếng)
           const isInSlotTimeWindow = isWithinSlotTime(startTime, endTime);
-          // Tutor có thể điểm danh nếu: slot đã Paid, chưa bị reject, tutor chưa join, và đang trong thời gian slot
-          const canTutorJoin = isPaid && !isRejected && !tutorJoined && isInSlotTimeWindow;
+          // Tutor có thể điểm danh nếu: slot đã Paid, chưa bị reject, tutor chưa join, đang trong thời gian slot
+          // VÀ không có khiếu nại (nếu có khiếu nại thì phải xử lý qua modal khiếu nại)
+          const canTutorJoin = isPaid && !isRejected && !tutorJoined && isInSlotTimeWindow && !isComplaint && !hasTutorResponded;
           
           const statusInfo = getStatusInfo(booking);
 
@@ -803,27 +802,92 @@ const UpcomingSessions = ({
                         <XCircle className="w-4 h-4 text-slate-400" />
                       )}
                       <span className={tutorJoined ? 'text-emerald-600' : 'text-slate-500'}>
-                        Tutor: {tutorJoined ? 'Đã điểm danh' : 'Chưa điểm danh'}
+                        Gia sư: {tutorJoined ? 'Đã điểm danh' : 'Chưa điểm danh'}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {learnerJoined ? (
-                        <UserCheck className="w-4 h-4 text-emerald-500" />
-                      ) : isComplaint ? (
-                        <AlertTriangle className="w-4 h-4 text-orange-500" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-slate-400" />
-                      )}
-                      <span className={
-                        learnerJoined 
-                          ? 'text-emerald-600' 
-                          : isComplaint 
-                            ? 'text-orange-600' 
-                            : 'text-slate-500'
-                      }>
-                        Learner: {learnerJoined ? 'Đã điểm danh' : isComplaint ? 'Đã khiếu nại' : 'Chưa điểm danh'}
-                      </span>
-                    </div>
+                    {/* Logic hiển thị trạng thái người học dựa trên learner_join, tutor_join, evidence, reason */}
+                    {(() => {
+                      const slotRefund = refundInfoMap[booking.slotid];
+                      const hasReason = !!slotRefund?.reason;
+                      const hasLearnerEvidence = !!booking.learner_evidence;
+                      const slotHasTutorEvidence = !!booking.tutor_evidence;
+                      
+                      // Logic phân biệt các trạng thái:
+                      // 1. learner_join=true + learner_evidence + reason + !tutor_evidence + tutorJoin=false → Gia sư đã đồng ý hoàn tiền
+                      // 2. learner_join=false + learner_evidence + reason + !tutor_evidence + tutorJoin=false → Chờ gia sư phản hồi
+                      // 3. learner_join=true + learner_evidence + !reason + tutor_evidence + tutorJoin=true → Cả 2 đã tham gia
+                      // 4. learner_join=false + learner_evidence + reason + tutor_evidence + tutorJoin=true → Tutor đang phản đối
+                      
+                      // Gia sư đã đồng ý hoàn tiền
+                      if (learnerJoined && hasLearnerEvidence && hasReason && !slotHasTutorEvidence && !tutorJoined) {
+                        return (
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-blue-500" />
+                            <span className="text-blue-600">
+                              Người học: Đã khiếu nại (Gia sư đồng ý hoàn tiền)
+                            </span>
+                          </div>
+                        );
+                      }
+                      
+                      // Gia sư đang phản đối khiếu nại
+                      if (!learnerJoined && hasLearnerEvidence && hasReason && slotHasTutorEvidence && tutorJoined) {
+                        return (
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-purple-500" />
+                            <span className="text-purple-600">
+                              Người học: Đã khiếu nại (Gia sư phản đối)
+                            </span>
+                          </div>
+                        );
+                      }
+                      
+                      // Chờ gia sư phản hồi khiếu nại
+                      if (!learnerJoined && hasLearnerEvidence && hasReason && !slotHasTutorEvidence && !tutorJoined) {
+                        return (
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-orange-500" />
+                            <span className="text-orange-600">
+                              Người học: Đã khiếu nại - Chờ phản hồi
+                            </span>
+                          </div>
+                        );
+                      }
+                      
+                      // Cả hai đã điểm danh
+                      if (learnerJoined && hasLearnerEvidence && !hasReason && slotHasTutorEvidence && tutorJoined) {
+                        return (
+                          <div className="flex items-center gap-2">
+                            <UserCheck className="w-4 h-4 text-emerald-500" />
+                            <span className="text-emerald-600">
+                              Người học: Đã điểm danh
+                            </span>
+                          </div>
+                        );
+                      }
+                      
+                      // Người học đã điểm danh (không có reason)
+                      if (learnerJoined && hasLearnerEvidence && !hasReason) {
+                        return (
+                          <div className="flex items-center gap-2">
+                            <UserCheck className="w-4 h-4 text-emerald-500" />
+                            <span className="text-emerald-600">
+                              Người học: Đã điểm danh
+                            </span>
+                          </div>
+                        );
+                      }
+                      
+                      // Chưa điểm danh
+                      return (
+                        <div className="flex items-center gap-2">
+                          <XCircle className="w-4 h-4 text-slate-400" />
+                          <span className="text-slate-500">
+                            Người học: Chưa điểm danh
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 )}
 
@@ -842,6 +906,39 @@ const UpcomingSessions = ({
                   </div>
                 )}
 
+                {/* Hiển thị khi tutor đã đồng ý hoàn tiền:
+                    - learner_join = true
+                    - có learner_evidence
+                    - CÓ reason
+                    - KHÔNG có tutor_evidence
+                    - tutor_join = false
+                */}
+                {(() => {
+                  const slotRefund = refundInfoMap[booking.slotid];
+                  const hasReason = !!slotRefund?.reason;
+                  const slotHasTutorEvidence = !!booking.tutor_evidence;
+                  // Tutor đã đồng ý hoàn tiền theo logic mới
+                  const isTutorAgreedRefund = learnerJoined && 
+                                              !!booking.learner_evidence && 
+                                              hasReason &&
+                                              !slotHasTutorEvidence &&
+                                              !tutorJoined;
+                  
+                  if (isTutorAgreedRefund && !isTutorCancelled) {
+                    return (
+                      <div className="mt-2 p-3 bg-blue-100 rounded-lg border border-blue-200">
+                        <div className="flex items-center gap-2 text-blue-700">
+                          <CheckCircle className="w-4 h-4" />
+                          <span className="text-sm font-medium">
+                            Bạn đã đồng ý hoàn tiền - Đang chờ Admin xử lý
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
                 {/* Cảnh báo khiếu nại - cho phép xem chi tiết và phản hồi */}
                 {isComplaint && !isTutorCancelled && (
                   <div className="mt-2 p-3 bg-orange-100 rounded-lg border border-orange-200">
@@ -849,7 +946,7 @@ const UpcomingSessions = ({
                       <div className="flex items-center gap-2 text-orange-700">
                         <AlertTriangle className="w-4 h-4" />
                         <span className="text-sm font-medium">
-                          Học viên đã khiếu nại buổi học này
+                          Người học đã khiếu nại buổi học này
                         </span>
                       </div>
                       <button
@@ -864,41 +961,37 @@ const UpcomingSessions = ({
                     {/* Hiển thị nút phản hồi hoặc trạng thái đã phản hồi */}
                     {(() => {
                       const slotRefund = refundInfoMap[booking.slotid];
-                      const hasTutorEvidence = !!slotRefund?.tutorEvidence || !!booking.tutor_evidence;
-                      const tutorAttend = slotRefund?.tutorAttend;
+                      const hasReason = !!slotRefund?.reason;
+                      const slotHasTutorEvidence = !!booking.tutor_evidence;
+                      const hasLearnerEvidence = !!booking.learner_evidence;
                       
-                      // Kiểm tra tutor đã đồng ý hoàn tiền từ slot data
-                      // Điều kiện: learnerJoin = true, tutorJoin = false, có learnerEvidence
-                      const tutorAgreedFromSlot = booking.learner_join === true && 
-                                                   booking.tutor_join === false && 
-                                                   !!booking.learner_evidence;
+                      // Logic phân biệt các trạng thái dựa trên learner_join, tutor_join, evidence, reason:
+                      // 1. learner_join=true + learner_evidence + reason + !tutor_evidence + tutorJoin=false → Gia sư đã đồng ý hoàn tiền
+                      // 2. learner_join=false + learner_evidence + reason + !tutor_evidence + tutorJoin=false → Chờ gia sư phản hồi (hiện nút)
+                      // 3. learner_join=false + learner_evidence + reason + tutor_evidence + tutorJoin=true → Tutor đang phản đối
                       
-                      // Tutor đã phản hồi nếu: đồng ý từ slot data HOẶC có evidence HOẶC tutorAttend đã có giá trị
-                      const hasTutorResponded = tutorAgreedFromSlot || hasTutorEvidence || (tutorAttend !== null && tutorAttend !== undefined);
+                      // Tutor đã phản đối: learner_join=false + learner_evidence + reason + tutor_evidence + tutorJoin=true
+                      if (!learnerJoined && hasLearnerEvidence && hasReason && slotHasTutorEvidence && tutorJoined) {
+                        return (
+                          <p className="text-xs text-purple-600 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            Bạn đã gửi bằng chứng phản đối - Đang chờ Admin xem xét
+                          </p>
+                        );
+                      }
                       
-                      if (hasTutorResponded) {
-                        // Tutor đã phản hồi
-                        // Kiểm tra đồng ý hoàn tiền: từ slot data hoặc tutorAttend = false
-                        if (tutorAgreedFromSlot || tutorAttend === false) {
-                          // Đồng ý hoàn tiền
-                          return (
-                            <p className="text-xs text-blue-600 flex items-center gap-1">
-                              <CheckCircle className="w-3 h-3" />
-                              Bạn đã đồng ý hoàn tiền - Đang chờ Admin xử lý
-                            </p>
-                          );
-                        } else {
-                          // Không đồng ý (có evidence)
-                          return (
-                            <p className="text-xs text-purple-600 flex items-center gap-1">
-                              <CheckCircle className="w-3 h-3" />
-                              Bạn đã gửi bằng chứng phản hồi - Đang chờ Admin xem xét
-                            </p>
-                          );
-                        }
+                      // Tutor đã đồng ý hoàn tiền: learner_join=true + learner_evidence + reason + !tutor_evidence + tutorJoin=false
+                      if (learnerJoined && hasLearnerEvidence && hasReason && !slotHasTutorEvidence && !tutorJoined) {
+                        return (
+                          <p className="text-xs text-blue-600 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            Bạn đã đồng ý hoàn tiền - Đang chờ Admin xử lý
+                          </p>
+                        );
                       }
                       
                       // Tutor chưa phản hồi - chỉ hiển thị 2 nút trong khoảng thời gian slot
+                      // learner_join=false + learner_evidence + reason + !tutor_evidence + tutorJoin=false
                       if (!isInSlotTimeWindow) {
                         return (
                           <p className="text-xs text-slate-500 italic">

@@ -304,7 +304,7 @@ const Header = () => {
                                             </DropdownMenuItem>
 
                                             <DropdownMenuItem asChild>
-                                                <Link to="/my-bookings" className="cursor-pointer">
+                                                <Link to="/learner/bookings" className="cursor-pointer">
                                                     <Calendar className="mr-2 h-4 w-4" />
                                                     <span>Lịch học của tôi</span>
                                                 </Link>

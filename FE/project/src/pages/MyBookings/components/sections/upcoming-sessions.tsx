@@ -83,26 +83,30 @@ const UpcomingSessions = ({
   }, []);
   
   // Hàm kiểm tra thời gian hiện tại có nằm trong khoảng slot không (1 tiếng)
+  // TODO: Bỏ comment khi test xong
   const isWithinSlotTime = (startTime: Date, endTime: Date): boolean => {
-    return currentTime >= startTime && currentTime <= endTime;
+    // return currentTime >= startTime && currentTime <= endTime;
+    return true; // Tạm thời luôn trả về true để test
   };
 
   // Fetch lý do khiếu nại từ API refund khi có booking có learnerEvidence
+  // Cần fetch cho TẤT CẢ slot có learnerEvidence (không chỉ những slot có !learnerJoin)
+  // vì khi tutor đồng ý hoàn tiền, BE set learnerJoin = true nhưng vẫn là khiếu nại
   useEffect(() => {
     const fetchComplaintReasons = async () => {
-      // Lấy danh sách slotID có khiếu nại (có learnerEvidence và chưa có reason trong state)
-      const complainedSlots = bookings.filter(
-        (b) => !!b.learnerEvidence && !b.learnerJoin && !complaintReasons[b.slotID]
+      // Lấy danh sách slotID có learnerEvidence và chưa có reason trong state
+      const slotsWithEvidence = bookings.filter(
+        (b) => !!b.learnerEvidence && !complaintReasons[b.slotID]
       );
       
-      if (complainedSlots.length === 0) return;
+      if (slotsWithEvidence.length === 0) return;
       
       try {
         const response = await api.get('/admin/refund/all');
         const refunds = response.data.result || [];
         
         const newReasons: Record<number, string> = {};
-        complainedSlots.forEach((slot) => {
+        slotsWithEvidence.forEach((slot) => {
           const matchingRefund = refunds.find((r: any) => {
             const slotId = r.slotId ?? r.slot_id;
             const uId = r.userId ?? r.user_id;
@@ -359,15 +363,36 @@ const UpcomingSessions = ({
             const startTime = new Date(booking.startTime);
             const endTime = new Date(booking.endTime);
             const isPast = endTime < now;
-            const hasConfirmed = booking.learnerJoin === true;
-            const hasComplained = !!booking.learnerEvidence && !booking.learnerJoin;
             const isRejected = booking.status === 'Rejected';
+            
+            // Lấy các giá trị cần thiết
+            const hasReason = !!complaintReasons[booking.slotID];
+            const hasLearnerEvidence = !!booking.learnerEvidence;
+            const hasTutorEvidence = !!booking.tutorEvidence;
+            const learnerJoined = booking.learnerJoin === true;
+            const tutorJoined = booking.tutorJoin === true;
+            
+            // Logic phân biệt các trạng thái chi tiết:
+            // 1. learner_join=true + learner_evidence + reason + !tutor_evidence + tutorJoin=false → Gia sư đã đồng ý hoàn tiền
+            // 2. learner_join=false + learner_evidence + reason + !tutor_evidence + tutorJoin=false → Chờ gia sư phản hồi
+            // 3. learner_join=true + learner_evidence + !reason + tutor_evidence + tutorJoin=true → Cả 2 đã tham gia
+            // 4. learner_join=false + learner_evidence + reason + tutor_evidence + tutorJoin=true → Tutor đang phản đối khiếu nại
+            
+            const isTutorAgreedRefund = learnerJoined && hasLearnerEvidence && hasReason && !hasTutorEvidence && !tutorJoined;
+            const isWaitingTutorResponse = !learnerJoined && hasLearnerEvidence && hasReason && !hasTutorEvidence && !tutorJoined;
+            const isBothAttended = learnerJoined && hasLearnerEvidence && !hasReason && hasTutorEvidence && tutorJoined;
+            const isTutorDisputing = !learnerJoined && hasLearnerEvidence && hasReason && hasTutorEvidence && tutorJoined;
+            
+            // Tổng hợp: có khiếu nại nếu có reason
+            const hasComplained = hasLearnerEvidence && hasReason;
+            // Đã điểm danh bình thường: learnerJoin + evidence + không có reason
+            const hasConfirmed = learnerJoined && hasLearnerEvidence && !hasReason;
             
             // Phân biệt các trường hợp Rejected:
             // - Tutor hủy lịch: Rejected + không có learnerEvidence
             // - Learner khiếu nại bị từ chối: Rejected + có learnerEvidence + learnerJoin = false
-            const isTutorCancelled = isRejected && !booking.learnerEvidence;
-            const isComplaintRejected = isRejected && !!booking.learnerEvidence && !booking.learnerJoin;
+            const isTutorCancelled = isRejected && !hasLearnerEvidence;
+            const isComplaintRejected = isRejected && hasLearnerEvidence && !learnerJoined;
             
             // Khóa link Meet khi: đã tham gia, đã khiếu nại, hoặc bị reject
             const shouldLockMeetLink = hasConfirmed || hasComplained || isRejected || isPast;
@@ -441,27 +466,39 @@ const UpcomingSessions = ({
                         isTutorCancelled
                           ? 'text-red-600'
                           : isComplaintRejected
-                            ? 'text-orange-600'
-                            : hasComplained
-                              ? 'text-orange-600'
-                              : hasConfirmed
-                                ? 'text-emerald-600'
-                                : isPast
-                                  ? 'text-slate-500'
-                                  : 'text-green-600'
+                            ? 'text-red-600'
+                            : isTutorAgreedRefund
+                              ? 'text-blue-600'
+                              : isTutorDisputing
+                                ? 'text-purple-600'
+                                : isWaitingTutorResponse
+                                  ? 'text-orange-600'
+                                  : isBothAttended
+                                    ? 'text-emerald-600'
+                                    : hasConfirmed
+                                      ? 'text-emerald-600'
+                                      : isPast
+                                        ? 'text-slate-500'
+                                        : 'text-green-600'
                       }`}
                     >
                       {isTutorCancelled
                         ? 'Gia sư đã hủy lịch'
                         : isComplaintRejected
                           ? 'Khiếu nại đã xử lý'
-                          : hasComplained
-                            ? 'Đang chờ xử lý khiếu nại'
-                            : hasConfirmed
-                              ? 'Đã điểm danh'
-                              : isPast
-                                ? 'Đã qua'
-                                : 'Sắp diễn ra'}
+                          : isTutorAgreedRefund
+                            ? 'Gia sư đã đồng ý hoàn tiền - Chờ Admin xử lý'
+                            : isTutorDisputing
+                              ? 'Gia sư đang phản đối - Chờ Admin xem xét'
+                              : isWaitingTutorResponse
+                                ? 'Đang chờ gia sư phản hồi khiếu nại'
+                                : isBothAttended
+                                  ? 'Hoàn thành - Cả hai đã điểm danh'
+                                  : hasConfirmed
+                                    ? 'Đã điểm danh'
+                                    : isPast
+                                      ? 'Đã qua'
+                                      : 'Sắp diễn ra'}
                     </span>
                   </div>
 
@@ -528,7 +565,27 @@ const UpcomingSessions = ({
                     </div>
                   )}
 
-                  {hasConfirmed && (
+                  {/* Cả hai đã tham gia */}
+                  {isBothAttended && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        Cả bạn và gia sư đều đã xác nhận tham gia buổi học
+                      </span>
+                      {booking.learnerEvidence && (
+                        <button
+                          onClick={() => openEvidenceModal(booking.learnerEvidence!, 'Bằng chứng của bạn')}
+                          className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-600 text-xs font-medium rounded-md hover:bg-blue-100 transition-colors border border-blue-200"
+                        >
+                          <Image className="w-3.5 h-3.5" />
+                          Xem bằng chứng của bạn
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Đã điểm danh bình thường (không phải cả 2) */}
+                  {hasConfirmed && !isBothAttended && (
                     <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
                       <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
                         <CheckCircle className="w-3.5 h-3.5" />
@@ -546,11 +603,12 @@ const UpcomingSessions = ({
                     </div>
                   )}
 
-                  {hasComplained && (
+                  {/* Gia sư đã đồng ý hoàn tiền */}
+                  {isTutorAgreedRefund && (
                     <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
-                      <span className="inline-flex items-center gap-1.5 text-xs text-orange-600 font-medium">
-                        <AlertTriangle className="w-3.5 h-3.5" />
-                        Bạn đã gửi khiếu nại, đang chờ xử lý
+                      <span className="inline-flex items-center gap-1.5 text-xs text-blue-600 font-medium">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        Gia sư đã đồng ý hoàn tiền cho bạn - Đang chờ Admin xử lý
                       </span>
                       {booking.learnerEvidence && (
                         <button
@@ -558,7 +616,45 @@ const UpcomingSessions = ({
                           className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-50 text-orange-600 text-xs font-medium rounded-md hover:bg-orange-100 transition-colors border border-orange-200"
                         >
                           <Image className="w-3.5 h-3.5" />
-                          Xem bằng chứng của bạn
+                          Xem bằng chứng khiếu nại
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Gia sư đang phản đối khiếu nại */}
+                  {isTutorDisputing && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-purple-600 font-medium">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        Gia sư đã gửi bằng chứng phản đối - Đang chờ Admin xem xét
+                      </span>
+                      {booking.learnerEvidence && (
+                        <button
+                          onClick={() => openEvidenceModal(booking.learnerEvidence!, 'Bằng chứng khiếu nại của bạn', complaintReasons[booking.slotID])}
+                          className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-50 text-orange-600 text-xs font-medium rounded-md hover:bg-orange-100 transition-colors border border-orange-200"
+                        >
+                          <Image className="w-3.5 h-3.5" />
+                          Xem bằng chứng khiếu nại
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Đang chờ gia sư phản hồi */}
+                  {isWaitingTutorResponse && (
+                    <div className="mt-3 pt-3 border-t border-slate-200 space-y-2">
+                      <span className="inline-flex items-center gap-1.5 text-xs text-orange-600 font-medium">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        Bạn đã gửi khiếu nại - Đang chờ gia sư phản hồi
+                      </span>
+                      {booking.learnerEvidence && (
+                        <button
+                          onClick={() => openEvidenceModal(booking.learnerEvidence!, 'Bằng chứng khiếu nại của bạn', complaintReasons[booking.slotID])}
+                          className="flex items-center gap-1.5 px-2.5 py-1 bg-orange-50 text-orange-600 text-xs font-medium rounded-md hover:bg-orange-100 transition-colors border border-orange-200"
+                        >
+                          <Image className="w-3.5 h-3.5" />
+                          Xem bằng chứng khiếu nại
                         </button>
                       )}
                     </div>

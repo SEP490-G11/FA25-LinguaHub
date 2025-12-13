@@ -24,8 +24,8 @@ interface RefundRequest {
   processedAt: string | null;
   tutorId: number | null;
   reason: string | null;
-  learnerAttend: boolean | null;
-  tutorAttend: boolean | null;
+  learnerJoin: boolean | null;
+  tutorJoin: boolean | null;
   learnerEvidence: string | null;
   tutorEvidence: string | null;
 }
@@ -85,8 +85,8 @@ const RefundRequests = () => {
         processedAt: r.processedAt ?? r.processed_at,
         tutorId: r.tutorId ?? r.tutor_id,
         reason: r.reason,
-        learnerAttend: r.learnerAttend ?? r.learner_attend,
-        tutorAttend: r.tutorAttend ?? r.tutor_attend,
+        learnerJoin: r.learnerAttend ?? r.learner_attend ?? r.learnerJoin ?? r.learner_join,
+        tutorJoin: r.tutorAttend ?? r.tutor_attend ?? r.tutorJoin ?? r.tutor_join,
         learnerEvidence: r.learnerEvidence ?? r.learner_evidence,
         tutorEvidence: r.tutorEvidence ?? r.tutor_evidence,
       }));
