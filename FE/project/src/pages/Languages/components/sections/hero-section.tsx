@@ -20,7 +20,7 @@ const HeroSection = ({ setSearchTerm }: HeroSectionProps) => {
     setSearchTerm(value);
 
     if (!value) {
-      setSearchTerm(""); // ✅ xoá filter nếu search trống
+      setSearchTerm(""); 
     }
   };
 

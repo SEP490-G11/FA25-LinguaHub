@@ -5,7 +5,7 @@ export const getUserId = async (): Promise<number | null> => {
         const res = await api.get("/users/myInfo");
         return res.data?.result?.userID ?? null;
     } catch (error) {
-        console.error("❌ Failed to fetch user ID:", error);
+        console.error(" Failed to fetch user ID:", error);
         return null;
     }
 };

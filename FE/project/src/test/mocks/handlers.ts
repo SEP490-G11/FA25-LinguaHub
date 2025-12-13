@@ -265,8 +265,7 @@ export const handlers = [
         createdAt: new Date().toISOString(),
       },
     });
-  }),
-
+  }),  
   // Mock get course detail (unpurchased)
   http.get('*/courses/detail/1', () => {
     return HttpResponse.json({
