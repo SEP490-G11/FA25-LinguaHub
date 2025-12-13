@@ -4,6 +4,7 @@ import edu.lms.dto.request.WithdrawRequest;
 import edu.lms.dto.response.WithdrawResponse;
 import edu.lms.entity.*;
 import edu.lms.enums.PaymentType;
+import edu.lms.enums.RefundStatus;
 import edu.lms.enums.SlotStatus;
 import edu.lms.enums.WithdrawStatus;
 import edu.lms.exception.AppException;
@@ -14,6 +15,8 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.EnumSet;
 import java.util.List;
 
 import static lombok.AccessLevel.PRIVATE;
@@ -31,11 +34,52 @@ public class WithdrawService {
     BookingPlanSlotRepository bookingPlanSlotRepository;
 
     // =============================
+    //  CHECK SLOT BOOKING ĐÃ "RELEASE" CHƯA
+    // =============================
+    private boolean isBookingSlotReleased(BookingPlanSlot slot, LocalDateTime now) {
+
+        // Chỉ xét slot đã được thanh toán
+        if (slot.getStatus() != SlotStatus.Paid) {
+            return false;
+        }
+
+        // Tutor chưa join => không release
+        if (!Boolean.TRUE.equals(slot.getTutorJoin())) {
+            return false;
+        }
+
+        // Nếu learner cũng join thì ok luôn
+        if (Boolean.TRUE.equals(slot.getLearnerJoin())) {
+            return true;
+        }
+
+        // Learner không xác nhận join:
+        // chỉ auto-release nếu đã qua endTime và không có complaint pending/submitted
+        if (slot.getEndTime() == null) {
+            return false;
+        }
+
+        if (now.isBefore(slot.getEndTime())) {
+            // chưa hết giờ buổi học
+            return false;
+        }
+
+        // Kiểm tra xem có refund COMPLAINT còn open không
+        boolean hasOpenComplaint = refundRepository.existsBySlotIdAndStatusIn(
+                slot.getSlotID(),
+                EnumSet.of(RefundStatus.PENDING, RefundStatus.SUBMITTED)
+        );
+
+        // Nếu có complaint đang xử lý → KHÔNG release
+        return !hasOpenComplaint;
+    }
+
+    // =============================
     //  TÍNH TỔNG NET INCOME (PAYMENT)
     // =============================
     // Tổng tiền tutor nhận được:
     //  - Course: mọi payment PAID
-    //  - Booking: chỉ payment có tất cả slot Paid && tutorJoin && learnerJoin
+    //  - Booking: chỉ payment có ÍT NHẤT 1 slot Paid và TẤT CẢ slot Paid đó đã "release"
     //  - Mỗi payment dùng snapshot netAmount; nếu null thì fallback dùng Setting hiện tại
     private BigDecimal calculateNetIncome(Long tutorId) {
 
@@ -46,6 +90,7 @@ public class WithdrawService {
         List<Payment> payments = paymentRepository.findSuccessPaymentsByTutor(tutorId);
 
         BigDecimal totalNet = BigDecimal.ZERO;
+        LocalDateTime now = LocalDateTime.now();
 
         for (Payment p : payments) {
 
@@ -55,7 +100,6 @@ public class WithdrawService {
                 BigDecimal net;
 
                 if (p.getNetAmount() != null) {
-                    // ✅ dùng snapshot nếu có
                     net = p.getNetAmount();
                 } else {
                     // fallback cho dữ liệu cũ
@@ -66,7 +110,7 @@ public class WithdrawService {
                 totalNet = totalNet.add(net);
             }
 
-            // ----- BOOKING: chỉ tính nếu tất cả slot đã join -----
+            // ----- BOOKING: chỉ tính nếu có slot Paid và tất cả slot Paid đã release -----
             else if (p.getPaymentType() == PaymentType.Booking) {
 
                 List<BookingPlanSlot> slots =
@@ -76,15 +120,21 @@ public class WithdrawService {
                     continue;
                 }
 
-                boolean allConfirmed = slots.stream()
+                // chỉ xét các slot còn trạng thái Paid
+                List<BookingPlanSlot> paidSlots = slots.stream()
                         .filter(s -> s.getStatus() == SlotStatus.Paid)
-                        .allMatch(s ->
-                                Boolean.TRUE.equals(s.getTutorJoin())
-                                        && Boolean.TRUE.equals(s.getLearnerJoin())
-                        );
+                        .toList();
 
-                if (!allConfirmed) {
-                    // chưa release → chưa cộng vào ví
+                // nếu không còn slot Paid (bị Rejected hết) → KHÔNG tính payment này
+                if (paidSlots.isEmpty()) {
+                    continue;
+                }
+
+                boolean allReleased = paidSlots.stream()
+                        .allMatch(slot -> isBookingSlotReleased(slot, now));
+
+                if (!allReleased) {
+                    // Còn slot chưa release => chưa cộng payment này
                     continue;
                 }
 
@@ -107,7 +157,7 @@ public class WithdrawService {
     //  TÍNH SỐ DƯ HIỆN TẠI CỦA VÍ
     // =============================
     // Balance = NetIncome - WithdrawApproved
-    // (refund learner do admin xử lý từ tiền admin, không trừ ví tutor nữa)
+    // (Refund learner do admin tự xử lý, không trừ ví tutor)
     public BigDecimal calculateCurrentBalance(Long tutorId) {
 
         BigDecimal netIncome = calculateNetIncome(tutorId);

@@ -2,19 +2,10 @@ package edu.lms.service;
 
 import edu.lms.dto.request.CourseSectionRequest;
 import edu.lms.dto.response.CourseSectionResponse;
-import edu.lms.entity.Course;
-import edu.lms.entity.CourseSection;
-import edu.lms.entity.Enrollment;
-import edu.lms.entity.Tutor;
-import edu.lms.entity.User;
+import edu.lms.entity.*;
 import edu.lms.exception.AppException;
 import edu.lms.mapper.CourseSectionMapper;
-import edu.lms.repository.CourseRepository;
-import edu.lms.repository.CourseSectionRepository;
-import edu.lms.repository.EnrollmentRepository;
-import edu.lms.repository.LessonRepository;
-import edu.lms.repository.LessonResourceRepository;
-import edu.lms.repository.UserRepository;
+import edu.lms.repository.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -26,7 +17,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
 
 /**

@@ -35,13 +35,9 @@ public class BookingPlanSlotService {
             return List.of();
         }
 
-        // Meeting URL Map
         Map<Long, String> meetingUrlMap = buildMeetingUrlMap(slots);
-
-        // Tutor Fullname Map
         Map<Long, String> tutorNameMap = buildTutorNameMap(slots);
 
-        // Convert to DTO
         return slots.stream()
                 .map(slot -> toSlotResponse(slot, meetingUrlMap, tutorNameMap))
                 .collect(Collectors.toList());
@@ -92,7 +88,6 @@ public class BookingPlanSlotService {
        COMMON METHODS
        ============================================================ */
 
-    /** Build Meeting URL Map */
     private Map<Long, String> buildMeetingUrlMap(List<BookingPlanSlot> slots) {
         List<Long> bookingPlanIds = slots.stream()
                 .map(BookingPlanSlot::getBookingPlanID)
@@ -111,7 +106,6 @@ public class BookingPlanSlotService {
                 ));
     }
 
-    /** Build Tutor Fullname Map */
     private Map<Long, String> buildTutorNameMap(List<BookingPlanSlot> slots) {
         List<Long> tutorIds = slots.stream()
                 .map(BookingPlanSlot::getTutorID)
@@ -132,7 +126,6 @@ public class BookingPlanSlotService {
                 ));
     }
 
-    /** Convert Entity -> Response DTO */
     private BookingPlanSlotResponse toSlotResponse(
             BookingPlanSlot slot,
             Map<Long, String> meetingUrlMap,
@@ -145,6 +138,18 @@ public class BookingPlanSlotService {
             if (meetingUrl != null && meetingUrl.isEmpty()) {
                 meetingUrl = null;
             }
+        }
+
+        Long userPackageId = (slot.getUserPackage() != null)
+                ? slot.getUserPackage().getUserPackageID()
+                : null;
+
+        Long tutorPackageId = null;
+        if (slot.getTutorPackage() != null) {
+            tutorPackageId = slot.getTutorPackage().getPackageID();
+        } else if (slot.getUserPackage() != null && slot.getUserPackage().getTutorPackage() != null) {
+            // fallback cho dữ liệu cũ nếu trước đây bạn chưa set tutorPackage trong slot
+            tutorPackageId = slot.getUserPackage().getTutorPackage().getPackageID();
         }
 
         return BookingPlanSlotResponse.builder()
@@ -164,6 +169,8 @@ public class BookingPlanSlotService {
                 .tutorJoin(slot.getTutorJoin())
                 .learnerEvidence(slot.getLearnerEvidence())
                 .tutorEvidence(slot.getTutorEvidence())
+                .userPackageId(userPackageId)
+                .tutorPackageID(tutorPackageId)
                 .build();
     }
 }

@@ -1,5 +1,4 @@
 package edu.lms.dto.response;
-
 import edu.lms.enums.SlotStatus;
 import lombok.Builder;
 import lombok.Data;
@@ -13,6 +12,8 @@ public class BookingPlanSlotResponse {
     Long bookingPlanID;
     Long tutorID;
     Long userID;
+    Long userPackageId;
+    Long tutorPackageID;
     LocalDateTime startTime;
     LocalDateTime endTime;
     Long paymentID;
@@ -25,4 +26,5 @@ public class BookingPlanSlotResponse {
     Boolean tutorJoin;
     String learnerEvidence;
     String tutorEvidence;
+
 }

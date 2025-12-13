@@ -1,6 +1,7 @@
 package edu.lms.dto.request;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -13,9 +14,7 @@ import java.time.LocalDateTime;
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class CourseReviewRequest {
 
-    @NotNull(message = "Rating is required")
-    @DecimalMin(value = "1.0", inclusive = true, message = "Rating must be at least 1.0")
-    @DecimalMax(value = "5.0", inclusive = true, message = "Rating must be at most 5.0")
+
     Double rating;
 
     @NotBlank(message = "Comment is required")

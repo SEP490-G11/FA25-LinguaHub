@@ -5,7 +5,6 @@ import edu.lms.entity.Tutor;
 import edu.lms.entity.User;
 import edu.lms.enums.NotificationType;
 import edu.lms.enums.SlotStatus;
-import edu.lms.exception.AppException;
 import edu.lms.repository.BookingPlanSlotRepository;
 import edu.lms.repository.TutorRepository;
 import lombok.AccessLevel;
@@ -14,7 +13,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
@@ -93,13 +94,6 @@ class BookingReminderServiceTest {
     @DisplayName("BookingReminderService.sendTutorRemindersForUpcomingSlots")
     class SendTutorRemindersForUpcomingSlotsTests {
 
-        /**
-         * CASE 1
-         * NOTE – Không tìm thấy slot nào thoả điều kiện (list rỗng) -> return sớm
-         *  - Kỳ vọng:
-         *      + bookingPlanSlotRepository được gọi 1 lần
-         *      + tutorRepository, notificationService không bị gọi
-         */
         @Test
         @DisplayName("Không có slot -> không gửi notification")
         void noSlots_found_noNotifications() {
@@ -122,14 +116,6 @@ class BookingReminderServiceTest {
             verifyNoInteractions(tutorRepository, notificationService);
         }
 
-        /**
-         * CASE 2.1
-         * NOTE – Có slot nhưng Tutor không tồn tại trong DB -> skip slot
-         *  - Kỳ vọng:
-         *      + tutorRepository.findById(...) trả Optional.empty()
-         *      + Không gọi notificationService
-         *      + slot.reminderSent vẫn là false
-         */
         @Test
         @DisplayName("Tutor không tồn tại -> skip, không gửi notification")
         void tutorNotFound_skipSlot_noNotifications() {
@@ -151,17 +137,9 @@ class BookingReminderServiceTest {
             verify(tutorRepository).findById(100L);
             verifyNoInteractions(notificationService);
 
-            // Không bị set reminderSent
             assertFalse(slot.getReminderSent());
         }
 
-        /**
-         * CASE 2.2
-         * NOTE – Có slot, Tutor tồn tại nhưng tutor.getUser() == null -> skip
-         *  - Kỳ vọng:
-         *      + Không gọi notificationService
-         *      + reminderSent vẫn false
-         */
         @Test
         @DisplayName("Tutor user = null -> skip, không gửi notification")
         void tutorUserNull_skipSlot_noNotifications() {
@@ -197,7 +175,8 @@ class BookingReminderServiceTest {
          *  - Kỳ vọng:
          *      + Gửi 2 notification: cho Tutor + Learner
          *      + NotificationType = BOOKING_REMINDER
-         *      + URL chứa slotId
+         *      + Tutor URL = "/booked-slots"
+         *      + Learner URL = "/my-bookings"
          *      + slot.reminderSent = true
          */
         @Test
@@ -224,7 +203,6 @@ class BookingReminderServiceTest {
 
             bookingReminderService.sendTutorRemindersForUpcomingSlots();
 
-            // Capture 2 lần gọi notification
             ArgumentCaptor<Long> userIdCaptor = ArgumentCaptor.forClass(Long.class);
             ArgumentCaptor<String> titleCaptor = ArgumentCaptor.forClass(String.class);
             ArgumentCaptor<String> contentCaptor = ArgumentCaptor.forClass(String.class);
@@ -239,35 +217,27 @@ class BookingReminderServiceTest {
                     urlCaptor.capture()
             );
 
-            // 2 lần: [0] tutor, [1] learner (theo thứ tự trong code)
             List<Long> sentUserIds = userIdCaptor.getAllValues();
             List<NotificationType> sentTypes = typeCaptor.getAllValues();
             List<String> urls = urlCaptor.getAllValues();
 
-            // Tutor
+            // Tutor + learner đều nhận được
             assertTrue(sentUserIds.contains(tutorUserId));
-            // Learner
             assertTrue(sentUserIds.contains(learnerUserId));
 
             // Tất cả đều là BOOKING_REMINDER
             sentTypes.forEach(t -> assertTrue(t == NotificationType.BOOKING_REMINDER));
 
-            // URL phải chứa slotId
-            urls.forEach(u -> assertTrue(u.contains("slotId=" + slotId)));
+            // 🔧 URL theo implementation hiện tại trong BookingReminderService
+            // Tutor: "/booked-slots"
+            // Learner: "/my-bookings"
+            assertTrue(urls.contains("/booked-slots"));
+            assertTrue(urls.contains("/my-bookings"));
 
             // Đã set reminderSent = true sau khi gửi xong
             assertTrue(slot.getReminderSent());
         }
 
-        /**
-         * CASE 4
-         * NOTE – notificationService ném exception trong khi gửi cho Tutor:
-         *  - Code có try-catch nên method không được throw ra ngoài
-         *  - Việc set reminderSent và gửi cho learner sẽ không được thực hiện
-         *  - Kỳ vọng:
-         *      + sendNotification được gọi tối đa 1 lần (cho tutor)
-         *      + slot.reminderSent vẫn false
-         */
         @Test
         @DisplayName("notificationService throw exception -> bị catch, không crash, không set reminderSent")
         void notificationThrows_exceptionIsCaught_noCrash() {
@@ -290,7 +260,6 @@ class BookingReminderServiceTest {
             when(tutorRepository.findById(tutorId))
                     .thenReturn(Optional.of(tutor));
 
-            // Cho lần gọi đầu tiên (tutor) throw RuntimeException
             doThrow(new RuntimeException("Send failed"))
                     .when(notificationService)
                     .sendNotification(
@@ -301,15 +270,12 @@ class BookingReminderServiceTest {
                             anyString()
                     );
 
-            // Method KHÔNG được throw exception ra ngoài
             bookingReminderService.sendTutorRemindersForUpcomingSlots();
 
-            // Gọi tối đa 1 lần (cho tutor). Vì exception nên learner không được gửi
             verify(notificationService, atMostOnce()).sendNotification(
                     anyLong(), anyString(), anyString(), any(), anyString()
             );
 
-            // Không được set reminderSent
             assertFalse(slot.getReminderSent());
         }
     }

@@ -29,13 +29,13 @@ public class Tutor {
     @Column(name = "experience")
     Short experience = 0;
     
-    @Column(name = "specialization")
+    @Column(name = "specialization", columnDefinition = "TEXT")
     String specialization;
     
-    @Column(name = "teaching_language")
+    @Column(name = "teaching_language", columnDefinition = "TEXT")
     String teachingLanguage;
     
-    @Column(name = "bio")
+    @Column(name = "bio", columnDefinition = "TEXT")
     String bio;
 
     @Builder.Default

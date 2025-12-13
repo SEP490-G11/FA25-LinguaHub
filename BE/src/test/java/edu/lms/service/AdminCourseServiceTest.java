@@ -1,26 +1,34 @@
 package edu.lms.service;
 
-import edu.lms.dto.response.*;
+import edu.lms.dto.response.AdminCourseDetailResponse;
+import edu.lms.dto.response.AdminCourseDraftChangesResponse;
+import edu.lms.dto.response.AdminCourseDraftResponse;
+import edu.lms.dto.response.AdminCourseResponse;
 import edu.lms.entity.*;
 import edu.lms.enums.CourseDraftStatus;
 import edu.lms.enums.CourseStatus;
+import edu.lms.enums.LessonType;
 import edu.lms.enums.NotificationType;
 import edu.lms.exception.AppException;
 import edu.lms.repository.*;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
-import org.junit.jupiter.api.*;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -28,19 +36,12 @@ import static org.mockito.Mockito.*;
 
 /**
  * AdminCourseServiceTest – unit test cho các method public của AdminCourseService
- *
- * Lưu ý:
- *  - Dùng @MockitoSettings(strictness = Strictness.LENIENT) để tránh UnnecessaryStubbingException
- *    vì một số stub được dùng gián tiếp thông qua các hàm helper nội bộ.
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 class AdminCourseServiceTest {
 
-    // =========================
-    // Mock dependencies
-    // =========================
     @Mock
     CourseRepository courseRepository;
     @Mock
@@ -83,11 +84,6 @@ class AdminCourseServiceTest {
     // Helper dựng entity
     // =========================
 
-    /**
-     * Helper dựng Course với:
-     *  - Category: dùng CourseCategory (đúng entity)
-     *  - Tutor + User: để test email + notification
-     */
     private Course buildCourse(Long id, CourseStatus status) {
         Course c = new Course();
         c.setCourseID(id);
@@ -117,12 +113,6 @@ class AdminCourseServiceTest {
         return c;
     }
 
-    /**
-     * Helper dựng CourseDraft:
-     *  - Gắn với course gốc
-     *  - Category riêng
-     *  - Tutor + User: để test email + notification
-     */
     private CourseDraft buildCourseDraft(Long draftId, Course course, CourseDraftStatus status) {
         CourseDraft d = new CourseDraft();
         d.setDraftID(draftId);
@@ -164,11 +154,6 @@ class AdminCourseServiceTest {
     @DisplayName("AdminCourseService.getAllCoursesForAdmin(status)")
     class GetAllCoursesForAdminWithStatusTests {
 
-        /**
-         * Case: status = null
-         *  - Kỳ vọng: dùng courseRepository.findAll()
-         *  - Trả về toàn bộ course
-         */
         @Test
         @DisplayName("Trả về tất cả course khi status = null")
         void getAllCoursesForAdmin_statusNull_shouldReturnAll() {
@@ -185,10 +170,6 @@ class AdminCourseServiceTest {
             assertEquals(2L, result.get(1).getId());
         }
 
-        /**
-         * Case: status = Pending
-         *  - Kỳ vọng: dùng courseRepository.findByStatus(Pending)
-         */
         @Test
         @DisplayName("Filter theo status cụ thể (Pending)")
         void getAllCoursesForAdmin_statusPending_shouldUseFindByStatus() {
@@ -210,10 +191,6 @@ class AdminCourseServiceTest {
     @DisplayName("AdminCourseService.getAllCoursesForAdmin()")
     class GetAllCoursesForAdminNoStatusTests {
 
-        /**
-         * Case: không truyền status
-         *  - Kỳ vọng: gọi courseRepository.findAll() và map ra đủ 2 course
-         */
         @Test
         @DisplayName("Trả về tất cả course")
         void getAllCoursesForAdmin_shouldReturnAll() {
@@ -238,10 +215,6 @@ class AdminCourseServiceTest {
     @DisplayName("AdminCourseService.getCourseDetail")
     class GetCourseDetailTests {
 
-        /**
-         * Case: Course không tồn tại
-         *  - Kỳ vọng: ném AppException(COURSE_NOT_FOUND)
-         */
         @Test
         @DisplayName("Course không tồn tại -> AppException")
         void getCourseDetail_courseNotFound_shouldThrow() {
@@ -250,14 +223,6 @@ class AdminCourseServiceTest {
             assertThrows(AppException.class, () -> adminCourseService.getCourseDetail(1L));
         }
 
-        /**
-         * Case: Course tồn tại, không có review, không section/objective
-         *  - Kỳ vọng: map sang AdminCourseDetailResponse với:
-         *      + courseID đúng
-         *      + title đúng
-         *      + status = Approved
-         *      + learnerCount = 5
-         */
         @Test
         @DisplayName("Course tồn tại -> map sang AdminCourseDetailResponse")
         void getCourseDetail_happyPath_shouldReturnDetail() {
@@ -266,9 +231,7 @@ class AdminCourseServiceTest {
             when(courseRepository.findById(2L)).thenReturn(Optional.of(course));
             when(enrollmentRepository.countByCourse_CourseID(2L)).thenReturn(5L);
             when(courseReviewRepository.findByCourse_CourseID(2L))
-                    .thenReturn(List.of()); // không có review
-
-            // Không có section/objective -> các repo trả list rỗng
+                    .thenReturn(List.of());
             when(courseSectionRepository.findByCourse_CourseID(2L))
                     .thenReturn(List.of());
             when(courseObjectiveRepository
@@ -292,10 +255,6 @@ class AdminCourseServiceTest {
     @DisplayName("AdminCourseService.updateCourseReviewNote")
     class UpdateCourseReviewNoteTests {
 
-        /**
-         * Case: Course không tồn tại
-         *  - Kỳ vọng: ném AppException(COURSE_NOT_FOUND)
-         */
         @Test
         @DisplayName("Course không tồn tại -> AppException")
         void updateCourseReviewNote_courseNotFound_shouldThrow() {
@@ -305,10 +264,6 @@ class AdminCourseServiceTest {
                     () -> adminCourseService.updateCourseReviewNote(1L, "note"));
         }
 
-        /**
-         * Case: Cập nhật note cho course live
-         *  - Kỳ vọng: adminReviewNote được set, trả về detail có note mới
-         */
         @Test
         @DisplayName("Cập nhật review note cho course live")
         void updateCourseReviewNote_happyPath_shouldUpdateNote() {
@@ -333,10 +288,6 @@ class AdminCourseServiceTest {
     @DisplayName("AdminCourseService.updateCourseDraftReviewNote")
     class UpdateCourseDraftReviewNoteTests {
 
-        /**
-         * Case: Draft không tồn tại
-         *  - Kỳ vọng: AppException(DRAFT_NOT_FOUND)
-         */
         @Test
         @DisplayName("Draft không tồn tại -> AppException")
         void updateCourseDraftReviewNote_draftNotFound_shouldThrow() {
@@ -346,13 +297,6 @@ class AdminCourseServiceTest {
                     () -> adminCourseService.updateCourseDraftReviewNote(1L, "note"));
         }
 
-        /**
-         * Case: Cập nhật note cho draft
-         *  - Kỳ vọng:
-         *      + adminReviewNote = "Draft note"
-         *      + id = draftID
-         *      + draft = true
-         */
         @Test
         @DisplayName("Cập nhật review note cho course draft")
         void updateCourseDraftReviewNote_happyPath_shouldUpdateNote() {
@@ -374,7 +318,7 @@ class AdminCourseServiceTest {
 
             assertEquals("Draft note", result.getAdminReviewNote());
             assertEquals(3L, result.getId());
-            assertEquals(true, result.getDraft());
+            assertTrue(result.getDraft());
         }
     }
 
@@ -386,10 +330,6 @@ class AdminCourseServiceTest {
     @DisplayName("AdminCourseService.getCourseDraftsForAdmin")
     class GetCourseDraftsForAdminTests {
 
-        /**
-         * Case: status = null
-         *  - Kỳ vọng: gọi findAll() và trả về danh sách đầy đủ
-         */
         @Test
         @DisplayName("status = null -> tất cả draft")
         void getCourseDraftsForAdmin_statusNull_shouldReturnAll() {
@@ -407,10 +347,6 @@ class AdminCourseServiceTest {
             assertEquals(2L, result.get(1).getDraftID());
         }
 
-        /**
-         * Case: filter theo status PENDING_REVIEW
-         *  - Kỳ vọng: gọi findByStatus(PENDING_REVIEW)
-         */
         @Test
         @DisplayName("Filter theo status PENDING_REVIEW")
         void getCourseDraftsForAdmin_statusPending_shouldUseFindByStatus() {
@@ -432,9 +368,6 @@ class AdminCourseServiceTest {
     @DisplayName("AdminCourseService.getCourseDraftDetail")
     class GetCourseDraftDetailTests {
 
-        /**
-         * Case: Draft không tồn tại
-         */
         @Test
         @DisplayName("Draft không tồn tại -> AppException")
         void getCourseDraftDetail_notFound_shouldThrow() {
@@ -443,9 +376,6 @@ class AdminCourseServiceTest {
             assertThrows(AppException.class, () -> adminCourseService.getCourseDraftDetail(1L));
         }
 
-        /**
-         * Case: Draft tồn tại -> map ra AdminCourseDraftResponse
-         */
         @Test
         @DisplayName("Draft tồn tại -> trả về AdminCourseDraftResponse")
         void getCourseDraftDetail_happyPath_shouldReturn() {
@@ -466,9 +396,6 @@ class AdminCourseServiceTest {
     @DisplayName("AdminCourseService.getCourseDraftDetailWithCurriculum")
     class GetCourseDraftDetailWithCurriculumTests {
 
-        /**
-         * Case: Draft không tồn tại
-         */
         @Test
         @DisplayName("Draft không tồn tại -> AppException")
         void getCourseDraftDetailWithCurriculum_notFound_shouldThrow() {
@@ -478,13 +405,6 @@ class AdminCourseServiceTest {
                     () -> adminCourseService.getCourseDraftDetailWithCurriculum(1L));
         }
 
-        /**
-         * Case: Draft tồn tại, không có section/objective, không review
-         *  - Kỳ vọng: detail draft có:
-         *      + draft = true
-         *      + id = draftID
-         *      + courseID = id course gốc
-         */
         @Test
         @DisplayName("Draft tồn tại -> trả về detail draft có curriculum")
         void getCourseDraftDetailWithCurriculum_happyPath_shouldReturnDetail() {
@@ -505,7 +425,7 @@ class AdminCourseServiceTest {
             AdminCourseDetailResponse result =
                     adminCourseService.getCourseDraftDetailWithCurriculum(3L);
 
-            assertEquals(true, result.getDraft());
+            assertTrue(result.getDraft());
             assertEquals(3L, result.getId());
             assertEquals(10L, result.getCourseID());
         }
@@ -519,9 +439,6 @@ class AdminCourseServiceTest {
     @DisplayName("AdminCourseService.approveLiveCourse")
     class ApproveLiveCourseTests {
 
-        /**
-         * Case: Course không tồn tại
-         */
         @Test
         @DisplayName("Course không tồn tại -> AppException")
         void approveLiveCourse_courseNotFound_shouldThrow() {
@@ -531,10 +448,6 @@ class AdminCourseServiceTest {
                     () -> adminCourseService.approveLiveCourse(1L, "note"));
         }
 
-        /**
-         * Case: Course status != Pending
-         *  - Kỳ vọng: AppException(INVALID_STATE), không save
-         */
         @Test
         @DisplayName("Course không ở trạng thái Pending -> INVALID_STATE")
         void approveLiveCourse_invalidState_shouldThrow() {
@@ -547,12 +460,6 @@ class AdminCourseServiceTest {
             verify(courseRepository, never()).save(any());
         }
 
-        /**
-         * Case: Happy path:
-         *  - Course từ Pending -> Approved
-         *  - Lưu DB
-         *  - Gửi email + notification cho tutor
-         */
         @Test
         @DisplayName("Happy path: status từ Pending -> Approved, gửi email + notification")
         void approveLiveCourse_happyPath_shouldUpdateAndNotify() {
@@ -568,17 +475,55 @@ class AdminCourseServiceTest {
             assertEquals(note, result.getAdminReviewNote());
 
             verify(courseRepository, times(1)).save(c);
-            // verify email
             verify(emailService, times(1))
                     .sendCourseApprovedToTutor(eq("tutor@mail.com"), eq("Course 3"), eq(note));
-            // verify notification
             verify(notificationService, times(1))
                     .sendNotification(
                             eq(99L),
-                            contains("Course approved"),
+                            contains("Khoá học đã được phê duyệt"),
                             contains("Course 3"),
                             eq(NotificationType.COURSE_APPROVED),
-                            eq("/tutor/courses/3")
+                            eq("/tutor/courses/3/details")
+                    );
+        }
+
+        @Test
+        @DisplayName("approveLiveCourse - tutor null -> skip email & notification")
+        void approveLiveCourse_tutorNull_shouldSkipNotify() {
+            Course c = buildCourse(10L, CourseStatus.Pending);
+            c.setTutor(null);
+
+            when(courseRepository.findById(10L)).thenReturn(Optional.of(c));
+
+            AdminCourseResponse result =
+                    adminCourseService.approveLiveCourse(10L, "note");
+
+            assertEquals("Approved", result.getStatus());
+            verify(emailService, never())
+                    .sendCourseApprovedToTutor(anyString(), anyString(), anyString());
+            verify(notificationService, never())
+                    .sendNotification(anyLong(), anyString(), anyString(), any(), anyString());
+        }
+
+        @Test
+        @DisplayName("approveLiveCourse - tutor email blank -> chỉ gửi notification")
+        void approveLiveCourse_tutorEmailBlank_shouldSkipEmailButSendNotification() {
+            Course c = buildCourse(11L, CourseStatus.Pending);
+            c.getTutor().getUser().setEmail("   ");
+
+            when(courseRepository.findById(11L)).thenReturn(Optional.of(c));
+
+            adminCourseService.approveLiveCourse(11L, "note");
+
+            verify(emailService, never())
+                    .sendCourseApprovedToTutor(anyString(), anyString(), anyString());
+            verify(notificationService, times(1))
+                    .sendNotification(
+                            eq(99L),
+                            contains("Khoá học đã được phê duyệt"),
+                            contains("Course 11"),
+                            eq(NotificationType.COURSE_APPROVED),
+                            eq("/tutor/courses/11/details")
                     );
         }
     }
@@ -587,9 +532,6 @@ class AdminCourseServiceTest {
     @DisplayName("AdminCourseService.rejectLiveCourse")
     class RejectLiveCourseTests {
 
-        /**
-         * Case: Course không tồn tại
-         */
         @Test
         @DisplayName("Course không tồn tại -> AppException")
         void rejectLiveCourse_courseNotFound_shouldThrow() {
@@ -599,9 +541,6 @@ class AdminCourseServiceTest {
                     () -> adminCourseService.rejectLiveCourse(1L, "note"));
         }
 
-        /**
-         * Case: Course status != Pending
-         */
         @Test
         @DisplayName("Course không ở trạng thái Pending -> INVALID_STATE")
         void rejectLiveCourse_invalidState_shouldThrow() {
@@ -614,11 +553,6 @@ class AdminCourseServiceTest {
             verify(courseRepository, never()).save(any());
         }
 
-        /**
-         * Case: Happy path:
-         *  - Course từ Pending -> Rejected
-         *  - Gửi email + notification cho tutor
-         */
         @Test
         @DisplayName("Happy path: status từ Pending -> Rejected, gửi email + notification")
         void rejectLiveCourse_happyPath_shouldUpdateAndNotify() {
@@ -639,28 +573,44 @@ class AdminCourseServiceTest {
             verify(notificationService, times(1))
                     .sendNotification(
                             eq(99L),
-                            contains("Course rejected"),
+                            contains("Khoá học bị từ chối"),
                             contains("Course 3"),
                             eq(NotificationType.COURSE_REJECTED),
-                            eq("/tutor/courses/3")
+                            eq("/tutor/courses/3/details")
+                    );
+        }
+
+        @Test
+        @DisplayName("rejectLiveCourse - tutor email blank -> chỉ gửi notification")
+        void rejectLiveCourse_tutorEmailBlank_shouldSkipEmailButSendNotification() {
+            Course c = buildCourse(12L, CourseStatus.Pending);
+            c.getTutor().getUser().setEmail("   ");
+
+            when(courseRepository.findById(12L)).thenReturn(Optional.of(c));
+
+            adminCourseService.rejectLiveCourse(12L, "reason");
+
+            verify(emailService, never())
+                    .sendCourseRejectedToTutor(anyString(), anyString(), anyString());
+            verify(notificationService, times(1))
+                    .sendNotification(
+                            eq(99L),
+                            contains("Khoá học bị từ chối"),
+                            contains("Course 12"),
+                            eq(NotificationType.COURSE_REJECTED),
+                            eq("/tutor/courses/12/details")
                     );
         }
     }
 
     // =====================================================================
-    // approveCourseDraft (các case theo bảng UTCID01–UTCID05)
+    // approveCourseDraft
     // =====================================================================
 
     @Nested
     @DisplayName("AdminCourseService.approveCourseDraft")
     class ApproveCourseDraftTests {
 
-        /**
-         * UTCID01
-         * Case: Draft không tồn tại
-         *  - Precondition: courseDraftRepository.findById trả Optional.empty()
-         *  - Expected: AppException(DRAFT_NOT_FOUND)
-         */
         @Test
         @DisplayName("Draft không tồn tại -> DRAFT_NOT_FOUND")
         void approveCourseDraft_draftNotFound_shouldThrow() {
@@ -670,12 +620,6 @@ class AdminCourseServiceTest {
                     () -> adminCourseService.approveCourseDraft(1L));
         }
 
-        /**
-         * UTCID02
-         * Case: Draft tồn tại nhưng status != PENDING_REVIEW
-         *  - Precondition: draft.status = EDITING
-         *  - Expected: AppException(INVALID_STATE), không save course
-         */
         @Test
         @DisplayName("Draft tồn tại nhưng status != PENDING_REVIEW -> INVALID_STATE")
         void approveCourseDraft_invalidState_shouldThrow() {
@@ -690,14 +634,6 @@ class AdminCourseServiceTest {
             verify(courseRepository, never()).save(any());
         }
 
-        /**
-         * UTCID03 / UTCID04 (no enrollment)
-         * Case: Draft PENDING_REVIEW, course không có enrollment
-         *  - Expected:
-         *      + Merge metadata từ draft -> course
-         *      + Xóa draft
-         *      + Không gửi mail updated cho learner
-         */
         @Test
         @DisplayName("Draft PENDING_REVIEW, không enrollment -> approve OK")
         void approveCourseDraft_pendReview_noEnrollment_shouldApprove() {
@@ -706,7 +642,6 @@ class AdminCourseServiceTest {
 
             when(courseDraftRepository.findById(5L)).thenReturn(Optional.of(draft));
 
-            // Các repo diff / sync trả list rỗng
             when(courseObjectiveRepository
                     .findByCourse_CourseIDOrderByOrderIndexAsc(course.getCourseID()))
                     .thenReturn(List.of());
@@ -733,15 +668,10 @@ class AdminCourseServiceTest {
 
             verify(courseRepository, times(1)).save(course);
             verify(courseDraftRepository, times(1)).delete(draft);
-            // Không có learner -> không gửi mail cập nhật khóa học
             verify(emailService, never())
                     .sendCourseUpdatedToLearner(anyString(), anyString(), anyString());
         }
 
-        /**
-         * UTCID05+
-         * Case: Course có enrollment -> notify learner + tutor
-         */
         @Test
         @DisplayName("Course có enrollment -> notify learner + tutor")
         void approveCourseDraft_withEnrollments_shouldNotifyLearnersAndTutor() {
@@ -797,33 +727,29 @@ class AdminCourseServiceTest {
             verify(courseRepository, times(1)).save(course);
             verify(courseDraftRepository, times(1)).delete(draft);
 
-            // Có ít nhất 1 mail gửi cho learner
             verify(emailService, atLeastOnce())
                     .sendCourseUpdatedToLearner(anyString(), eq(course.getTitle()), anyString());
-            // Có ít nhất 1 notification cho learner
             verify(notificationService, atLeastOnce())
                     .sendNotification(
                             anyLong(),
-                            contains("Course updated"),
-                            contains("has just been updated"),
+                            contains("Khoá học đã được cập nhật"),
+                            contains("vừa được cập nhật"),
                             eq(NotificationType.COURSE_UPDATED),
                             eq("/courses/" + course.getCourseID())
                     );
-            // Email cho tutor về việc draft được approve
             verify(emailService, times(1))
                     .sendCourseDraftApprovedToTutor(
                             eq("tutor@mail.com"),
                             eq(course.getTitle()),
                             anyString()
                     );
-            // Notification cho tutor
             verify(notificationService, times(1))
                     .sendNotification(
                             eq(99L),
-                            contains("Course draft approved"),
-                            contains("have been approved"),
+                            contains("Bản nháp đã được phê duyệt"),
+                            contains("đã được Admin phê duyệt"),
                             eq(NotificationType.COURSE_DRAFT_APPROVED),
-                            eq("/tutor/courses/" + course.getCourseID())
+                            eq("/tutor/courses/" + course.getCourseID() + "/details")
                     );
         }
     }
@@ -836,13 +762,6 @@ class AdminCourseServiceTest {
     @DisplayName("AdminCourseService.rejectCourseDraft(draftID, note)")
     class RejectCourseDraftWithNoteTests {
 
-        /**
-         * UTCID02 + UTCID08
-         * Case: Draft không tồn tại
-         *  - Expected:
-         *      + Ném AppException(DRAFT_NOT_FOUND)
-         *      + Không tạo mới / không save draft nào
-         */
         @Test
         @DisplayName("Draft không tồn tại -> DRAFT_NOT_FOUND, không save draft mới")
         void rejectCourseDraft_draftNotFound_shouldThrow() {
@@ -851,18 +770,9 @@ class AdminCourseServiceTest {
             assertThrows(AppException.class,
                     () -> adminCourseService.rejectCourseDraft(1L, "note"));
 
-            // UTCID08: No new CourseDraft records are created.
             verify(courseDraftRepository, never()).save(any(CourseDraft.class));
         }
 
-        /**
-         * UTCID03
-         * Case: Draft status != PENDING_REVIEW (ví dụ EDITING/DRAFTING)
-         *  - Expected:
-         *      + AppException(INVALID_STATE)
-         *      + Không gửi email
-         *      + Không save draft
-         */
         @Test
         @DisplayName("Draft status != PENDING_REVIEW -> INVALID_STATE")
         void rejectCourseDraft_invalidState_shouldThrow() {
@@ -879,40 +789,26 @@ class AdminCourseServiceTest {
             verify(courseDraftRepository, never()).save(any(CourseDraft.class));
         }
 
-        /**
-         * UTCID01 + UTCID04
-         * Case:
-         *  - Draft PENDING_REVIEW
-         *  - AdminReview ban đầu = null
-         *  - updatedAt ban đầu = 2024-12-01 10:00:00
-         *  - Note = "Nội dung không phù hợp"
-         *  - Expected:
-         *      + status = REJECTED
-         *      + adminReviewNote = note
-         *      + updatedAt != 2024-12-01 10:00:00
-         *      + gửi email + notification tutor
-         */
         @Test
         @DisplayName("Draft PENDING_REVIEW, note đầy đủ -> REJECTED, note set, updatedAt đổi")
         void rejectCourseDraft_happyPath_shouldUpdateStatusNoteAndUpdatedAt() {
             Course c = buildCourse(5L, CourseStatus.Approved);
             CourseDraft d = buildCourseDraft(3L, c, CourseDraftStatus.PENDING_REVIEW);
 
-            // UTCID04: set updatedAt ban đầu cố định
             LocalDateTime oldUpdatedAt = LocalDateTime.of(2024, 12, 1, 10, 0, 0);
             d.setUpdatedAt(oldUpdatedAt);
-            d.setAdminReviewNote(null); // đảm bảo ban đầu là null
+            d.setAdminReviewNote(null);
 
             when(courseDraftRepository.findById(3L)).thenReturn(Optional.of(d));
 
-            String note = "Nội dung không phù hợp"; // đúng theo bảng
+            String note = "Nội dung không phù hợp";
 
             adminCourseService.rejectCourseDraft(3L, note);
 
             assertEquals(CourseDraftStatus.REJECTED, d.getStatus());
             assertEquals(note, d.getAdminReviewNote());
             assertNotNull(d.getUpdatedAt());
-            assertNotEquals(oldUpdatedAt, d.getUpdatedAt()); // updatedAt phải thay đổi
+            assertNotEquals(oldUpdatedAt, d.getUpdatedAt());
 
             verify(emailService, times(1))
                     .sendCourseDraftRejectedToTutor(
@@ -923,21 +819,13 @@ class AdminCourseServiceTest {
             verify(notificationService, times(1))
                     .sendNotification(
                             eq(99L),
-                            contains("Course draft rejected"),
-                            contains("was rejected"),
+                            contains("Bản nháp bị từ chối"),
+                            contains("đã bị Admin từ chối"),
                             eq(NotificationType.COURSE_DRAFT_REJECTED),
-                            eq("/tutor/courses/" + c.getCourseID())
+                            eq("/tutor/courses/" + c.getCourseID() + "/details")
                     );
         }
 
-        /**
-         * UTCID05
-         * Case: Note = "Rejected"
-         *  - Boundary test cho nội dung note
-         *  - Expected:
-         *      + status = REJECTED
-         *      + adminReviewNote = "Rejected"
-         */
         @Test
         @DisplayName("Draft PENDING_REVIEW, note = \"Rejected\" -> REJECTED, note='Rejected'")
         void rejectCourseDraft_noteRejected_shouldSetExactNote() {
@@ -954,13 +842,6 @@ class AdminCourseServiceTest {
             assertEquals("Rejected", d.getAdminReviewNote());
         }
 
-        /**
-         * UTCID07
-         * Case: Note = "" (empty string)
-         *  - Expected:
-         *      + status = REJECTED
-         *      + adminReviewNote = ""
-         */
         @Test
         @DisplayName("Draft PENDING_REVIEW, note rỗng \"\" -> REJECTED, adminReviewNote = \"\"")
         void rejectCourseDraft_emptyNote_shouldSetEmptyString() {
@@ -974,21 +855,35 @@ class AdminCourseServiceTest {
             assertEquals(CourseDraftStatus.REJECTED, d.getStatus());
             assertEquals("", d.getAdminReviewNote());
         }
+
+        @Test
+        @DisplayName("rejectCourseDraft - tutor email blank -> skip email, vẫn notify")
+        void rejectCourseDraft_tutorEmailBlank_shouldSkipEmailButNotify() {
+            Course c = buildCourse(13L, CourseStatus.Approved);
+            CourseDraft d = buildCourseDraft(9L, c, CourseDraftStatus.PENDING_REVIEW);
+            d.getTutor().getUser().setEmail("   ");
+
+            when(courseDraftRepository.findById(9L)).thenReturn(Optional.of(d));
+
+            adminCourseService.rejectCourseDraft(9L, "note");
+
+            verify(emailService, never())
+                    .sendCourseDraftRejectedToTutor(anyString(), anyString(), anyString());
+            verify(notificationService, times(1))
+                    .sendNotification(
+                            eq(99L),
+                            contains("Bản nháp bị từ chối"),
+                            contains("đã bị Admin từ chối"),
+                            eq(NotificationType.COURSE_DRAFT_REJECTED),
+                            eq("/tutor/courses/" + c.getCourseID() + "/details")
+                    );
+        }
     }
 
     @Nested
     @DisplayName("AdminCourseService.rejectCourseDraft(draftID) (overload)")
     class RejectCourseDraftOverloadTests {
 
-        /**
-         * UTCID06
-         * Case: gọi overload không truyền note
-         *  - Expected:
-         *      + nội bộ gọi rejectCourseDraft(draftID, null)
-         *      + status = REJECTED
-         *      + adminReviewNote = null
-         *      + vẫn gửi notification tutor
-         */
         @Test
         @DisplayName("Overload không note -> note = null, vẫn REJECTED & notify")
         void rejectCourseDraft_overload_shouldDelegateWithNullNote() {
@@ -997,18 +892,18 @@ class AdminCourseServiceTest {
 
             when(courseDraftRepository.findById(4L)).thenReturn(Optional.of(d));
 
-            adminCourseService.rejectCourseDraft(4L); // không truyền note => note = null
+            adminCourseService.rejectCourseDraft(4L);
 
             assertEquals(CourseDraftStatus.REJECTED, d.getStatus());
-            assertNull(d.getAdminReviewNote()); // UTCID06: adminReviewNote = null
+            assertNull(d.getAdminReviewNote());
 
             verify(notificationService, times(1))
                     .sendNotification(
                             eq(99L),
-                            contains("Course draft rejected"),
-                            contains("was rejected"),
+                            contains("Bản nháp bị từ chối"),
+                            contains("đã bị Admin từ chối"),
                             eq(NotificationType.COURSE_DRAFT_REJECTED),
-                            eq("/tutor/courses/" + c.getCourseID())
+                            eq("/tutor/courses/" + c.getCourseID() + "/details")
                     );
         }
     }
@@ -1021,9 +916,6 @@ class AdminCourseServiceTest {
     @DisplayName("AdminCourseService.getCourseDraftChanges")
     class GetCourseDraftChangesTests {
 
-        /**
-         * Case: Draft không tồn tại
-         */
         @Test
         @DisplayName("Draft không tồn tại -> AppException")
         void getCourseDraftChanges_draftNotFound_shouldThrow() {
@@ -1033,10 +925,6 @@ class AdminCourseServiceTest {
                     () -> adminCourseService.getCourseDraftChanges(1L));
         }
 
-        /**
-         * Case: Draft tồn tại, nhưng không có diff (list rỗng)
-         *  - Expected: trả về AdminCourseDraftChangesResponse với các list != null
-         */
         @Test
         @DisplayName("Draft tồn tại -> trả về AdminCourseDraftChangesResponse (kể cả khi diff rỗng)")
         void getCourseDraftChanges_happyPath_shouldReturnDiff() {
@@ -1065,6 +953,249 @@ class AdminCourseServiceTest {
             assertNotNull(result.getCourseChanges());
             assertNotNull(result.getLessons());
             assertNotNull(result.getResources());
+        }
+    }
+
+    // =====================================================================
+    // EXTRA: approveCourseDraft – no diff summary fallback
+    // =====================================================================
+
+    @Nested
+    @DisplayName("AdminCourseService.approveCourseDraft - no visible changes")
+    class ApproveCourseDraftNoChangeSummaryTests {
+
+        @Test
+        @DisplayName("approveCourseDraft - no diff -> summary fallback 'minor internal changes'")
+        void approveCourseDraft_noDiff_shouldUseFallbackSummary() {
+            Course course = buildCourse(40L, CourseStatus.Approved);
+            CourseDraft draft = buildCourseDraft(41L, course, CourseDraftStatus.PENDING_REVIEW);
+
+            draft.setTitle(course.getTitle());
+            draft.setShortDescription(course.getShortDescription());
+            draft.setDescription(course.getDescription());
+            draft.setRequirement(course.getRequirement());
+            draft.setLevel(course.getLevel());
+            draft.setDuration(course.getDuration());
+            draft.setPrice(course.getPrice());
+            draft.setLanguage(course.getLanguage());
+            draft.setThumbnailURL(course.getThumbnailURL());
+            draft.setCategory(course.getCategory());
+            draft.setTutor(course.getTutor());
+            draft.setObjectives(new ArrayList<>());
+            draft.setSections(new ArrayList<>());
+
+            when(courseDraftRepository.findById(41L)).thenReturn(Optional.of(draft));
+
+            when(courseObjectiveRepository
+                    .findByCourse_CourseIDOrderByOrderIndexAsc(course.getCourseID()))
+                    .thenReturn(List.of());
+            when(courseSectionRepository.findByCourse_CourseID(course.getCourseID()))
+                    .thenReturn(List.of());
+            when(lessonRepository.findBySection_SectionIDIn(anyList()))
+                    .thenReturn(List.of());
+            when(lessonResourceRepository.findByLesson_LessonIDIn(anyList()))
+                    .thenReturn(List.of());
+            when(courseReviewRepository.findByCourse_CourseID(course.getCourseID()))
+                    .thenReturn(List.of());
+
+            User learner = new User();
+            learner.setUserID(500L);
+            learner.setEmail("learner@mail.com");
+            Enrollment e = new Enrollment();
+            e.setUser(learner);
+            e.setCourse(course);
+
+            when(enrollmentRepository.countByCourse_CourseID(course.getCourseID()))
+                    .thenReturn(1L);
+            when(enrollmentRepository.findAllByCourseId(course.getCourseID()))
+                    .thenReturn(List.of(e));
+
+            when(userCourseSectionRepository.findBySection_SectionID(anyLong()))
+                    .thenReturn(List.of());
+
+            ArgumentCaptor<String> summaryCaptor = ArgumentCaptor.forClass(String.class);
+
+            adminCourseService.approveCourseDraft(41L);
+
+            verify(emailService, times(1))
+                    .sendCourseUpdatedToLearner(
+                            eq("learner@mail.com"),
+                            eq(course.getTitle()),
+                            summaryCaptor.capture()
+                    );
+
+            String summary = summaryCaptor.getValue();
+            assertEquals("Course was updated with minor internal changes.\n", summary);
+
+            verify(notificationService, times(1))
+                    .sendNotification(
+                            eq(500L),
+                            contains("Khoá học đã được cập nhật"),
+                            contains("vừa được cập nhật"),
+                            eq(NotificationType.COURSE_UPDATED),
+                            eq("/courses/" + course.getCourseID())
+                    );
+        }
+    }
+
+    // =====================================================================
+    // EXTRA: approveCourseDraft – quiz change + reset progress
+    // =====================================================================
+
+    @Nested
+    @DisplayName("AdminCourseService.approveCourseDraft - quiz & progress reset")
+    class ApproveCourseDraftQuizAndProgressTests {
+
+        @Test
+        @DisplayName("Quiz thay đổi + video URL thay đổi -> reset progress & sync quiz")
+        void approveCourseDraft_quizChange_shouldResetProgressAndSyncQuiz() {
+            // LIVE COURSE + SECTION
+            Course course = buildCourse(30L, CourseStatus.Approved);
+
+            CourseSection sectionLive = new CourseSection();
+            sectionLive.setSectionID(100L);
+            sectionLive.setCourse(course);
+            sectionLive.setTitle("Live section");
+            sectionLive.setOrderIndex(1);
+
+            Lesson liveVideoLesson = new Lesson();
+            liveVideoLesson.setLessonID(200L);
+            liveVideoLesson.setSection(sectionLive);
+            liveVideoLesson.setLessonType(LessonType.Video);
+            liveVideoLesson.setTitle("Video L");
+            liveVideoLesson.setVideoURL("old-url");
+            liveVideoLesson.setDuration((short) 10);
+            liveVideoLesson.setOrderIndex(1);
+
+            Lesson liveQuizLesson = new Lesson();
+            liveQuizLesson.setLessonID(201L);
+            liveQuizLesson.setSection(sectionLive);
+            liveQuizLesson.setLessonType(LessonType.Quiz);
+            liveQuizLesson.setTitle("Quiz L");
+            liveQuizLesson.setDuration((short) 5);
+            liveQuizLesson.setOrderIndex(2);
+
+
+            sectionLive.setLessons(List.of(liveVideoLesson, liveQuizLesson));
+            course.setSections(List.of(sectionLive));
+
+            QuizQuestion liveQuestion = new QuizQuestion();
+            liveQuestion.setQuestionID(300L);
+            liveQuestion.setLesson(liveQuizLesson);
+            liveQuestion.setQuestionText("Q1");
+            liveQuestion.setOrderIndex(1);
+
+            QuizOption liveOption = new QuizOption();
+            liveOption.setOptionID(400L);
+            liveOption.setQuestion(liveQuestion);
+            liveOption.setOptionText("A");
+            liveOption.setIsCorrect(true);
+            liveOption.setOrderIndex(1);
+            liveQuestion.setOptions(List.of(liveOption));
+
+            when(quizQuestionRepository.findByLessonOrderByOrderIndexAsc(liveQuizLesson))
+                    .thenReturn(List.of(liveQuestion));
+
+            // DRAFT
+            CourseDraft draft = buildCourseDraft(31L, course, CourseDraftStatus.PENDING_REVIEW);
+
+            CourseSectionDraft sectionDraft = new CourseSectionDraft();
+            sectionDraft.setSectionDraftID(101L);
+            sectionDraft.setDraft(draft);
+            sectionDraft.setOriginalSectionID(sectionLive.getSectionID());
+            sectionDraft.setTitle("Live section (updated)");
+            sectionDraft.setOrderIndex(1);
+
+            LessonDraft draftVideo = new LessonDraft();
+            draftVideo.setLessonDraftID(210L);
+            draftVideo.setOriginalLessonID(liveVideoLesson.getLessonID());
+            draftVideo.setLessonType(LessonType.Video);
+            draftVideo.setTitle("Video L");
+            draftVideo.setVideoURL("new-url");
+            draftVideo.setDuration((short) 10);
+            draftVideo.setOrderIndex(1);
+            draftVideo.setResources(new ArrayList<>());
+
+            LessonDraft draftQuiz = new LessonDraft();
+            draftQuiz.setLessonDraftID(211L);
+            draftQuiz.setOriginalLessonID(liveQuizLesson.getLessonID());
+            draftQuiz.setLessonType(LessonType.Quiz);
+            draftQuiz.setTitle("Quiz L");
+            draftQuiz.setDuration((short) 5);
+            draftQuiz.setOrderIndex(2);
+            draftQuiz.setResources(new ArrayList<>());
+
+            QuizQuestionDraft draftQuestion = new QuizQuestionDraft();
+            draftQuestion.setQuestionDraftID(301L);
+            draftQuestion.setLessonDraft(draftQuiz);
+            draftQuestion.setQuestionText("Q1 changed");
+            draftQuestion.setOrderIndex(1);
+
+            QuizOptionDraft draftOption = new QuizOptionDraft();
+            draftOption.setOptionDraftID(401L);
+            draftOption.setQuestionDraft(draftQuestion);
+            draftOption.setOptionText("B");
+            draftOption.setIsCorrect(true);
+            draftOption.setOrderIndex(1);
+            draftQuestion.setOptions(List.of(draftOption));
+
+            when(quizQuestionDraftRepository.findByLessonDraftOrderByOrderIndexAsc(draftQuiz))
+                    .thenReturn(List.of(draftQuestion));
+
+            sectionDraft.setLessons(List.of(draftVideo, draftQuiz));
+            draft.setSections(List.of(sectionDraft));
+
+            when(courseDraftRepository.findById(31L)).thenReturn(Optional.of(draft));
+
+            when(courseSectionRepository.findByCourse_CourseID(course.getCourseID()))
+                    .thenReturn(List.of(sectionLive));
+            when(lessonRepository.findBySection_SectionIDIn(anyList()))
+                    .thenReturn(List.of(liveVideoLesson, liveQuizLesson));
+            when(lessonResourceRepository.findByLesson_LessonIDIn(anyList()))
+                    .thenReturn(List.of());
+
+            when(courseObjectiveRepository
+                    .findByCourse_CourseIDOrderByOrderIndexAsc(course.getCourseID()))
+                    .thenReturn(List.of());
+            when(courseReviewRepository.findByCourse_CourseID(course.getCourseID()))
+                    .thenReturn(List.of());
+
+            User learner = new User();
+            learner.setUserID(1000L);
+
+            UserCourseSection ucs = new UserCourseSection();
+            ucs.setSection(sectionLive);
+            ucs.setUser(learner);
+            ucs.setProgress(BigDecimal.ZERO);
+
+            when(userCourseSectionRepository.findBySection_SectionID(sectionLive.getSectionID()))
+                    .thenReturn(List.of(ucs));
+
+            when(userLessonRepository
+                    .countByUser_UserIDAndLesson_Section_SectionIDAndIsDoneTrue(
+                            eq(1000L),
+                            eq(sectionLive.getSectionID())
+                    )).thenReturn(1L);
+
+            when(enrollmentRepository.countByCourse_CourseID(course.getCourseID()))
+                    .thenReturn(0L);
+            when(enrollmentRepository.findAllByCourseId(course.getCourseID()))
+                    .thenReturn(List.of());
+
+            AdminCourseResponse response =
+                    adminCourseService.approveCourseDraft(31L);
+
+            assertEquals(course.getCourseID(), response.getId());
+            assertTrue(ucs.getProgress().compareTo(BigDecimal.ZERO) > 0);
+
+            verify(userLessonRepository, atLeastOnce())
+                    .deleteByLesson_LessonIDIn(argThat(list ->
+                            list.contains(200L) || list.contains(201L)
+                    ));
+
+            verify(quizQuestionRepository, atLeastOnce()).deleteAll(anyList());
+            verify(quizQuestionRepository, atLeastOnce()).save(any(QuizQuestion.class));
+            verify(quizOptionRepository, atLeastOnce()).save(any(QuizOption.class));
         }
     }
 }

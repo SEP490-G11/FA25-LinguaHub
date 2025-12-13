@@ -1463,6 +1463,16 @@ public class AdminCourseService {
 
     // ====================== EMAIL + NOTIFICATION HELPERS ======================
 
+    //  (NEW) helper build URL đúng route FE
+    private String tutorCourseDetailsUrl(Long courseId) {
+        return "/tutor/courses/" + courseId + "/details";
+    }
+
+    private String learnerCourseDetailUrl(Long courseId) {
+        return "/courses/" + courseId;
+    }
+
+    //  (UPDATED) VI + đúng URL
     private void notifyTutorCourseApproved(Course course, String note) {
         Tutor tutor = course.getTutor();
         if (tutor == null || tutor.getUser() == null) {
@@ -1480,15 +1490,16 @@ public class AdminCourseService {
         // Notification
         notificationService.sendNotification(
                 userId,
-                "[LinguaHub] Course approved",
-                "Your course \"" + course.getTitle()
-                        + "\" has been approved and is now live on LinguaHub."
-                        + (note != null && !note.isBlank() ? "\n\nAdmin note:\n" + note : ""),
+                "[LinguaHub] Khoá học đã được phê duyệt",
+                "Khoá học \"" + course.getTitle()
+                        + "\" đã được Admin phê duyệt và hiện đã hiển thị trên LinguaHub."
+                        + (note != null && !note.isBlank() ? "\n\nGhi chú từ Admin:\n" + note : ""),
                 NotificationType.COURSE_APPROVED,
-                "/tutor/courses/" + course.getCourseID()
+                tutorCourseDetailsUrl(course.getCourseID()) //  đúng route FE
         );
     }
 
+    //  (UPDATED) VI + đúng URL
     private void notifyTutorCourseRejected(Course course, String note) {
         Tutor tutor = course.getTutor();
         if (tutor == null || tutor.getUser() == null) {
@@ -1506,12 +1517,12 @@ public class AdminCourseService {
         // Notification
         notificationService.sendNotification(
                 userId,
-                "[LinguaHub] Course rejected",
-                "Your course \"" + course.getTitle()
-                        + "\" was rejected by the admin."
-                        + (note != null && !note.isBlank() ? "\n\nReason:\n" + note : ""),
+                "[LinguaHub] Khoá học bị từ chối",
+                "Khoá học \"" + course.getTitle()
+                        + "\" đã bị Admin từ chối."
+                        + (note != null && !note.isBlank() ? "\n\nLý do:\n" + note : ""),
                 NotificationType.COURSE_REJECTED,
-                "/tutor/courses/" + course.getCourseID()
+                tutorCourseDetailsUrl(course.getCourseID()) //  đúng route FE
         );
     }
 
@@ -1582,6 +1593,7 @@ public class AdminCourseService {
         return sb.toString();
     }
 
+    //  (UPDATED) VI + đúng URL
     private void notifyLearnersCourseUpdated(Course course, AdminCourseDraftChangesResponse changes) {
         List<Enrollment> enrollments = enrollmentRepository.findAllByCourseId(course.getCourseID());
         if (enrollments == null || enrollments.isEmpty()) {
@@ -1613,16 +1625,17 @@ public class AdminCourseService {
         for (Long userId : userIds) {
             notificationService.sendNotification(
                     userId,
-                    "[LinguaHub] Course updated: " + course.getTitle(),
-                    "The course \"" + course.getTitle()
-                            + "\" that you enrolled in has just been updated.\n\n"
-                            + "Summary of changes:\n" + summary,
+                    "[LinguaHub] Khoá học đã được cập nhật: " + course.getTitle(),
+                    "Khoá học \"" + course.getTitle()
+                            + "\" mà bạn đã đăng ký vừa được cập nhật.\n\n"
+                            + "Tóm tắt thay đổi:\n" + summary,
                     NotificationType.COURSE_UPDATED,
-                    "/courses/" + course.getCourseID()
+                    learnerCourseDetailUrl(course.getCourseID()) //  đúng route FE
             );
         }
     }
 
+    //  (UPDATED) VI + đúng URL
     private void notifyTutorCourseDraftApproved(CourseDraft draft, AdminCourseDraftChangesResponse changes) {
         Tutor tutor = draft.getTutor();
         if (tutor == null || tutor.getUser() == null) return;
@@ -1645,16 +1658,17 @@ public class AdminCourseService {
         // Notification
         notificationService.sendNotification(
                 userId,
-                "[LinguaHub] Course draft approved",
-                "Your draft updates for the course \""
+                "[LinguaHub] Bản nháp đã được phê duyệt",
+                "Các cập nhật bản nháp của khoá học \""
                         + draft.getCourse().getTitle()
-                        + "\" have been approved and applied to the live course.\n\n"
-                        + "Summary of changes:\n" + summary,
+                        + "\" đã được Admin phê duyệt và áp dụng lên khoá học hiện tại.\n\n"
+                        + "Tóm tắt thay đổi:\n" + summary,
                 NotificationType.COURSE_DRAFT_APPROVED,
-                "/tutor/courses/" + draft.getCourse().getCourseID()
+                tutorCourseDetailsUrl(draft.getCourse().getCourseID()) //  đúng route FE
         );
     }
 
+    //  (UPDATED) VI + đúng URL
     private void notifyTutorCourseDraftRejected(CourseDraft draft, String note) {
         Tutor tutor = draft.getTutor();
         if (tutor == null || tutor.getUser() == null) return;
@@ -1674,13 +1688,13 @@ public class AdminCourseService {
         // Notification
         notificationService.sendNotification(
                 userId,
-                "[LinguaHub] Course draft rejected",
-                "Your draft update for the course \""
+                "[LinguaHub] Bản nháp bị từ chối",
+                "Bản nháp cập nhật của khoá học \""
                         + draft.getCourse().getTitle()
-                        + "\" was rejected by the admin."
-                        + (note != null && !note.isBlank() ? "\n\nReason:\n" + note : ""),
+                        + "\" đã bị Admin từ chối."
+                        + (note != null && !note.isBlank() ? "\n\nLý do:\n" + note : ""),
                 NotificationType.COURSE_DRAFT_REJECTED,
-                "/tutor/courses/" + draft.getCourse().getCourseID()
+                tutorCourseDetailsUrl(draft.getCourse().getCourseID()) //  đúng route FE
         );
     }
 }

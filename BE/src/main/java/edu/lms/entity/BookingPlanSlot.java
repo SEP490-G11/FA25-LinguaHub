@@ -53,6 +53,10 @@ public class BookingPlanSlot {
     @JoinColumn(name = "user_package_id")
     UserPackage userPackage;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tutor_package_id")
+    TutorPackage tutorPackage;
+
     @Builder.Default
     @Column(name = "reminder_sent", nullable = false)
     Boolean reminderSent = false;
@@ -66,8 +70,8 @@ public class BookingPlanSlot {
     Boolean learnerJoin = false;
 
     @Column(name = "tutor_evidence", length = 1000)
-    String tutorEvidence;   // URL ảnh / mô tả
+    String tutorEvidence;
 
     @Column(name = "learner_evidence", length = 1000)
-    String learnerEvidence; // URL ảnh / mô tả
+    String learnerEvidence;
 }

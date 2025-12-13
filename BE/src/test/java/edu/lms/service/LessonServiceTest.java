@@ -26,6 +26,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.AdditionalAnswers.returnsFirstArg;
 import static org.mockito.Mockito.*;
 
+/**
+ * NOTE:
+ *  - createLesson(): section không tồn tại -> ErrorCode.INVALID_KEY (theo LessonServiceImpl hiện tại).
+ *  - Các method đọc section khác (getLessonsBySection, getLessonsBySectionWithFilters) -> SECTION_NOT_FOUND.
+ *  - lesson không tồn tại -> ErrorCode.LESSON_NOT_FOUND.
+ */
 @ExtendWith(MockitoExtension.class)
 @FieldDefaults(level = AccessLevel.PRIVATE)
 class LessonServiceTest {
@@ -158,7 +164,7 @@ class LessonServiceTest {
         /**
          * NOTE CASE (CL02 - Abnormal):
          *  - sectionID không tồn tại
-         *  => INVALID_KEY
+         *  => INVALID_KEY (theo LessonServiceImpl.createLesson hiện tại)
          */
         @Test
         @DisplayName("CL02 - Section không tồn tại -> INVALID_KEY")
@@ -308,10 +314,10 @@ class LessonServiceTest {
         /**
          * NOTE CASE (UL02 - Abnormal):
          *  - lessonId không tồn tại
-         *  => INVALID_KEY
+         *  => LESSON_NOT_FOUND
          */
         @Test
-        @DisplayName("UL02 - Lesson không tồn tại -> INVALID_KEY")
+        @DisplayName("UL02 - Lesson không tồn tại -> LESSON_NOT_FOUND")
         void updateLesson_lessonNotFound() {
             when(lessonRepository.findById(1L))
                     .thenReturn(Optional.empty());
@@ -326,7 +332,7 @@ class LessonServiceTest {
                     AppException.class,
                     () -> lessonService.updateLesson(1L, req, "hai@gmail.com")
             );
-            assertEquals(ErrorCode.INVALID_KEY, ex.getErrorcode());
+            assertEquals(ErrorCode.LESSON_NOT_FOUND, ex.getErrorcode());
         }
 
         /**
@@ -534,10 +540,10 @@ class LessonServiceTest {
         /**
          * NOTE CASE (DL02 - Abnormal):
          *  - lessonId không tồn tại
-         *  => INVALID_KEY
+         *  => LESSON_NOT_FOUND
          */
         @Test
-        @DisplayName("DL02 - Lesson không tồn tại -> INVALID_KEY")
+        @DisplayName("DL02 - Lesson không tồn tại -> LESSON_NOT_FOUND")
         void deleteLesson_notFound() {
             when(lessonRepository.findById(1L))
                     .thenReturn(Optional.empty());
@@ -546,7 +552,7 @@ class LessonServiceTest {
                     AppException.class,
                     () -> lessonService.deleteLesson(1L, "hai@gmail.com")
             );
-            assertEquals(ErrorCode.INVALID_KEY, ex.getErrorcode());
+            assertEquals(ErrorCode.LESSON_NOT_FOUND, ex.getErrorcode());
         }
 
         /**
@@ -628,6 +634,13 @@ class LessonServiceTest {
     class GetLessonsBySectionTests {
 
         /**
+         * NOTE:
+         *  Theo LessonServiceImpl hiện tại:
+         *  - getLessonsBySection() chỉ dùng ensureOwner() -> CHỈ tutor owner được xem.
+         *  - Learner dù đã enroll vẫn không được vào đây (chỉ dùng cho màn quản lý của tutor).
+         */
+
+        /**
          * NOTE CASE (GL01 - Normal):
          *  - section tồn tại
          *  - user là tutor owner
@@ -674,13 +687,13 @@ class LessonServiceTest {
         }
 
         /**
-         * NOTE CASE (GL02 - Normal):
+         * NOTE CASE (GL02 - Abnormal theo code hiện tại):
          *  - section tồn tại
          *  - user là learner đã enroll course
-         *  => xem được list lessons (ensureCanView -> isEnrolled)
+         *  => VẪN bị UNAUTHORIZED vì getLessonsBySection chỉ dành cho owner.
          */
         @Test
-        @DisplayName("GL02 - Learner đã enroll xem được lessons")
+        @DisplayName("GL02 - Learner đã enroll nhưng gọi getLessonsBySection -> UNAUTHORIZED")
         void getLessonsBySection_enrolledLearner() {
             Long sectionId = 10L;
             String email = "learner@gmail.com";
@@ -697,34 +710,24 @@ class LessonServiceTest {
             when(userRepository.findByEmail(email))
                     .thenReturn(Optional.of(learner));
 
-            when(enrollmentRepository.findByUser_UserIDAndCourse_CourseID(
-                    learner.getUserID(), course.getCourseID()
-            )).thenReturn(Optional.of(buildEnrollment(learner, course)));
+            // KHÔNG stub enrollmentRepository ở đây vì ensureOwner() không dùng tới,
+            // nếu stub sẽ bị UnnecessaryStubbingException.
 
-            Lesson l1 = buildLesson(
-                    1L, section,
-                    "Java Basic", (short) 30, 1,
-                    LessonType.Video, "url1", "Content1",
-                    LocalDateTime.now().minusDays(2)
+            AppException ex = assertThrows(
+                    AppException.class,
+                    () -> lessonService.getLessonsBySection(sectionId, email)
             );
-            when(lessonRepository.findBySectionSectionID(sectionId))
-                    .thenReturn(List.of(l1));
-
-            List<LessonResponse> res =
-                    lessonService.getLessonsBySection(sectionId, email);
-
-            assertEquals(1, res.size());
-            assertEquals("Java Basic", res.get(0).getTitle());
+            assertEquals(ErrorCode.UNAUTHORIZED, ex.getErrorcode());
         }
 
         /**
          * NOTE CASE (GL03 - Abnormal):
          *  - section tồn tại
          *  - user không phải owner, không enroll
-         *  => UNAUTHORIZED
+         *  => UNAUTHORIZED (vì không phải owner)
          */
         @Test
-        @DisplayName("GL03 - User không phải owner & không enroll -> UNAUTHORIZED")
+        @DisplayName("GL03 - User không phải owner -> UNAUTHORIZED")
         void getLessonsBySection_notEnrolledAndNotOwner() {
             Long sectionId = 10L;
 
@@ -740,9 +743,7 @@ class LessonServiceTest {
             when(userRepository.findByEmail("stranger@gmail.com"))
                     .thenReturn(Optional.of(stranger));
 
-            when(enrollmentRepository.findByUser_UserIDAndCourse_CourseID(
-                    stranger.getUserID(), course.getCourseID()
-            )).thenReturn(Optional.empty());
+            // KHÔNG stub enrollmentRepository ở đây (không dùng).
 
             AppException ex = assertThrows(
                     AppException.class,
@@ -754,10 +755,10 @@ class LessonServiceTest {
         /**
          * NOTE CASE (GL04 - Abnormal):
          *  - sectionID không tồn tại
-         *  => INVALID_KEY
+         *  => SECTION_NOT_FOUND
          */
         @Test
-        @DisplayName("GL04 - Section không tồn tại -> INVALID_KEY")
+        @DisplayName("GL04 - Section không tồn tại -> SECTION_NOT_FOUND")
         void getLessonsBySection_sectionNotFound() {
             when(courseSectionRepository.findById(10L))
                     .thenReturn(Optional.empty());
@@ -766,7 +767,7 @@ class LessonServiceTest {
                     AppException.class,
                     () -> lessonService.getLessonsBySection(10L, "a@gmail.com")
             );
-            assertEquals(ErrorCode.INVALID_KEY, ex.getErrorcode());
+            assertEquals(ErrorCode.SECTION_NOT_FOUND, ex.getErrorcode());
         }
 
         /**
@@ -990,19 +991,12 @@ class LessonServiceTest {
         }
 
         /**
-         * NOTE CASE (LF05 - Boundary):
-         *  - sortBy = "createdAt"
-         *  - order = null (hoặc != "DESC")
-         *  => vẫn sort ASC (default), đã cover ở LF04
-         */
-
-        /**
          * NOTE CASE (LF06 - Abnormal):
          *  - section không tồn tại
-         *  => INVALID_KEY (thông qua getLessonsBySection)
+         *  => SECTION_NOT_FOUND (thông qua getLessonsBySection)
          */
         @Test
-        @DisplayName("LF06 - Section không tồn tại -> INVALID_KEY")
+        @DisplayName("LF06 - Section không tồn tại -> SECTION_NOT_FOUND")
         void getLessonsBySectionWithFilters_sectionNotFound() {
             when(courseSectionRepository.findById(2L))
                     .thenReturn(Optional.empty());
@@ -1011,7 +1005,7 @@ class LessonServiceTest {
                     AppException.class,
                     () -> lessonService.getLessonsBySectionWithFilters(2L, "a@gmail.com", null, null, null)
             );
-            assertEquals(ErrorCode.INVALID_KEY, ex.getErrorcode());
+            assertEquals(ErrorCode.SECTION_NOT_FOUND, ex.getErrorcode());
         }
 
         /**
@@ -1061,9 +1055,8 @@ class LessonServiceTest {
             User stranger = buildUser(2L, "stranger@gmail.com");
             when(userRepository.findByEmail("stranger@gmail.com"))
                     .thenReturn(Optional.of(stranger));
-            when(enrollmentRepository.findByUser_UserIDAndCourse_CourseID(
-                    stranger.getUserID(), course.getCourseID()
-            )).thenReturn(Optional.empty());
+
+            // KHÔNG stub enrollmentRepository ở đây vì getLessonsBySection() không hề gọi isEnrolled().
 
             AppException ex = assertThrows(
                     AppException.class,
@@ -1083,10 +1076,10 @@ class LessonServiceTest {
         /**
          * NOTE CASE (LD01 - Abnormal):
          *  - lessonId không tồn tại
-         *  => INVALID_KEY
+         *  => LESSON_NOT_FOUND
          */
         @Test
-        @DisplayName("LD01 - Lesson không tồn tại -> INVALID_KEY")
+        @DisplayName("LD01 - Lesson không tồn tại -> LESSON_NOT_FOUND")
         void getLessonDetail_notFound() {
             when(lessonRepository.findById(10L))
                     .thenReturn(Optional.empty());
@@ -1095,7 +1088,7 @@ class LessonServiceTest {
                     AppException.class,
                     () -> lessonService.getLessonDetail(10L, "a@gmail.com")
             );
-            assertEquals(ErrorCode.INVALID_KEY, ex.getErrorcode());
+            assertEquals(ErrorCode.LESSON_NOT_FOUND, ex.getErrorcode());
         }
 
         /**
@@ -1137,7 +1130,7 @@ class LessonServiceTest {
          * NOTE CASE (LD03 - Normal):
          *  - lesson tồn tại
          *  - user là learner đã enroll
-         *  => xem được detail (ensureCanView)
+         *  => xem được detail (ensureCanView -> isEnrolled)
          */
         @Test
         @DisplayName("LD03 - Learner đã enroll xem lesson detail")

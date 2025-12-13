@@ -8,22 +8,18 @@ import edu.lms.enums.PaymentType;
 import edu.lms.enums.RefundStatus;
 import edu.lms.enums.SlotStatus;
 import edu.lms.exception.AppException;
-import edu.lms.repository.BookingPlanRepository;
-import edu.lms.repository.BookingPlanSlotRepository;
-import edu.lms.repository.PaymentRepository;
-import edu.lms.repository.RefundRequestRepository;
-import edu.lms.repository.TutorRepository;
+import edu.lms.repository.*;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -38,7 +34,7 @@ import static org.mockito.Mockito.*;
  *      + learner không phải owner slot -> UNAUTHORIZED
  *      + slot.status != Paid -> INVALID_KEY
  *      + Happy path: slot Paid, không có paymentId -> chỉ update slot, không đụng ví
- *      + Case: có paymentId, PaymentType != Booking -> không update ví
+ *      + Case: có paymentId, PaymentType != Booking -> không update ví (từ góc nhìn service này)
  *
  *  - tutorConfirmJoin
  *      + slot không tồn tại -> BOOKING_SLOT_NOT_FOUND
@@ -46,8 +42,8 @@ import static org.mockito.Mockito.*;
  *      + tutor không phải owner slot -> UNAUTHORIZED
  *      + slot.status != Paid -> INVALID_KEY
  *      + Payment không tồn tại -> PAYMENT_NOT_FOUND
- *      + PaymentType = Booking, nhưng không phải tất cả slot confirm -> không update ví
- *      + PaymentType = Booking, tất cả slot confirm -> gọi withdrawService + update ví tutor
+ *      + PaymentType = Booking (notAllConfirmed): vẫn confirm join, recalc ví (logic release nằm trong WithdrawService)
+ *      + PaymentType = Booking (any case): recalc ví tutor dựa trên WithdrawService
  *
  *  - learnerComplain
  *      + slot không tồn tại -> BOOKING_SLOT_NOT_FOUND
@@ -55,7 +51,7 @@ import static org.mockito.Mockito.*;
  *      + slot.status != Paid -> INVALID_KEY
  *      + Happy path:
  *          * tạo RefundRequest với refundAmount tính từ duration buổi học
- *          * gửi notification REFUND_AVAILABLE
+ *          * gửi notification REFUND_AVAILABLE với path /learner/refunds
  *
  * Lưu ý:
  *  - Chỉ assertThrows(AppException.class), KHÔNG check ErrorCode bên trong.
@@ -92,7 +88,7 @@ class BookingAttendanceServiceTest {
         slot.setTutorID(tutorId);
         slot.setPaymentID(paymentId);
         slot.setStatus(SlotStatus.Paid);
-        // default time 60 phút
+        // default: 60 phút
         LocalDateTime start = LocalDateTime.of(2025, 1, 1, 10, 0);
         LocalDateTime end = start.plusMinutes(60);
         slot.setStartTime(start);
@@ -131,9 +127,6 @@ class BookingAttendanceServiceTest {
     @DisplayName("BookingAttendanceService.learnerConfirmJoin")
     class LearnerConfirmJoinTests {
 
-        /**
-         * NOTE – Case: Slot không tồn tại -> BOOKING_SLOT_NOT_FOUND
-         */
         @Test
         @DisplayName("learnerConfirmJoin - slot không tồn tại -> AppException")
         void learnerConfirmJoin_slotNotFound_shouldThrow() {
@@ -153,9 +146,6 @@ class BookingAttendanceServiceTest {
             verify(bookingPlanSlotRepository, never()).save(any());
         }
 
-        /**
-         * NOTE – Case: learnerUserId khác slot.userID -> UNAUTHORIZED
-         */
         @Test
         @DisplayName("learnerConfirmJoin - learner không phải owner slot -> UNAUTHORIZED")
         void learnerConfirmJoin_notOwner_shouldThrowUnauthorized() {
@@ -176,9 +166,6 @@ class BookingAttendanceServiceTest {
             verify(bookingPlanSlotRepository, never()).save(any());
         }
 
-        /**
-         * NOTE – Case: slot.status != Paid -> INVALID_KEY
-         */
         @Test
         @DisplayName("learnerConfirmJoin - slot không ở trạng thái Paid -> INVALID_KEY")
         void learnerConfirmJoin_slotNotPaid_shouldThrowInvalidKey() {
@@ -203,15 +190,6 @@ class BookingAttendanceServiceTest {
             verify(bookingPlanSlotRepository, never()).save(any());
         }
 
-        /**
-         * NOTE – Case: Happy path
-         *  - slot Paid, owner đúng, paymentID = null
-         *  - Kỳ vọng:
-         *      + slot.learnerJoin = true
-         *      + slot.learnerEvidence = dto.evidenceUrl
-         *      + slot được save
-         *      + không gọi withdrawService / paymentRepository
-         */
         @Test
         @DisplayName("learnerConfirmJoin - Happy path, không có payment -> chỉ update slot")
         void learnerConfirmJoin_success_noPayment() {
@@ -237,13 +215,6 @@ class BookingAttendanceServiceTest {
             verifyNoInteractions(paymentRepository, withdrawService);
         }
 
-        /**
-         * NOTE – Case: Có paymentID nhưng PaymentType != Booking
-         *  - checkAndUpdateTutorWalletIfEligible sẽ return sớm
-         *  - Kỳ vọng:
-         *      + slot vẫn được cập nhật join + evidence
-         *      + không gọi withdrawService
-         */
         @Test
         @DisplayName("learnerConfirmJoin - PaymentType != Booking -> không update ví")
         void learnerConfirmJoin_paymentNotBooking_noWalletUpdate() {
@@ -283,9 +254,6 @@ class BookingAttendanceServiceTest {
     @DisplayName("BookingAttendanceService.tutorConfirmJoin")
     class TutorConfirmJoinTests {
 
-        /**
-         * NOTE – Case: Slot không tồn tại -> BOOKING_SLOT_NOT_FOUND
-         */
         @Test
         @DisplayName("tutorConfirmJoin - slot không tồn tại -> AppException")
         void tutorConfirmJoin_slotNotFound_shouldThrow() {
@@ -305,9 +273,6 @@ class BookingAttendanceServiceTest {
             verifyNoInteractions(tutorRepository);
         }
 
-        /**
-         * NOTE – Case: Tutor không tồn tại -> TUTOR_NOT_FOUND
-         */
         @Test
         @DisplayName("tutorConfirmJoin - tutor không tồn tại -> AppException")
         void tutorConfirmJoin_tutorNotFound_shouldThrow() {
@@ -330,9 +295,6 @@ class BookingAttendanceServiceTest {
             verify(tutorRepository).findByUser_UserID(tutorUserId);
         }
 
-        /**
-         * NOTE – Case: Tutor không phải owner của slot -> UNAUTHORIZED
-         */
         @Test
         @DisplayName("tutorConfirmJoin - tutor không phải owner slot -> UNAUTHORIZED")
         void tutorConfirmJoin_notOwner_shouldThrowUnauthorized() {
@@ -358,9 +320,6 @@ class BookingAttendanceServiceTest {
             verify(bookingPlanSlotRepository, never()).save(any());
         }
 
-        /**
-         * NOTE – Case: slot.status != Paid -> INVALID_KEY
-         */
         @Test
         @DisplayName("tutorConfirmJoin - slot không Paid -> INVALID_KEY")
         void tutorConfirmJoin_slotNotPaid_shouldThrowInvalidKey() {
@@ -390,11 +349,6 @@ class BookingAttendanceServiceTest {
             verify(bookingPlanSlotRepository, never()).save(any());
         }
 
-        /**
-         * NOTE – Case: Payment không tồn tại -> PAYMENT_NOT_FOUND
-         *  - slot Paid, paymentID != null
-         *  - paymentRepository.findById trả empty
-         */
         @Test
         @DisplayName("tutorConfirmJoin - Payment không tồn tại -> AppException PAYMENT_NOT_FOUND")
         void tutorConfirmJoin_paymentNotFound_shouldThrow() {
@@ -427,14 +381,9 @@ class BookingAttendanceServiceTest {
             verifyNoInteractions(withdrawService);
         }
 
-        /**
-         * NOTE – Case: PaymentType = Booking nhưng chưa đủ allConfirmed
-         *  - Có nhiều slot trong cùng payment, 1 slot chưa confirm join
-         *  - Kỳ vọng: không update ví (không gọi withdrawService)
-         */
         @Test
-        @DisplayName("tutorConfirmJoin - Booking nhưng chưa đủ allConfirmed -> không update ví")
-        void tutorConfirmJoin_bookingNotAllConfirmed_noWalletUpdate() {
+        @DisplayName("tutorConfirmJoin - Booking nhưng chưa allConfirmed -> vẫn recalc, không exception")
+        void tutorConfirmJoin_bookingNotAllConfirmed_noExceptionAndRecalc() {
             Long tutorUserId = 100L;
             Long tutorId = 5L;
             Long slotId = 1L;
@@ -455,40 +404,23 @@ class BookingAttendanceServiceTest {
             when(paymentRepository.findById(paymentId))
                     .thenReturn(Optional.of(payment));
 
-            // list slot của payment: 1 slot đã join đủ, 1 slot chưa join tutor
-            BookingPlanSlot s1 = buildSlotPaid(2L, 11L, tutorId, paymentId);
-            s1.setTutorJoin(true);
-            s1.setLearnerJoin(true);
-
-            BookingPlanSlot s2 = buildSlotPaid(3L, 12L, tutorId, paymentId);
-            s2.setTutorJoin(false);
-            s2.setLearnerJoin(true);
-
-            when(bookingPlanSlotRepository.findAllByPaymentID(paymentId))
-                    .thenReturn(List.of(s1, s2));
+            when(tutorRepository.findById(tutorId))
+                    .thenReturn(Optional.of(tutor));
 
             EvidenceRequest req = new EvidenceRequest();
             req.setEvidenceUrl("proof");
 
-            bookingAttendanceService.tutorConfirmJoin(tutorUserId, slotId, req);
+            assertDoesNotThrow(
+                    () -> bookingAttendanceService.tutorConfirmJoin(tutorUserId, slotId, req)
+            );
 
-            // Đã xác nhận join cho currentSlot
             assertTrue(Boolean.TRUE.equals(currentSlot.getTutorJoin()));
             assertEquals("proof", currentSlot.getTutorEvidence());
-
-            // không update ví
-            verifyNoInteractions(withdrawService);
         }
 
-        /**
-         * NOTE – Case: PaymentType = Booking, tất cả slot của payment đều Paid + tutorJoin + learnerJoin
-         *  - Kỳ vọng:
-         *      + gọi withdrawService.calculateCurrentBalance(tutorId)
-         *      + tutorRepository.save(tutor) với walletBalance mới
-         */
         @Test
-        @DisplayName("tutorConfirmJoin - Booking, allConfirmed -> update ví tutor")
-        void tutorConfirmJoin_bookingAllConfirmed_updateWallet() {
+        @DisplayName("tutorConfirmJoin - Booking -> recalc ví tutor qua WithdrawService")
+        void tutorConfirmJoin_booking_recalcWallet() {
             Long tutorUserId = 100L;
             Long tutorId = 5L;
             Long slotId = 1L;
@@ -509,24 +441,12 @@ class BookingAttendanceServiceTest {
             when(paymentRepository.findById(paymentId))
                     .thenReturn(Optional.of(payment));
 
-            // Tất cả slot đều Paid + tutorJoin + learnerJoin
-            BookingPlanSlot s1 = buildSlotPaid(2L, 11L, tutorId, paymentId);
-            s1.setTutorJoin(true);
-            s1.setLearnerJoin(true);
-
-            BookingPlanSlot s2 = buildSlotPaid(3L, 12L, tutorId, paymentId);
-            s2.setTutorJoin(true);
-            s2.setLearnerJoin(true);
-
-            when(bookingPlanSlotRepository.findAllByPaymentID(paymentId))
-                    .thenReturn(List.of(s1, s2));
+            when(tutorRepository.findById(tutorId))
+                    .thenReturn(Optional.of(tutor));
 
             BigDecimal newBalance = new BigDecimal("123.45");
             when(withdrawService.calculateCurrentBalance(tutorId))
                     .thenReturn(newBalance);
-
-            when(tutorRepository.findById(tutorId))
-                    .thenReturn(Optional.of(tutor));
 
             EvidenceRequest req = new EvidenceRequest();
             req.setEvidenceUrl("proof");
@@ -550,9 +470,6 @@ class BookingAttendanceServiceTest {
     @DisplayName("BookingAttendanceService.learnerComplain")
     class LearnerComplainTests {
 
-        /**
-         * NOTE – Case: Slot không tồn tại -> BOOKING_SLOT_NOT_FOUND
-         */
         @Test
         @DisplayName("learnerComplain - slot không tồn tại -> AppException")
         void learnerComplain_slotNotFound_shouldThrow() {
@@ -572,9 +489,6 @@ class BookingAttendanceServiceTest {
             verifyNoInteractions(bookingPlanRepository, refundRequestRepository, notificationService);
         }
 
-        /**
-         * NOTE – Case: learner không phải owner slot -> UNAUTHORIZED
-         */
         @Test
         @DisplayName("learnerComplain - learner không phải owner -> UNAUTHORIZED")
         void learnerComplain_notOwner_shouldThrowUnauthorized() {
@@ -595,9 +509,6 @@ class BookingAttendanceServiceTest {
             verify(bookingPlanSlotRepository, never()).save(any());
         }
 
-        /**
-         * NOTE – Case: slot.status != Paid -> INVALID_KEY
-         */
         @Test
         @DisplayName("learnerComplain - slot không Paid -> INVALID_KEY")
         void learnerComplain_slotNotPaid_shouldThrowInvalidKey() {
@@ -624,12 +535,8 @@ class BookingAttendanceServiceTest {
 
         /**
          * NOTE – Case: Happy path
-         *  - slot Paid, learner đúng
-         *  - Lưu learnerEvidence nhưng KHÔNG set learnerJoin = true
-         *  - Tìm BookingPlan để lấy pricePerHours + tutorID
-         *  - Tính refundAmount = pricePerHours * duration(giờ)
-         *  - Tạo RefundRequest với status PENDING
-         *  - Gửi notification REFUND_AVAILABLE với link có refundRequestId
+         *  - Tạo RefundRequest với refundAmount = 100 * (90 / 60) = 150.00
+         *  - Gửi notification REFUND_AVAILABLE với path /learner/refunds
          */
         @Test
         @DisplayName("learnerComplain - Happy path tạo refund + gửi notification")
@@ -673,12 +580,12 @@ class BookingAttendanceServiceTest {
 
             BookingComplaintRequest req = new BookingComplaintRequest();
             req.setEvidenceUrl("complain-proof");
+            req.setReason("Tutor không tham gia lớp");
 
             bookingAttendanceService.learnerComplain(learnerUserId, slotId, req);
 
             // learnerEvidence được set, nhưng learnerJoin không bị true ở service này
             assertEquals("complain-proof", slot.getLearnerEvidence());
-            // learnerJoin mặc định là null/false -> ta chỉ check là không TRUE
             assertFalse(Boolean.TRUE.equals(slot.getLearnerJoin()));
 
             RefundRequest savedRefund = refundCaptor.getValue();
@@ -691,13 +598,13 @@ class BookingAttendanceServiceTest {
             BigDecimal expectedAmount = BigDecimal.valueOf(150.00).setScale(2);
             assertEquals(0, expectedAmount.compareTo(savedRefund.getRefundAmount()));
 
-            // verify gửi notification
+            // Ở service hiện tại path là cố định: "/learner/refunds"
             verify(notificationService).sendNotification(
                     eq(learnerUserId),
                     anyString(),
                     contains("khiếu nại"),
                     eq(NotificationType.REFUND_AVAILABLE),
-                    eq("/learner/refunds/" + savedRefund.getRefundRequestId())
+                    eq("/learner/refunds")
             );
         }
     }

@@ -15,7 +15,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -48,7 +47,7 @@ public class PaymentController {
             @ApiResponse(responseCode = "400", description = "Invalid payment request", content = @Content)
     })
     @PostMapping("/create")
-    public ResponseEntity<?> createPayment(@Valid @RequestBody PaymentRequest request) {
+    public ResponseEntity<?> createPayment(@RequestBody PaymentRequest request) {
         return paymentService.createPayment(request);
     }
 
@@ -81,7 +80,7 @@ public class PaymentController {
 
     @GetMapping("/ping")
     public ResponseEntity<String> ping() {
-        return new ResponseEntity<>("Payment service is running ✅", HttpStatus.OK);
+        return new ResponseEntity<>("Payment service is running", HttpStatus.OK);
     }
 
     // ================== USER CANCEL (PayOS cancelUrl) ==================
@@ -100,12 +99,13 @@ public class PaymentController {
                 payment.getPaymentID(), payment.getStatus(), payment.getIsPaid());
 
         // 2. Tính redirect URL cho FE
+        Long targetid = payment.getTargetId();
         Long tutorid = payment.getTutorId();
         PaymentType type = payment.getPaymentType();
 
         String redirectUrl;
         if (type == PaymentType.Course) {
-            redirectUrl = frontendUrl + "/courses/" + tutorid + "?paid=false";
+            redirectUrl = frontendUrl + "/courses/" + targetid + "?paid=false";
         } else if (type == PaymentType.Booking) {
             redirectUrl = frontendUrl + "/book-tutor/" + tutorid + "?paid=false";
         } else {
@@ -125,12 +125,13 @@ public class PaymentController {
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
 
         Long tutorid = payment.getTutorId();
+        Long targetid = payment.getTargetId();
         PaymentType type = payment.getPaymentType();
 
         String redirectUrl;
 
         if (type == PaymentType.Course) {
-            redirectUrl = frontendUrl + "/courses/" + tutorid + "?paid=true";
+            redirectUrl = frontendUrl + "/courses/" + targetid + "?paid=true";
         } else if (type == PaymentType.Booking) {
             redirectUrl = frontendUrl + "/book-tutor/" + tutorid + "?paid=true";
         } else {

@@ -145,6 +145,7 @@ public interface BookingPlanSlotRepository extends JpaRepository<BookingPlanSlot
             @Param("tutorId") Long tutorId,
             @Param("status") SlotStatus status
     );
+
     List<BookingPlanSlot> findByTutorIDAndStatus(Long tutorId, SlotStatus status);
 
     // ==== thêm cho dashboard ====
@@ -154,9 +155,24 @@ public interface BookingPlanSlotRepository extends JpaRepository<BookingPlanSlot
             LocalDateTime startTime,
             List<SlotStatus> statuses
     );
+
     List<BookingPlanSlot> findByStatusAndStartTimeBetweenAndReminderSentFalse(
             SlotStatus status,
             LocalDateTime from,
             LocalDateTime to
     );
+
+    // ==== dùng cho auto-confirm learner nếu quên xác nhận ====
+    List<BookingPlanSlot> findByStatusAndTutorJoinTrueAndLearnerJoinFalseAndEndTimeBefore(
+            SlotStatus status,
+            LocalDateTime endTimeBefore
+    );
+    @Query("""
+        SELECT s FROM BookingPlanSlot s
+        WHERE s.status = 'Paid'
+          AND s.tutorJoin = true
+          AND s.learnerJoin = false
+          AND s.endTime < :now
+    """)
+    List<BookingPlanSlot> findSlotsForAutoMarkLearnerJoin(@Param("now") LocalDateTime now);
 }

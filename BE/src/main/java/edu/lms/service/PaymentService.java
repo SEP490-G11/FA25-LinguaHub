@@ -40,10 +40,9 @@ public class PaymentService {
     private final SettingRepository settingRepository;
     private final WithdrawService withdrawService;
     private final CloudflareTurnstileService cloudflareTurnstileService;
+    private final NotificationService notificationService;
+    private final TutorPackageRepository tutorPackageRepository;
 
-    // =============================
-    // (optional) TÍNH NET CHO 1 PAYMENT – giờ ưu tiên snapshot netAmount
-    // =============================
     private BigDecimal calculateNetForPayment(Payment payment) {
         Setting setting = settingRepository.getCurrentSetting();
         BigDecimal commissionCourse = setting.getCommissionCourse();
@@ -63,9 +62,6 @@ public class PaymentService {
         return amount.subtract(amount.multiply(commissionRate));
     }
 
-    // ======================================================
-    // TẠO THANH TOÁN (PENDING)
-    // ======================================================
     @Transactional
     public ResponseEntity<?> createPayment(PaymentRequest request) {
         Payment payment;
@@ -73,7 +69,6 @@ public class PaymentService {
         String description;
         Long tutorId;
 
-        // ----------------- COURSE PAYMENT -----------------
         if (request.getPaymentType() == PaymentType.Course) {
             Course course = courseRepository.findById(request.getTargetId())
                     .orElseThrow(() -> new AppException(ErrorCode.COURSE_NOT_FOUND));
@@ -97,18 +92,14 @@ public class PaymentService {
             paymentRepository.save(payment);
         }
 
-        // ----------------- BOOKING PAYMENT -----------------
         else if (request.getPaymentType() == PaymentType.Booking) {
             boolean verified = cloudflareTurnstileService.verify(request.getTurnstileToken());
             if (!verified) {
                 throw new AppException(ErrorCode.INVALID_TURNSTILE_TOKEN);
             }
-            UserPackage userPackage = null;
 
-            if (request.getUserPackageId() != null) {
-                userPackage = userPackageRepository.findById(request.getUserPackageId())
-                        .orElseThrow(() -> new AppException(ErrorCode.USER_PACKAGE_NOT_FOUND));
-            }
+            UserPackage userPackage = null;
+            TutorPackage selectedTutorPackage = null; // ✅ thêm
 
             BookingPlan plan = bookingPlanRepository.findById(request.getTargetId())
                     .orElseThrow(() -> new AppException(ErrorCode.BOOKING_NOT_FOUND));
@@ -117,7 +108,6 @@ public class PaymentService {
             User user = userRepository.findById(request.getUserId())
                     .orElseThrow(() -> new AppException(ErrorCode.USER_NOT_EXIST));
 
-            // ========== chặn hủy / hết hạn > 3 lần trong vòng 1h ==========
             LocalDateTime oneHourAgo = LocalDateTime.now().minusHours(1);
 
             long cancelledCount = paymentRepository
@@ -144,8 +134,6 @@ public class PaymentService {
                 throw new AppException(ErrorCode.BOOKING_PAYMENT_CANCEL_TOO_MANY_TIMES);
             }
 
-            // ========================================================
-
             List<SlotRequest> slots = request.getSlots();
             if (slots == null || slots.isEmpty()) {
                 throw new AppException(ErrorCode.BOOKING_SLOT_NOT_AVAILABLE);
@@ -154,6 +142,22 @@ public class PaymentService {
             BigDecimal totalAmount = BigDecimal.valueOf(plan.getPricePerHours() * slots.size());
             description = "Slot 1:1 " + plan.getTitle();
 
+            //request.getUserPackageId() đang là tutorPackageId learner chọn
+            if (request.getUserPackageId() != null) {
+                selectedTutorPackage = tutorPackageRepository.findById(request.getUserPackageId())
+                        .orElseThrow(() -> new AppException(ErrorCode.TUTOR_PACKAGE_NOT_FOUND));
+
+                userPackage = UserPackage.builder()
+                        .tutorPackage(selectedTutorPackage)
+                        .user(user)
+                        .slotsRemaining(slots.size())
+                        .isActive(true)
+                        .build();
+
+                userPackageRepository.save(userPackage);
+            }
+
+            //TẠO SLOTS LOCKED + LƯU tutor_package_id
             for (SlotRequest s : slots) {
                 boolean taken = bookingPlanSlotRepository.existsByTutorIDAndStartTimeAndEndTime(
                         plan.getTutorID(), s.getStartTime(), s.getEndTime());
@@ -168,7 +172,8 @@ public class PaymentService {
                         .status(SlotStatus.Locked)
                         .lockedAt(LocalDateTime.now())
                         .expiresAt(LocalDateTime.now().plusMinutes(15))
-                        .userPackage(userPackage)
+                        .userPackage(userPackage)                 // có thể null
+                        .tutorPackage(selectedTutorPackage)       //lưu tutor_package_id
                         .reminderSent(false)
                         .build();
 
@@ -192,6 +197,11 @@ public class PaymentService {
             bookingPlanSlotRepository.updatePaymentForUserLockedSlots(
                     user.getUserID(), plan.getTutorID(), payment.getPaymentID()
             );
+
+            if (userPackage != null) {
+                userPackage.setPaymentID(payment.getPaymentID());
+                userPackageRepository.save(userPackage);
+            }
 
             amount = totalAmount;
         } else {
@@ -220,9 +230,6 @@ public class PaymentService {
         ));
     }
 
-    // ======================================================
-    // CẬP NHẬT PAYMENT SAU KHI TẠO LINK PAYOS
-    // ======================================================
     private void updatePaymentWithPayOSData(
             Payment payment,
             CheckoutResponseData data,
@@ -247,11 +254,7 @@ public class PaymentService {
         }
     }
 
-    // ======================================================
-    // SNAPSHOT COMMISSION KHI PAYMENT PAID
-    // ======================================================
     private void applyCommissionSnapshot(Payment payment) {
-        // Nếu đã có snapshot rồi thì không làm lại (phòng trường hợp gọi processPostPayment nhiều lần)
         if (payment.getNetAmount() != null) {
             return;
         }
@@ -274,9 +277,6 @@ public class PaymentService {
         payment.setNetAmount(net);
     }
 
-    // ======================================================
-    // HẬU THANH TOÁN (PAYMENT SUCCESS)
-    // ======================================================
     @Transactional
     public void processPostPayment(Payment payment) {
         if (payment.getStatus() != PaymentStatus.PAID) return;
@@ -284,7 +284,6 @@ public class PaymentService {
         payment.setIsPaid(true);
         payment.setPaidAt(LocalDateTime.now());
 
-        // 🔹 Snapshot commission tại thời điểm thanh toán
         applyCommissionSnapshot(payment);
 
         paymentRepository.save(payment);
@@ -292,7 +291,6 @@ public class PaymentService {
         Long userId = payment.getUserId();
         Long targetId = payment.getTargetId();
 
-        // ----------------- COURSE PAYMENT -----------------
         if (payment.getPaymentType() == PaymentType.Course) {
 
             Course course = courseRepository.findById(targetId)
@@ -315,7 +313,6 @@ public class PaymentService {
             payment.setTutorId(tutor.getTutorID());
             paymentRepository.save(payment);
 
-            // Cập nhật số dư ví (tính theo thuật toán mới – dùng snapshot netAmount)
             BigDecimal newBalance = withdrawService.calculateCurrentBalance(tutor.getTutorID());
             tutor.setWalletBalance(newBalance);
             tutorRepository.save(tutor);
@@ -327,7 +324,6 @@ public class PaymentService {
                     userId, course.getTitle());
         }
 
-        // ----------------- BOOKING PAYMENT -----------------
         else if (payment.getPaymentType() == PaymentType.Booking) {
 
             List<BookingPlanSlot> slots = bookingPlanSlotRepository.findAllByPaymentID(payment.getPaymentID());
@@ -355,28 +351,50 @@ public class PaymentService {
                 }
             }
 
-            // ❗ KHÔNG cộng ví tutor ở đây.
-            // Chỉ khi cả tutorJoin & learnerJoin = true (ở BookingAttendanceService + WithdrawService)
             log.info("[BOOKING PAYMENT] User {} confirmed {} slots",
                     userId, slots.size());
+
+            if (!slots.isEmpty() && tutor != null) {
+                BookingPlanSlot firstSlot = slots.get(0);
+
+                LocalDateTime start = firstSlot.getStartTime();
+                String timeStr = start.toLocalTime() + " ngày " + start.toLocalDate();
+
+                notificationService.sendNotification(
+                        payment.getUserId(),
+                        "Bạn vừa đặt lịch học thành công",
+                        "Bạn vừa đặt thành công slot học lúc " + timeStr +
+                                ". Vui lòng kiểm tra trong mục lịch học của bạn.",
+                        NotificationType.BOOKING_REMINDER,
+                        "/learner/bookings"
+                );
+
+                Long tutorUserId = tutor.getUser().getUserID();
+                notificationService.sendNotification(
+                        tutorUserId,
+                        "Lịch học mới đã được đặt",
+                        "Lịch học lúc " + timeStr +
+                                " của bạn đã được học viên đặt. Vui lòng xem thông tin chi tiết tại trang lịch dạy.",
+                        NotificationType.BOOKING_REMINDER,
+                        "/tutor/bookings"
+                );
+
+                log.info("[NOTIFY] Booking success -> learner {} & tutor {}",
+                        payment.getUserId(), tutorUserId);
+            }
         }
     }
 
-    // ======================================================
-    // USER CANCEL PAYMENT (FROM /api/payments/cancel)
-    // ======================================================
     @Transactional
     public Payment handleUserCancelPayment(Long paymentId) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new AppException(ErrorCode.PAYMENT_NOT_FOUND));
 
-        // Nếu đã PAID thì không cho đổi trạng thái, chỉ log
         if (payment.getStatus() == PaymentStatus.PAID) {
             log.warn("[CANCEL] User tried to cancel PAID payment {}", paymentId);
             return payment;
         }
 
-        // Idempotent: nếu đã CANCELLED rồi thì trả về luôn
         if (payment.getStatus() == PaymentStatus.CANCELLED) {
             log.info("[CANCEL] Payment {} already CANCELLED → ignore", paymentId);
             return payment;
@@ -387,12 +405,10 @@ public class PaymentService {
         payment.setPaidAt(null);
         paymentRepository.save(payment);
 
-        // Nếu là booking thì rollback slot đã lock
         if (payment.getPaymentType() == PaymentType.Booking) {
             rollbackBookingSlots(payment, "USER_CANCEL");
         }
 
-        // Hủy link PayOS nếu còn
         if (payment.getPaymentLinkId() != null) {
             try {
                 payOSService.cancelPaymentLink(payment.getPaymentLinkId());
@@ -406,9 +422,6 @@ public class PaymentService {
         return payment;
     }
 
-    // ======================================================
-    // ROLLBACK SLOT BOOKING (DÙNG CHUNG CHO CANCEL / FAILED ...)
-    // ======================================================
     void rollbackBookingSlots(Payment payment, String reason) {
         if (payment.getPaymentType() != PaymentType.Booking) return;
 
@@ -430,9 +443,6 @@ public class PaymentService {
                 payment.getOrderCode(), reason, deletedCount);
     }
 
-    // ======================================================
-    // LẤY PAYMENT (ADMIN / TUTOR / USER)
-    // ======================================================
     @Transactional(readOnly = true)
     public List<PaymentResponse> getPaymentsByTutor(Long tutorId) {
         return paymentRepository.findAllByTutorId(tutorId)
@@ -451,9 +461,6 @@ public class PaymentService {
                 .stream().map(paymentMapper::toPaymentResponse).toList();
     }
 
-    // ======================================================
-    // LẤY PAYMENT THEO ROLE HIỆN TẠI (/me)
-    // ======================================================
     @Transactional(readOnly = true)
     public List<PaymentResponse> getPaymentsForMe(Long userId, String roleClaim) {
         User user = userRepository.findById(userId)

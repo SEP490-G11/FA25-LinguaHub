@@ -40,14 +40,14 @@ public class TutorBookingPlanService {
     // =========================================================
     public BookingPlanCreateResponse createBookingPlan(Long currentUserId, TutorBookingPlanRequest request) {
         Tutor tutor = getApprovedTutorByUserId(currentUserId);
-        log.info("Tutor {} (approved) creating booking plan: title={}, time={}-{}", 
+        log.info("Tutor {} (approved) creating booking plan: title={}, time={}-{}",
                 tutor.getTutorID(), request.getTitle(), request.getStartTime(), request.getEndTime());
 
         validatePlanRequest(request);
-        
+
         // Validate giới hạn 4 ngày/tuần (với pessimistic lock trong repository)
         validateMaxDaysPerWeek(tutor.getTutorID(), request.getTitle());
-        
+
         // Kiểm tra overlap (với pessimistic lock trong repository)
         ensureNoOverlappingPlans(
                 tutor.getTutorID(),
@@ -99,10 +99,10 @@ public class TutorBookingPlanService {
                 .orElseThrow(() -> new AppException(ErrorCode.BOOKING_PLAN_NOT_FOUND));
 
         ensurePlanOwner(tutor, bookingPlan);
-        log.info("Tutor {} (approved) updating booking plan {}: title={}, time={}-{}", 
+        log.info("Tutor {} (approved) updating booking plan {}: title={}, time={}-{}",
                 tutor.getTutorID(), bookingPlanId, request.getTitle(), request.getStartTime(), request.getEndTime());
         validatePlanRequest(request);
-        
+
         // Nếu đang thay đổi title (ngày) sang một ngày khác, validate giới hạn 4 ngày/tuần
         boolean isChangingDay = !bookingPlan.getTitle().equals(request.getTitle());
         if (isChangingDay) {
@@ -111,7 +111,7 @@ public class TutorBookingPlanService {
                     .findByTutorIDAndTitle(tutor.getTutorID(), request.getTitle());
             boolean newTitleAlreadyExists = existingPlansWithNewTitle.stream()
                     .anyMatch(plan -> plan.getIsActive() && !plan.getBookingPlanID().equals(bookingPlanId));
-            
+
             // Nếu title mới chưa tồn tại, cần kiểm tra xem có vượt quá 4 ngày không
             if (!newTitleAlreadyExists) {
                 // Đếm số ngày hiện tại (bao gồm cả plan đang update)
@@ -119,31 +119,24 @@ public class TutorBookingPlanService {
                 if (currentDaysCount == null) {
                     currentDaysCount = 0L;
                 }
-                
+
                 // Kiểm tra xem title cũ có phải là duy nhất không (chỉ có plan đang update cho ngày đó)
                 List<BookingPlan> plansWithOldTitle = bookingPlanRepository
                         .findByTutorIDAndTitle(tutor.getTutorID(), bookingPlan.getTitle());
                 long activePlansWithOldTitle = plansWithOldTitle.stream()
                         .filter(plan -> plan.getIsActive())
                         .count();
-                boolean oldTitleIsUnique = activePlansWithOldTitle == 1 
+                boolean oldTitleIsUnique = activePlansWithOldTitle == 1
                         && plansWithOldTitle.stream()
                         .anyMatch(plan -> plan.getBookingPlanID().equals(bookingPlanId));
-                
-                // Tính toán số ngày sau khi update:
-                // - Nếu title cũ là duy nhất (chỉ có plan đang update), khi đổi sang title mới chưa tồn tại:
-                //   + Số ngày không đổi (thay thế: title cũ mất, title mới thêm)
-                // - Nếu title cũ không phải duy nhất, khi đổi sang title mới chưa tồn tại:
-                //   + Số ngày tăng lên 1 (title cũ vẫn còn, title mới được thêm)
-                // - Nếu title mới đã tồn tại: số ngày không đổi (hợp nhất)
-                
-                // Vì vậy: chỉ cần kiểm tra nếu title cũ không phải duy nhất và đã có 4 ngày
+
+                // Nếu title cũ không phải duy nhất và đã có 4 ngày → đổi sang ngày mới sẽ làm tăng số ngày lên 5 → chặn
                 if (!oldTitleIsUnique && currentDaysCount >= 4) {
                     throw new AppException(ErrorCode.BOOKING_PLAN_MAX_DAYS_EXCEEDED);
                 }
             }
         }
-        
+
         ensureNoOverlappingPlans(
                 tutor.getTutorID(),
                 request.getTitle(),
@@ -194,10 +187,10 @@ public class TutorBookingPlanService {
      */
     public void deleteAllBookingPlansForTutor(Long tutorId) {
         log.info("Deleting all booking plans for tutor {}", tutorId);
-        
+
         // Lấy tất cả booking plans của tutor
         List<BookingPlan> allPlans = bookingPlanRepository.findByTutorID(tutorId);
-        
+
         if (allPlans.isEmpty()) {
             log.info("No booking plans found for tutor {}", tutorId);
             return;
@@ -215,7 +208,7 @@ public class TutorBookingPlanService {
             // Xử lý từng slot có learner
             for (BookingPlanSlot slot : allSlots) {
                 Long learnerUserId = slot.getUserID();
-                
+
                 if (learnerUserId != null) {
                     // Slot có learner → gửi thông báo và xóa
                     totalSlotsWithLearner++;
@@ -232,7 +225,7 @@ public class TutorBookingPlanService {
             totalPlansDeleted++;
         }
 
-        log.info("Deleted {} booking plans for tutor {} ({} slots had learners and notifications were sent)", 
+        log.info("Deleted {} booking plans for tutor {} ({} slots had learners and notifications were sent)",
                 totalPlansDeleted, tutorId, totalSlotsWithLearner);
     }
 
@@ -245,31 +238,12 @@ public class TutorBookingPlanService {
             if (slot.getPaymentID() != null) {
                 Payment payment = paymentRepository.findById(slot.getPaymentID()).orElse(null);
                 if (payment != null && payment.getPaymentLinkId() != null) {
-//                    try {
-//                        payOSService.cancelPaymentLink(payment.getPaymentLinkId());
-//                        payment.setStatus(PaymentStatus.CANCELLED);
-//                        payment.setIsPaid(false);
-//                        payment.setPaidAt(null);
-//                        payment.setExpiresAt(LocalDateTime.now());
-//                        paymentRepository.save(payment);
-//                        log.info("Payment {} cancelled due to tutor suspension/deletion", payment.getPaymentID());
-//                    } catch (Exception e) {
-//                        log.error("Cannot cancel payment link {}", payment.getPaymentLinkId(), e);
-//                    }
+                    // Có thể hủy payment link nếu cần
                 }
             }
 
-//            // Thông báo cho learner
-//            sendNotification(
-//                    learnerUserId,
-//                    "Lịch học đã bị hủy - Tutor đã bị khóa tài khoản",
-//                    "Buổi học vào lúc " + formatDateTime(slot.getStartTime()) +
-//                            " đã bị hủy do tutor bị khóa tài khoản. " +
-//                            "Link thanh toán đã bị vô hiệu hoá, bạn sẽ không bị trừ tiền. " +
-//                            "Vui lòng chọn tutor và lịch học mới.",
-//                    NotificationType.TUTOR_CANCEL_BOOKING,
-//                    "/learner/booking"
-//            );
+            // Thông báo cho learner – text có thể tuỳ biến
+//            notificationService.sendNotification(...);
         } else if (slot.getStatus() == SlotStatus.Paid) {
             // Slot đã thanh toán → tạo refund request và thông báo
             BigDecimal refundAmount = calculateRefundAmount(slot, plan);
@@ -286,29 +260,12 @@ public class TutorBookingPlanService {
 
             refundRequestRepository.save(refund);
 
-            // Thông báo cho learner
-            notificationService.sendNotification(
-                    learnerUserId,
-                    "Lịch học đã bị hủy - Tutor đã bị khóa tài khoản - Yêu cầu hoàn tiền",
-                    "Buổi học vào lúc " + formatDateTime(slot.getStartTime()) +
-                            " đã bị hủy do tutor bị khóa tài khoản. " +
-                            "Hệ thống đã tạo yêu cầu hoàn tiền. " +
-                            "Vui lòng nhập thông tin ngân hàng để nhận tiền.",
-                    NotificationType.REFUND_AVAILABLE,
-                    "/learner/refunds"
-            );
+            // Thông báo cho learner – text có thể tuỳ biến
+//            notificationService.sendNotification(...);
         } else {
             // Slot Available nhưng có userID
-            // Thông báo cho learner
-            notificationService.sendNotification(
-                    learnerUserId,
-                    "Lịch học đã bị hủy - Tutor đã bị khóa tài khoản",
-                    "Buổi học vào lúc " + formatDateTime(slot.getStartTime()) +
-                            " đã bị hủy do tutor bị khóa tài khoản. " +
-                            "Vui lòng chọn tutor và lịch học mới.",
-                    NotificationType.TUTOR_CANCEL_BOOKING,
-                    "/learner/booking"
-            );
+            // Thông báo cho learner – text có thể tuỳ biến
+//            notificationService.sendNotification(...);
         }
     }
 
@@ -336,7 +293,7 @@ public class TutorBookingPlanService {
         // Xử lý từng slot có learner
         for (BookingPlanSlot slot : allSlots) {
             Long learnerUserId = slot.getUserID();
-            
+
             if (learnerUserId != null) {
                 // Slot có learner → gửi thông báo và xóa
                 slotsWithLearner++;
@@ -358,7 +315,7 @@ public class TutorBookingPlanService {
                 deletedSlots, slotsWithLearner
         );
 
-        log.info("Booking plan {} deleted. Total slots deleted: {}, Slots with learners: {}", 
+        log.info("Booking plan {} deleted. Total slots deleted: {}, Slots with learners: {}",
                 bookingPlanId, deletedSlots, slotsWithLearner);
 
         return OperationStatusResponse.success(message);
@@ -452,8 +409,7 @@ public class TutorBookingPlanService {
                 );
             }
         } else {
-            // Slot Available nhưng có userID (có thể là trường hợp đặc biệt)
-            // Thông báo cho learner
+            // Slot Available nhưng có userID
             notificationService.sendNotification(
                     learnerUserId,
                     "Lịch học đã bị hủy",
@@ -464,7 +420,6 @@ public class TutorBookingPlanService {
                     "/learner/booking"
             );
 
-            // Thông báo cho tutor
             if (tutorUserId != null) {
                 notificationService.sendNotification(
                         tutorUserId,
@@ -523,7 +478,7 @@ public class TutorBookingPlanService {
 
         List<BookingPlan> plans = bookingPlanRepository
                 .findByTutorIDAndIsActiveTrueOrderByTitleAscStartHoursAsc(tutor.getTutorID());
-        
+
         // Tạo map để lấy meetingUrl nhanh
         Map<Long, String> meetingUrlMap = plans.stream()
                 .filter(plan -> plan != null && plan.getBookingPlanID() != null)
@@ -537,7 +492,7 @@ public class TutorBookingPlanService {
                 .map(plan -> {
                     List<BookingPlanSlot> slots = bookingPlanSlotRepository
                             .findByBookingPlanIDOrderByStartTimeAsc(plan.getBookingPlanID());
-                    
+
                     List<BookingPlanSlotSummaryResponse> slotResponses = slots.stream()
                             .map(slot -> toSlotSummary(slot, meetingUrlMap))
                             .toList();
@@ -588,7 +543,7 @@ public class TutorBookingPlanService {
                 meetingUrl = null;
             }
         }
-        
+
         return BookingPlanSlotSummaryResponse.builder()
                 .slotId(slot.getSlotID())
                 .startTime(slot.getStartTime())
@@ -615,7 +570,7 @@ public class TutorBookingPlanService {
     /**
      * Validate giới hạn 4 ngày/tuần cho tutor
      * Tutor chỉ có thể tạo booking plan cho tối đa 4 ngày khác nhau trong tuần
-     * 
+     *
      * Logic:
      * - Nếu title (ngày) đã tồn tại: cho phép tạo thêm plan cho ngày đó (số ngày không tăng)
      * - Nếu title chưa tồn tại và đã có 4 ngày: không cho phép (số ngày sẽ tăng lên 5)
@@ -635,7 +590,6 @@ public class TutorBookingPlanService {
                 .anyMatch(plan -> plan.getIsActive());
 
         // Nếu tutor đã có 4 ngày và title mới chưa tồn tại, thì không cho phép
-        // Vì tạo plan mới cho ngày chưa có sẽ làm số ngày tăng lên 5, vượt quá giới hạn
         if (currentDaysCount >= 4 && !titleAlreadyExists) {
             throw new AppException(ErrorCode.BOOKING_PLAN_MAX_DAYS_EXCEEDED);
         }
@@ -669,7 +623,7 @@ public class TutorBookingPlanService {
         }
 
         if (tutor.getStatus() != TutorStatus.APPROVED) {
-            log.warn("Tutor {} (status: {}) attempted to access booking plan but not approved", 
+            log.warn("Tutor {} (status: {}) attempted to access booking plan but not approved",
                     tutor.getTutorID(), tutor.getStatus());
             throw new AppException(ErrorCode.TUTOR_NOT_APPROVED);
         }
@@ -679,7 +633,7 @@ public class TutorBookingPlanService {
 
     private void ensurePlanOwner(Tutor tutor, BookingPlan bookingPlan) {
         if (!bookingPlan.getTutorID().equals(tutor.getTutorID())) {
-            log.warn("Tutor {} attempted to access booking plan {} owned by tutor {}", 
+            log.warn("Tutor {} attempted to access booking plan {} owned by tutor {}",
                     tutor.getTutorID(), bookingPlan.getBookingPlanID(), bookingPlan.getTutorID());
             throw new AppException(ErrorCode.UNAUTHORIZED);
         }
@@ -706,13 +660,13 @@ public class TutorBookingPlanService {
                 .findByBookingPlanIDOrderByStartTimeAsc(plan.getBookingPlanID());
 
         // Tính toán thời gian trùng nhau giữa cũ và mới
-        LocalTime intersectionStart = oldStartHours.isBefore(plan.getStartHours()) 
-                ? plan.getStartHours() 
+        LocalTime intersectionStart = oldStartHours.isBefore(plan.getStartHours())
+                ? plan.getStartHours()
                 : oldStartHours;
-        LocalTime intersectionEnd = oldEndHours.isBefore(plan.getEndHours()) 
-                ? oldEndHours 
+        LocalTime intersectionEnd = oldEndHours.isBefore(plan.getEndHours())
+                ? oldEndHours
                 : plan.getEndHours();
-        
+
         // Nếu không có intersection, tất cả slots cũ sẽ bị xử lý
         boolean hasIntersection = !intersectionStart.isAfter(intersectionEnd);
 
@@ -729,18 +683,15 @@ public class TutorBookingPlanService {
             LocalTime slotEnd = slot.getEndTime().toLocalTime();
 
             // Kiểm tra slot có nằm trong thời gian mới không
-            boolean isInNewTime = !slotStart.isBefore(plan.getStartHours()) 
+            boolean isInNewTime = !slotStart.isBefore(plan.getStartHours())
                     && !slotEnd.isAfter(plan.getEndHours());
-            
+
             // Kiểm tra slot có nằm trong thời gian cũ không
-            boolean isInOldTime = !slotStart.isBefore(oldStartHours) 
+            boolean isInOldTime = !slotStart.isBefore(oldStartHours)
                     && !slotEnd.isAfter(oldEndHours);
 
             if (isInNewTime && isInOldTime) {
                 // TRƯỜNG HỢP 1: Slot trùng giữa thời gian cũ và mới → GIỮ NGUYÊN
-                // Đảm bảo slot duration vẫn hợp lệ với slot duration mới
-                // Nếu slot duration thay đổi, slot cũ vẫn được giữ nguyên (vì đã có learner hoặc đã được book)
-                // Không làm gì cả, giữ nguyên toàn bộ thông tin slot (userID, status, paymentID, etc.)
                 kept++;
                 log.debug("Slot {} kept unchanged (overlapping time range)", slot.getSlotID());
             } else if (!isInNewTime) {
@@ -749,7 +700,7 @@ public class TutorBookingPlanService {
                 if (slot.getUserID() == null) {
                     deleted++;
                 } else {
-                    kept++; // Giữ lại nhưng đã thông báo
+                    kept++; // Giữ lại nhưng đã thông báo hoặc chuyển sang refund
                 }
                 affected++;
             }
@@ -782,7 +733,7 @@ public class TutorBookingPlanService {
             );
         }
 
-        log.info("Updated booking plan {}: kept={}, created={}, deleted={}, affected={}", 
+        log.info("Updated booking plan {}: kept={}, created={}, deleted={}, affected={}",
                 plan.getBookingPlanID(), kept, created, deleted, affected);
 
         return affected + created;
@@ -803,11 +754,11 @@ public class TutorBookingPlanService {
 
         int created = 0;
         LocalTime currentStart = rangeStart;
-        
+
         while (currentStart.isBefore(rangeEnd)) {
             final LocalTime slotStart = currentStart; // Final variable for lambda
             LocalTime currentEnd = currentStart.plusMinutes(plan.getSlotDuration());
-            
+
             // Nếu vượt quá rangeEnd, dừng lại
             if (currentEnd.isAfter(rangeEnd)) {
                 break;
@@ -824,9 +775,7 @@ public class TutorBookingPlanService {
                     });
 
             if (!slotExists) {
-                // Tạo slot mới - cần xác định ngày cụ thể
-                // Vì booking plan chỉ có thời gian (LocalTime), cần xác định ngày từ title hoặc sử dụng ngày hiện tại
-                // Giả sử slots được tạo cho các tuần sắp tới, bắt đầu từ tuần hiện tại
+                // Tạo slot mới - xác định ngày cụ thể dựa trên title
                 LocalDateTime slotStartDateTime = getNextOccurrenceOfDay(
                         plan.getTitle(),
                         slotStart
@@ -842,8 +791,9 @@ public class TutorBookingPlanService {
                         .status(SlotStatus.Available)
                         .build();
 
-//                bookingPlanSlotRepository.save(newSlot);
-//                created++;
+                // Nếu muốn auto tạo slot mới trong DB, bỏ comment dòng dưới:
+                // bookingPlanSlotRepository.save(newSlot);
+                // created++;
             }
 
             currentStart = currentEnd;
@@ -875,8 +825,8 @@ public class TutorBookingPlanService {
      */
     private DayOfWeek mapTitleToDayOfWeek(String title) {
         String lowerTitle = title.toLowerCase().trim();
-        
-        // Hỗ trợ tiếng Anh
+
+        // Hỗ trợ tiếng Anh + tiếng Việt
         if (lowerTitle.contains("monday") || lowerTitle.contains("thứ 2") || lowerTitle.contains("thứ hai")) {
             return DayOfWeek.MONDAY;
         } else if (lowerTitle.contains("tuesday") || lowerTitle.contains("thứ 3") || lowerTitle.contains("thứ ba")) {
@@ -892,35 +842,62 @@ public class TutorBookingPlanService {
         } else if (lowerTitle.contains("sunday") || lowerTitle.contains("chủ nhật")) {
             return DayOfWeek.SUNDAY;
         }
-        
-        // Mặc định là thứ 2
+
+        // Mặc định là thứ 2 nếu parse không được
         return DayOfWeek.MONDAY;
     }
 
     /**
      * Xử lý slot không còn nằm trong thời gian mới
-     * Thông báo cho cả tutor và learner nếu slot có learner đang/đã thanh toán
+     * - Không đụng tới slot QUÁ KHỨ
+     * - Không đụng tới slot TRONG NGÀY HÔM NAY
+     * - Chỉ xử lý slot TƯƠNG LAI (ngày > hôm nay)
+     *   + Locked  -> hủy payment link + thông báo
+     *   + Paid    -> tạo refund TUTOR_RESCHEDULE + set Rejected
+     *   + Others  -> chỉ thông báo
      */
     private void handleSlotOutOfNewTime(BookingPlanSlot slot, BookingPlan plan) {
         Long learnerUserId = slot.getUserID();
 
-        // TRƯỜNG HỢP 3a: Slot không có learner → XOÁ
-        if (learnerUserId == null) {
-            bookingPlanSlotRepository.delete(slot);
+        LocalDateTime now = LocalDateTime.now();
+        LocalDate today = now.toLocalDate();
+        LocalDate slotDate = slot.getStartTime().toLocalDate();
+
+        // 0) Nếu slot đã ở QUÁ KHỨ (endTime < now) -> KHÔNG đụng
+        if (slot.getEndTime() != null && slot.getEndTime().isBefore(now)) {
+            log.info("[BOOKING-UPDATE] Skip slot {} ({} - {}) because it is in the past",
+                    slot.getSlotID(), slot.getStartTime(), slot.getEndTime());
             return;
         }
 
-        // TRƯỜNG HỢP 3b: Slot có learner → KHÔNG xoá, thông báo cho cả tutor và learner
-        // Lấy tutor user ID để gửi thông báo
+        // 1) Nếu slot là NGÀY HÔM NAY -> KHÔNG đụng
+        if (slotDate.isEqual(today)) {
+            log.info("[BOOKING-UPDATE] Skip slot {} ({} - {}) because it is TODAY",
+                    slot.getSlotID(), slot.getStartTime(), slot.getEndTime());
+            return;
+        }
+
+        // 2) Slot TƯƠNG LAI nhưng KHÔNG có learner -> XÓA slot luôn
+        if (learnerUserId == null) {
+            bookingPlanSlotRepository.delete(slot);
+            log.info("[BOOKING-UPDATE] Deleted future empty slot {} ({} - {})",
+                    slot.getSlotID(), slot.getStartTime(), slot.getEndTime());
+            return;
+        }
+
+        // 3) Slot TƯƠNG LAI có learner -> tùy theo status
         Tutor tutor = tutorRepository.findById(plan.getTutorID())
                 .orElse(null);
-        Long tutorUserId = tutor != null && tutor.getUser() != null 
-                ? tutor.getUser().getUserID() 
+        Long tutorUserId = tutor != null && tutor.getUser() != null
+                ? tutor.getUser().getUserID()
                 : null;
 
-        // Giữ nguyên slot, gửi thông báo cho cả tutor và learner
+        // =========================
+        // CASE: SLOT LOCKED (đang thanh toán)
+        // =========================
         if (slot.getStatus() == SlotStatus.Locked) {
-            // Slot đang thanh toán → thông báo và có thể hủy payment link
+
+            // Hủy link thanh toán nếu có
             if (slot.getPaymentID() != null) {
                 Payment payment = paymentRepository.findById(slot.getPaymentID()).orElse(null);
                 if (payment != null && payment.getPaymentLinkId() != null) {
@@ -931,9 +908,11 @@ public class TutorBookingPlanService {
                         payment.setPaidAt(null);
                         payment.setExpiresAt(LocalDateTime.now());
                         paymentRepository.save(payment);
-                        log.info("Payment {} cancelled due to booking plan update", payment.getPaymentID());
+                        log.info("[BOOKING-UPDATE] Payment {} cancelled because plan updated",
+                                payment.getPaymentID());
                     } catch (Exception e) {
-                        log.error("Cannot cancel payment link {}", payment.getPaymentLinkId(), e);
+                        log.error("Cannot cancel payment link {} when updating booking plan",
+                                payment.getPaymentLinkId(), e);
                     }
                 }
             }
@@ -944,39 +923,69 @@ public class TutorBookingPlanService {
                     "Lịch học đã thay đổi",
                     "Buổi học vào lúc " + formatDateTime(slot.getStartTime()) +
                             " đã bị ảnh hưởng do tutor thay đổi lịch. " +
-                            "Vui lòng chọn lịch mới hoặc yêu cầu hoàn tiền.",
+                            "Link thanh toán đã bị hủy, vui lòng chọn lịch mới và thanh toán lại.",
                     NotificationType.TUTOR_CANCEL_BOOKING,
                     "/learner/booking"
             );
-            
+
             // Thông báo cho tutor
             if (tutorUserId != null) {
                 notificationService.sendNotification(
                         tutorUserId,
-                        "Lịch học có learner đang thanh toán bị ảnh hưởng",
+                        "Slot có learner đang thanh toán bị ảnh hưởng",
                         "Buổi học vào lúc " + formatDateTime(slot.getStartTime()) +
-                                " có learner đang thanh toán đã bị ảnh hưởng do bạn thay đổi lịch. " +
-                                "Hệ thống đã hủy link thanh toán và thông báo cho learner. " +
-                                "Vui lòng liên hệ với learner để sắp xếp lại lịch học.",
+                                " có learner đang thanh toán đã bị ảnh hưởng do bạn cập nhật lịch làm việc. " +
+                                "Hệ thống đã hủy link thanh toán và thông báo cho learner.",
                         NotificationType.TUTOR_CANCEL_BOOKING,
                         "/tutor/booking-plan"
                 );
             }
-        } else if (slot.getStatus() == SlotStatus.Paid) {
-            // Slot đã thanh toán → thông báo và tạo refund request
+
+            log.info("[BOOKING-UPDATE] Locked slot {} affected by plan update (learnerId={})",
+                    slot.getSlotID(), learnerUserId);
+            return;
+        }
+
+        // =========================
+        // CASE: SLOT PAID (đã thanh toán)
+        // =========================
+        if (slot.getStatus() == SlotStatus.Paid) {
+
+            // Không tạo refund trùng nếu đã có refund open/approved cho slot này
+            boolean hasRefund = refundRequestRepository.existsBySlotIdAndStatusIn(
+                    slot.getSlotID(),
+                    List.of(
+                            RefundStatus.PENDING,
+                            RefundStatus.SUBMITTED,
+                            RefundStatus.APPROVED
+                    )
+            );
+            if (hasRefund) {
+                log.info("[BOOKING-UPDATE] Skip creating refund for slot {} because it already has refund",
+                        slot.getSlotID());
+                return;
+            }
+
             BigDecimal refundAmount = calculateRefundAmount(slot, plan);
 
             RefundRequest refund = RefundRequest.builder()
                     .bookingPlanId(plan.getBookingPlanID())
                     .slotId(slot.getSlotID())
                     .userId(learnerUserId)
-                    .packageId(slot.getUserPackage() != null ? slot.getUserPackage().getUserPackageID() : null)
+                    .packageId(slot.getUserPackage() != null
+                            ? slot.getUserPackage().getUserPackageID()
+                            : null)
                     .refundAmount(refundAmount)
                     .status(RefundStatus.PENDING)
+                    .refundType(RefundType.TUTOR_RESCHEDULE)
                     .createdAt(LocalDateTime.now())
                     .tutor(tutor)
+                    .reason("Hoàn tiền do tutor thay đổi lịch, slot không còn phù hợp với lịch mới")
                     .build();
+
+            // Slot này không còn được sử dụng nữa
             slot.setStatus(SlotStatus.Rejected);
+            bookingPlanSlotRepository.save(slot);
             refundRequestRepository.save(refund);
 
             // Thông báo cho learner
@@ -984,54 +993,59 @@ public class TutorBookingPlanService {
                     learnerUserId,
                     "Lịch học đã thay đổi - Yêu cầu hoàn tiền",
                     "Buổi học vào lúc " + formatDateTime(slot.getStartTime()) +
-                            " đã bị ảnh hưởng do tutor thay đổi lịch. " +
-                            "Hệ thống đã tạo yêu cầu hoàn tiền. " +
-                            "Vui lòng nhập thông tin ngân hàng để nhận tiền hoặc chọn lịch mới.",
+                            " đã bị ảnh hưởng do tutor thay đổi lịch làm việc. " +
+                            "Hệ thống đã tạo yêu cầu hoàn tiền cho bạn. " +
+                            "Vui lòng nhập thông tin ngân hàng để nhận tiền hoặc chọn lịch khác.",
                     NotificationType.REFUND_AVAILABLE,
                     "/learner/refunds"
             );
-            
+
             // Thông báo cho tutor
             if (tutorUserId != null) {
                 notificationService.sendNotification(
                         tutorUserId,
                         "Lịch học đã thanh toán bị ảnh hưởng - Yêu cầu hoàn tiền",
                         "Buổi học vào lúc " + formatDateTime(slot.getStartTime()) +
-                                " đã được thanh toán nhưng bị ảnh hưởng do bạn thay đổi lịch. " +
-                                "Hệ thống đã tạo yêu cầu hoàn tiền cho learner. " +
-                                "Vui lòng liên hệ với learner để sắp xếp lại lịch học hoặc xử lý hoàn tiền.",
+                                " đã được thanh toán nhưng không còn phù hợp với lịch mới của bạn. " +
+                                "Hệ thống đã tạo yêu cầu hoàn tiền cho học viên.",
                         NotificationType.REFUND_AVAILABLE,
                         "/tutor/booking-plan"
                 );
             }
-        } else {
-            // Slot Available nhưng có userID (có thể là trường hợp đặc biệt)
-            // Thông báo cho learner
-            notificationService.sendNotification(
-                    learnerUserId,
-                    "Lịch học đã thay đổi",
-                    "Buổi học vào lúc " + formatDateTime(slot.getStartTime()) +
-                            " đã bị ảnh hưởng do tutor thay đổi lịch. " +
-                            "Vui lòng chọn lịch mới.",
-                    NotificationType.TUTOR_CANCEL_BOOKING,
-                    "/learner/booking"
-            );
-            
-            // Thông báo cho tutor
-            if (tutorUserId != null) {
-                notificationService.sendNotification(
-                        tutorUserId,
-                        "Lịch học có learner bị ảnh hưởng",
-                        "Buổi học vào lúc " + formatDateTime(slot.getStartTime()) +
-                                " có learner đã book nhưng bị ảnh hưởng do bạn thay đổi lịch. " +
-                                "Vui lòng liên hệ với learner để sắp xếp lại lịch học.",
-                        NotificationType.TUTOR_CANCEL_BOOKING,
-                        "/tutor/booking-plan"
-                );
-            }
-        }
-    }
 
+            log.info("[BOOKING-UPDATE] Paid slot {} -> refund {} (TUTOR_RESCHEDULE)",
+                    slot.getSlotID(), refund.getRefundRequestId());
+            return;
+        }
+
+        // =========================
+        // CASE: CÁC STATUS KHÁC (Available nhưng có userID, v.v.)
+        // =========================
+        notificationService.sendNotification(
+                learnerUserId,
+                "Lịch học đã thay đổi",
+                "Buổi học vào lúc " + formatDateTime(slot.getStartTime()) +
+                        " đã bị ảnh hưởng do tutor thay đổi lịch. " +
+                        "Vui lòng chọn lịch học mới.",
+                NotificationType.TUTOR_CANCEL_BOOKING,
+                "/learner/booking"
+        );
+
+        if (tutorUserId != null) {
+            notificationService.sendNotification(
+                    tutorUserId,
+                    "Lịch học có learner bị ảnh hưởng",
+                    "Buổi học vào lúc " + formatDateTime(slot.getStartTime()) +
+                            " có learner đã book nhưng không còn phù hợp với lịch mới của bạn. " +
+                            "Vui lòng trao đổi với học viên và sắp xếp lại lịch nếu cần.",
+                    NotificationType.TUTOR_CANCEL_BOOKING,
+                    "/tutor/booking-plan"
+            );
+        }
+
+        log.info("[BOOKING-UPDATE] Slot {} (status={}) with learner affected by plan update",
+                slot.getSlotID(), slot.getStatus());
+    }
 
     private BigDecimal calculateRefundAmount(BookingPlanSlot slot, BookingPlan plan) {
         BigDecimal pricePerHour = BigDecimal.valueOf(plan.getPricePerHours());

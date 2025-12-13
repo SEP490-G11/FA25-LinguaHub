@@ -4,7 +4,9 @@ import edu.lms.dto.request.PaymentRequest;
 import edu.lms.dto.request.SlotRequest;
 import edu.lms.dto.response.PaymentResponse;
 import edu.lms.entity.*;
-import edu.lms.enums.*;
+import edu.lms.enums.PaymentStatus;
+import edu.lms.enums.PaymentType;
+import edu.lms.enums.SlotStatus;
 import edu.lms.exception.AppException;
 import edu.lms.mapper.PaymentMapper;
 import edu.lms.repository.*;
@@ -12,8 +14,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
 import org.mockito.Answers;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -76,6 +80,10 @@ class PaymentServiceTest {
     WithdrawService withdrawService;
     @Mock
     CloudflareTurnstileService cloudflareTurnstileService;
+    @Mock
+    NotificationService notificationService;
+    @Mock
+    TutorPackageRepository tutorPackageRepository;
 
     @InjectMocks
     PaymentService paymentService;
@@ -85,8 +93,7 @@ class PaymentServiceTest {
     // =======================
 
     private Course buildCourse(Long id, BigDecimal price, Long tutorId) {
-        Tutor tutor = new Tutor();
-        tutor.setTutorID(tutorId);
+        Tutor tutor = buildTutor(tutorId, BigDecimal.ZERO);
 
         Course c = new Course();
         c.setCourseID(id);
@@ -116,6 +123,13 @@ class PaymentServiceTest {
         Tutor t = new Tutor();
         t.setTutorID(id);
         t.setWalletBalance(walletBalance);
+
+        // Đảm bảo luôn có user để tránh NPE khi gọi tutor.getUser().getUserID()
+        User u = new User();
+        u.setUserID(id + 1000);
+        u.setEmail("tutor" + id + "@mail.com");
+        t.setUser(u);
+
         return t;
     }
 
@@ -185,7 +199,7 @@ class PaymentServiceTest {
             Course course = buildCourse(courseId, price, 99L);
             when(courseRepository.findById(courseId)).thenReturn(java.util.Optional.of(course));
 
-            // Stub PayOS (dùng any() vì paymentID hiện đang null)
+            // Stub PayOS
             CheckoutResponseData data = mock(CheckoutResponseData.class);
             when(data.getCheckoutUrl()).thenReturn("https://payos/link");
             when(data.getQrCode()).thenReturn("https://payos/qr");
@@ -467,11 +481,11 @@ class PaymentServiceTest {
         /**
          * UTCID09
          * - Booking Payment
-         * - userPackageId tồn tại -> slot gắn userPackage
-         * => Tạo payment OK, verify slot.save với userPackage đúng
+         * - userPackageId (thực chất là tutorPackageId) tồn tại
+         * => Tạo payment OK, slot gắn đúng tutorPackage và userPackage được tạo
          */
         @Test
-        @DisplayName("UTCID09 - Booking payment, userPackage tồn tại -> tạo payment OK, slot có userPackage")
+        @DisplayName("UTCID09 - Booking payment, tutorPackage tồn tại -> tạo payment OK, slot có userPackage")
         void UTCID09_createBookingPayment_userPackageExists_success() {
             mockPaymentSaveReturnArgument();
             when(cloudflareTurnstileService.verify(anyString())).thenReturn(true);
@@ -480,7 +494,7 @@ class PaymentServiceTest {
             Long planId = 20L;
             Long tutorId = 200L;
             double pricePerHour = 100.0;
-            Long userPackageId = 1L;
+            Long tutorPackageId = 1L;
 
             BookingPlan plan = buildBookingPlan(planId, tutorId, pricePerHour);
             when(bookingPlanRepository.findById(planId)).thenReturn(java.util.Optional.of(plan));
@@ -488,10 +502,10 @@ class PaymentServiceTest {
             User user = buildUser(userId);
             when(userRepository.findById(userId)).thenReturn(java.util.Optional.of(user));
 
-            UserPackage userPackage = new UserPackage();
-            userPackage.setUserPackageID(userPackageId);
-            when(userPackageRepository.findById(userPackageId))
-                    .thenReturn(java.util.Optional.of(userPackage));
+            TutorPackage tutorPackage = new TutorPackage();
+// Không cần set ID, chỉ cần đúng reference object
+            when(tutorPackageRepository.findById(tutorPackageId))
+                    .thenReturn(java.util.Optional.of(tutorPackage));
 
             LocalDateTime start = LocalDateTime.of(2025, 1, 1, 10, 0);
             LocalDateTime end = LocalDateTime.of(2025, 1, 1, 11, 0);
@@ -512,7 +526,7 @@ class PaymentServiceTest {
             ).data()).thenReturn(data);
 
             PaymentRequest request = buildBookingPaymentRequest(
-                    userId, planId, List.of(s), userPackageId, "token-xyz"
+                    userId, planId, List.of(s), tutorPackageId, "token-xyz"
             );
 
             ResponseEntity<?> response = paymentService.createPayment(request);
@@ -522,8 +536,14 @@ class PaymentServiceTest {
             assertNotNull(body);
             assertEquals("https://payos/link", body.get("checkoutUrl"));
 
+            // Capture UserPackage được save, sau đó xác nhận slot có set userPackage + tutorPackage
+            ArgumentCaptor<UserPackage> userPackageCaptor = ArgumentCaptor.forClass(UserPackage.class);
+            verify(userPackageRepository, atLeastOnce()).save(userPackageCaptor.capture());
+            UserPackage savedUserPackage = userPackageCaptor.getValue();
+
             verify(bookingPlanSlotRepository, atLeastOnce()).save(argThat(slot ->
-                    slot.getUserPackage() == userPackage
+                    slot.getUserPackage() == savedUserPackage &&
+                            slot.getTutorPackage() == tutorPackage
             ));
         }
 
@@ -615,11 +635,11 @@ class PaymentServiceTest {
         /**
          * UTCID12
          * - Booking Payment
-         * - userPackageId không tồn tại
-         * => AppException(USER_PACKAGE_NOT_FOUND)
+         * - tutorPackageId (userPackageId field) không tồn tại
+         * => AppException(TUTOR_PACKAGE_NOT_FOUND)
          */
         @Test
-        @DisplayName("UTCID12 - Booking payment, userPackageId không tồn tại -> USER_PACKAGE_NOT_FOUND")
+        @DisplayName("UTCID12 - Booking payment, tutorPackageId không tồn tại -> AppException")
         void UTCID12_createBookingPayment_userPackageNotFound_shouldThrow() {
             mockPaymentSaveReturnArgument();
             when(cloudflareTurnstileService.verify(anyString())).thenReturn(true);
@@ -628,7 +648,7 @@ class PaymentServiceTest {
             Long planId = 20L;
             Long tutorId = 200L;
             double pricePerHour = 100.0;
-            Long userPackageId = 999L;
+            Long tutorPackageId = 999L;
 
             BookingPlan plan = buildBookingPlan(planId, tutorId, pricePerHour);
             when(bookingPlanRepository.findById(planId)).thenReturn(java.util.Optional.of(plan));
@@ -636,7 +656,7 @@ class PaymentServiceTest {
             User user = buildUser(userId);
             when(userRepository.findById(userId)).thenReturn(java.util.Optional.of(user));
 
-            when(userPackageRepository.findById(userPackageId))
+            when(tutorPackageRepository.findById(tutorPackageId))
                     .thenReturn(java.util.Optional.empty());
 
             SlotRequest s = buildSlot(
@@ -645,7 +665,7 @@ class PaymentServiceTest {
             );
 
             PaymentRequest request = buildBookingPaymentRequest(
-                    userId, planId, List.of(s), userPackageId, "token-xyz"
+                    userId, planId, List.of(s), tutorPackageId, "token-xyz"
             );
 
             assertThrows(AppException.class,
@@ -852,10 +872,11 @@ class PaymentServiceTest {
          * Case: Booking Payment PAID
          * - Đổi tất cả slot của payment -> Paid
          * - Gọi chatService.ensureTrainingRoomExists(userId, tutorId)
+         * - Gửi notification cho learner và tutor
          * - Không cộng ví tutor ở đây
          */
         @Test
-        @DisplayName("Booking payment PAID -> set slot Paid + tạo chat room, không update ví tutor")
+        @DisplayName("Booking payment PAID -> set slot Paid + tạo chat room, gửi notification, không update ví tutor")
         void processPostPayment_bookingPaid_shouldUpdateSlotsAndChatRoom() {
             Long userId = 3L;
             Long tutorId = 200L;
@@ -878,6 +899,10 @@ class PaymentServiceTest {
             slot1.setSlotID(10L);
             slot1.setStatus(SlotStatus.Locked);
             slot1.setTutorID(tutorId);
+            // Cần startTime để format thông báo
+            LocalDateTime start = LocalDateTime.of(2025, 1, 1, 10, 0);
+            slot1.setStartTime(start);
+            slot1.setEndTime(start.plusHours(1));
 
             when(bookingPlanSlotRepository.findAllByPaymentID(1L))
                     .thenReturn(List.of(slot1));
@@ -896,6 +921,8 @@ class PaymentServiceTest {
             verify(chatService, times(1))
                     .ensureTrainingRoomExists(userId, tutorId);
             verify(withdrawService, never()).calculateCurrentBalance(anyLong());
+            verify(notificationService, atLeast(2))
+                    .sendNotification(anyLong(), anyString(), anyString(), any(), anyString());
         }
     }
 
