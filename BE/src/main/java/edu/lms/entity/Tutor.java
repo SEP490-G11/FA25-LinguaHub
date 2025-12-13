@@ -4,7 +4,6 @@ import edu.lms.enums.TutorStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -29,13 +28,13 @@ public class Tutor {
     @Column(name = "experience")
     Short experience = 0;
     
-    @Column(name = "specialization", columnDefinition = "TEXT")
+    @Column(name = "specialization")
     String specialization;
     
-    @Column(name = "teaching_language", columnDefinition = "TEXT")
+    @Column(name = "teaching_language")
     String teachingLanguage;
     
-    @Column(name = "bio", columnDefinition = "TEXT")
+    @Column(name = "bio")
     String bio;
 
     @Builder.Default

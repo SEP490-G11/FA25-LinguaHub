@@ -4,10 +4,7 @@ import edu.lms.enums.PaymentMethod;
 import edu.lms.enums.PaymentStatus;
 import edu.lms.enums.PaymentType;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;

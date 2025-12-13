@@ -1,17 +1,18 @@
 package edu.lms.service;
 
-import edu.lms.dto.response.LessonInSectionResponse;
-import edu.lms.dto.response.SectionProgressResponse;
-import edu.lms.dto.response.StudentCourseListItemResponse;
-import edu.lms.dto.response.StudentCourseResponse;
+import edu.lms.dto.response.*;
 import edu.lms.entity.Enrollment;
-import edu.lms.entity.Lesson;
 import edu.lms.entity.UserLesson;
+import edu.lms.entity.Lesson;
 import edu.lms.entity.UserQuizResult;
 import edu.lms.enums.LessonType;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
-import edu.lms.repository.*;
+import edu.lms.repository.EnrollmentRepository;
+import edu.lms.repository.QuizQuestionRepository;
+import edu.lms.repository.UserCourseSectionRepository;
+import edu.lms.repository.UserLessonRepository;
+import edu.lms.repository.UserQuizResultRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 

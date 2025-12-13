@@ -1,11 +1,12 @@
 package edu.lms.service;
 
-import edu.lms.dto.response.TutorStudentBookingSummaryResponse;
 import edu.lms.dto.response.TutorStudentCourseProgressResponse;
 import edu.lms.dto.response.TutorStudentDetailResponse;
 import edu.lms.dto.response.TutorStudentSummaryResponse;
+import edu.lms.dto.response.TutorStudentBookingSummaryResponse;
 import edu.lms.entity.*;
 import edu.lms.enums.EnrollmentStatus;
+import edu.lms.enums.SlotStatus;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
 import edu.lms.repository.*;

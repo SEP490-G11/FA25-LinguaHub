@@ -136,7 +136,6 @@ public class RefundService {
         log.info("[REFUND][TUTOR] Tutor {} confirm attend for refund {}",
                 req.getTutor().getTutorID(), refundId);
     }
-
     // Tutor đồng ý cho refund (xác nhận KHÔNG tham gia / đồng ý trả tiền)
     public void tutorAgreeRefund(Long refundId, Long tutorUserId) {
         RefundRequest req = refundRepo.findById(refundId)
@@ -156,6 +155,21 @@ public class RefundService {
             throw new AppException(ErrorCode.INVALID_KEY);
         }
 
+        //Update slot flags immediately
+        if (req.getSlotId() != null) {
+            BookingPlanSlot slot = bookingPlanSlotRepository.findById(req.getSlotId())
+                    .orElseThrow(() -> new AppException(ErrorCode.BOOKING_SLOT_NOT_FOUND));
+
+            // Ensure slot belongs to this tutor
+            if (!slot.getTutorID().equals(req.getTutor().getTutorID())) {
+                throw new AppException(ErrorCode.UNAUTHORIZED);
+            }
+
+            slot.setLearnerJoin(true);   // learner considered attended
+            slot.setTutorJoin(false);    // tutor confirms not attended
+            bookingPlanSlotRepository.save(slot);
+        }
+
         req.setTutorAttend(false); // false = đồng ý refund / xác nhận không tham gia
         req.setTutorRespondedAt(LocalDateTime.now());
         refundRepo.save(req);
@@ -163,6 +177,7 @@ public class RefundService {
         log.info("[REFUND][TUTOR] Tutor {} agreed refund for refund {}",
                 req.getTutor().getTutorID(), refundId);
     }
+
 
     // ==========================
     // APPROVE / REJECT ADMIN

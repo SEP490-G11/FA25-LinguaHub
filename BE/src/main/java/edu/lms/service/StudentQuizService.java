@@ -2,10 +2,7 @@ package edu.lms.service;
 
 import edu.lms.dto.request.SubmitQuizQuestionAnswer;
 import edu.lms.dto.request.SubmitQuizRequest;
-import edu.lms.dto.response.QuizOptionResponse;
-import edu.lms.dto.response.QuizQuestionResponse;
-import edu.lms.dto.response.SubmitQuizQuestionResultResponse;
-import edu.lms.dto.response.SubmitQuizResultResponse;
+import edu.lms.dto.response.*;
 import edu.lms.entity.*;
 import edu.lms.enums.EnrollmentStatus;
 import edu.lms.enums.LessonType;

@@ -1,6 +1,7 @@
 package edu.lms.repository;
 
 import edu.lms.entity.UserLesson;
+import edu.lms.enums.LessonStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

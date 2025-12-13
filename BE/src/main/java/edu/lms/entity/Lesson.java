@@ -5,7 +5,6 @@ import edu.lms.enums.LessonType;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +24,7 @@ public class Lesson {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sectionID", nullable = false)
     @ToString.Exclude
-    @JsonIgnore
+    @com.fasterxml.jackson.annotation.JsonIgnore
     CourseSection section;
 
     @Column(nullable = false)

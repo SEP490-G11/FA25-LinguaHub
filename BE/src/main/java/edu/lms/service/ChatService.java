@@ -220,7 +220,7 @@ public class ChatService {
             List<BookingPlanSlot> paidSlots = bookingPlanSlotRepository
                     .findPaidSlotsByUserAndTutor(learner.getUserID(), tutor.getTutorID())
                     .stream()
-                    .filter(slot -> slot.getEndTime().isAfter(LocalDateTime.now()))
+                    .filter(slot -> slot.getEndTime().isAfter(java.time.LocalDateTime.now()))
                     .toList();
 
             // Nếu không còn slot nào đã thanh toán và chưa hết hạn, room là read-only

@@ -1,6 +1,7 @@
 package edu.lms.interceptor;
 
 import edu.lms.configuration.CustomJwtDecoder;
+import edu.lms.entity.ChatRoom;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
 import edu.lms.repository.ChatRoomRepository;

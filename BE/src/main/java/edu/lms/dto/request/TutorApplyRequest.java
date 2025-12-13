@@ -1,8 +1,18 @@
 package edu.lms.dto.request;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import lombok.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.util.List;
@@ -20,17 +30,17 @@ public class TutorApplyRequest {
     Short experience;
 
     @NotBlank(message = "Specialization is required")
-    @Size(min = 3, message = "Specialization must be at least 3 characters")
+    @Size(min = 3, max = 255, message = "Specialization must be between 3 and 255 characters")
     @Pattern(regexp = "^[\\p{L}0-9\\s,.-]+$", message = "Specialization contains invalid characters. Only letters (including Vietnamese), numbers, spaces, commas, dots, and hyphens are allowed")
     String specialization;
 
     @NotBlank(message = "Teaching language is required")
-    @Size(min = 2, message = "Teaching language must be at least 2 characters")
+    @Size(min = 2, max = 100, message = "Teaching language must be between 2 and 100 characters")
     @Pattern(regexp = "^[\\p{L}\\s-]+$", message = "Teaching language contains invalid characters. Only letters (including Vietnamese), spaces, and hyphens are allowed")
     String teachingLanguage;
 
     @NotBlank(message = "Bio is required")
-    @Size(min = 50, message = "Bio must be at least 50 characters")
+    @Size(min = 50, max = 1000, message = "Bio must be between 50 and 1000 characters")
     String bio;
 
     @NotEmpty(message = "At least one certificate is required")

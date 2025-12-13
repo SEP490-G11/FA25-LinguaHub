@@ -4,7 +4,6 @@ import edu.lms.enums.ChatRoomType;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-
 import java.util.List;
 
 @Data

@@ -7,6 +7,7 @@ import edu.lms.entity.*;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
 import edu.lms.repository.*;
+import edu.lms.service.LessonService;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.stereotype.Service;
