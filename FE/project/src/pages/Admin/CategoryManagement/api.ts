@@ -26,7 +26,7 @@ export const categoryApi = {
       
       // Check if response indicates success (code 0)
       if (response?.data?.code !== 0) {
-        throw new Error(response?.data?.message || 'Failed to fetch categories');
+        throw new Error(response?.data?.message || 'Không thể tải danh sách danh mục');
       }
       
       // Backend returns array in result field (Requirements: 5.3)
@@ -34,7 +34,7 @@ export const categoryApi = {
       
       // Ensure it's an array
       if (!Array.isArray(backendData)) {
-        throw new Error('Invalid response format: expected array of categories');
+        throw new Error('Định dạng phản hồi không hợp lệ');
       }
       
       // Transform backend data to match Category interface
@@ -53,7 +53,7 @@ export const categoryApi = {
       throw new Error(
         error?.response?.data?.message || 
         error.message || 
-        'Failed to fetch categories'
+        'Không thể tải danh sách danh mục'
       );
     }
   },
@@ -70,14 +70,14 @@ export const categoryApi = {
       
       // Check if response indicates success (code 0)
       if (response?.data?.code !== 0) {
-        throw new Error(response?.data?.message || 'Failed to fetch category');
+        throw new Error(response?.data?.message || 'Không thể tải thông tin danh mục');
       }
       
       // Backend returns single object in result field
       const backendData = response?.data?.result;
       
       if (!backendData) {
-        throw new Error('Category not found');
+        throw new Error('Danh mục không tồn tại');
       }
       
       // Transform backend data to match Category interface
@@ -97,13 +97,13 @@ export const categoryApi = {
       const errorMessage = error?.response?.data?.message;
       
       if (errorCode === CategoryErrorCode.CATEGORY_NOT_FOUND) {
-        throw new Error('Category không tồn tại');
+        throw new Error('Danh mục không tồn tại');
       }
       
       throw new Error(
         errorMessage || 
         error.message || 
-        'Failed to fetch category'
+        'Không thể tải thông tin danh mục'
       );
     }
   },
@@ -126,14 +126,14 @@ export const categoryApi = {
       
       // Check if response indicates success (code 0)
       if (response?.data?.code !== 0) {
-        throw new Error(response?.data?.message || 'Failed to create category');
+        throw new Error(response?.data?.message || 'Không thể tạo danh mục');
       }
       
       // Backend returns created category in result field
       const backendData = response?.data?.result;
       
       if (!backendData) {
-        throw new Error('Failed to create category');
+        throw new Error('Không thể tạo danh mục');
       }
       
       // Transform backend data to match Category interface
@@ -152,14 +152,16 @@ export const categoryApi = {
       const errorCode = error?.response?.data?.code;
       const errorMessage = error?.response?.data?.message;
       
-      if (errorCode === CategoryErrorCode.CATEGORY_ALREADY_EXISTS) {
-        throw new Error('Category đã tồn tại');
+      if (errorCode === CategoryErrorCode.CATEGORY_ALREADY_EXISTS || 
+          errorMessage?.toLowerCase().includes('already exists') ||
+          errorMessage?.toLowerCase().includes('đã tồn tại')) {
+        throw new Error('Danh mục đã tồn tại');
       }
       
       throw new Error(
         errorMessage || 
         error.message || 
-        'Failed to create category'
+        'Không thể tạo danh mục'
       );
     }
   },
@@ -182,14 +184,14 @@ export const categoryApi = {
       
       // Check if response indicates success (code 0)
       if (response?.data?.code !== 0) {
-        throw new Error(response?.data?.message || 'Failed to update category');
+        throw new Error(response?.data?.message || 'Không thể cập nhật danh mục');
       }
       
       // Backend returns updated category in result field
       const backendData = response?.data?.result;
       
       if (!backendData) {
-        throw new Error('Failed to update category');
+        throw new Error('Không thể cập nhật danh mục');
       }
       
       // Transform backend data to match Category interface
@@ -209,17 +211,19 @@ export const categoryApi = {
       const errorMessage = error?.response?.data?.message;
       
       if (errorCode === CategoryErrorCode.CATEGORY_NOT_FOUND) {
-        throw new Error('Category không tồn tại');
+        throw new Error('Danh mục không tồn tại');
       }
       
-      if (errorCode === CategoryErrorCode.CATEGORY_ALREADY_EXISTS) {
-        throw new Error('Tên category đã tồn tại');
+      if (errorCode === CategoryErrorCode.CATEGORY_ALREADY_EXISTS ||
+          errorMessage?.toLowerCase().includes('already exists') ||
+          errorMessage?.toLowerCase().includes('đã tồn tại')) {
+        throw new Error('Tên danh mục đã tồn tại');
       }
       
       throw new Error(
         errorMessage || 
         error.message || 
-        'Failed to update category'
+        'Không thể cập nhật danh mục'
       );
     }
   },
@@ -247,7 +251,7 @@ export const categoryApi = {
         }
         // Only throw if code explicitly indicates failure
         if (response?.data?.code !== 0) {
-          throw new Error(response?.data?.message || 'Failed to delete category');
+          throw new Error(response?.data?.message || 'Không thể xóa danh mục');
         }
       }
     } catch (error: any) {
@@ -261,13 +265,13 @@ export const categoryApi = {
       const errorMessage = error?.response?.data?.message;
       
       if (errorCode === CategoryErrorCode.CATEGORY_IN_USE) {
-        throw new Error('Không thể xóa category vì đang có khóa học sử dụng');
+        throw new Error('Không thể xóa danh mục vì đang có khóa học sử dụng');
       }
       
       throw new Error(
         errorMessage || 
         error.message || 
-        'Failed to delete category'
+        'Không thể xóa danh mục'
       );
     }
   },

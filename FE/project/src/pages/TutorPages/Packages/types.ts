@@ -22,6 +22,7 @@ export interface Package {
   is_active: boolean;
   max_slots: number;
   slot_content: SlotContent[];
+  min_booking_price_per_hour: number;
   created_at: string;
   updated_at: string;
 }

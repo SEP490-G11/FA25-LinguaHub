@@ -20,8 +20,11 @@ export default function UserManagement() {
 
   // Filter and sort users based on current filters
   const filteredUsers = React.useMemo(() => {
-    // First, filter users
+    // First, filter users - exclude Admin users
     let filtered = users.filter(user => {
+      // Exclude Admin users from the list
+      if (user.role === 'Admin') return false;
+
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -101,13 +104,13 @@ export default function UserManagement() {
           statistics={[
             {
               label: 'Tổng người dùng',
-              value: users.length,
-              ariaLabel: `${users.length} tổng người dùng`,
+              value: users.filter(user => user.role !== 'Admin').length,
+              ariaLabel: `${users.filter(user => user.role !== 'Admin').length} tổng người dùng`,
             },
             {
               label: 'Người dùng hoạt động',
-              value: users.filter(user => user.isActive).length,
-              ariaLabel: `${users.filter(user => user.isActive).length} người dùng hoạt động`,
+              value: users.filter(user => user.isActive && user.role !== 'Admin').length,
+              ariaLabel: `${users.filter(user => user.isActive && user.role !== 'Admin').length} người dùng hoạt động`,
             },
           ]}
         />
@@ -198,8 +201,7 @@ export default function UserManagement() {
                     icon: UserCog,
                     options: [
                       { value: 'all', label: 'Tất cả vai trò' },
-                      { value: 'Admin', label: 'Quản trị viên' },
-                      { value: 'Tutor', label: 'Giảng viên' },
+                      { value: 'Tutor', label: 'Gia sư' },
                       { value: 'Learner', label: 'Học viên' },
                     ],
                   },

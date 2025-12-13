@@ -77,7 +77,7 @@ export const ReviewCard: React.FC<ReviewCardProps> = ({ review }) => {
                   aria-hidden="true"
                 />
               ))}
-              <span className="text-sm text-gray-600 ml-1" aria-hidden="true">({review.rating})</span>
+              <span className="text-sm text-gray-600 ml-1" aria-hidden="true">({review.rating.toFixed(1)})</span>
             </div>
 
             {/* Review Comment */}

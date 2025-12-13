@@ -166,7 +166,7 @@ const CalendarView = ({
               </div>
               {hasSlot && !isSelected && (
                 <div className={`text-[10px] font-semibold mt-1 ${labelClass}`}>
-                  ● Có lịch
+                  ● {isPast ? 'Đã qua' : 'Có lịch'}
                 </div>
               )}
             </div>

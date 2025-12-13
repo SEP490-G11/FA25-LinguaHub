@@ -747,7 +747,7 @@ const TutorSchedule: React.FC = () => {
         </Card>
 
         {/* Right Panel - Booking Plans List */}
-        <div className="flex flex-col overflow-hidden">
+        <div className="flex flex-col overflow-hidden min-h-0">
           <BookingPlansList
             bookingPlans={bookingPlans}
             isLoading={isLoading || isRefreshing}

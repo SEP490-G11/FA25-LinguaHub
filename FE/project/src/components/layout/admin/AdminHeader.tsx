@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-    Menu, X, User, LogOut, Settings, LayoutDashboard
+    Menu, X, LogOut, LayoutDashboard
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -83,19 +83,6 @@ const AdminHeader = () => {
                                     <span className="text-xs text-gray-500">{user.email}</span>
                                 </div>
                             </DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => navigate(ROUTES.ADMIN_DASHBOARD)}>
-                                <LayoutDashboard className="mr-2 h-4 w-4" />
-                                Dashboard
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(ROUTES.PROFILE)}>
-                                <User className="mr-2 h-4 w-4" />
-                                Hồ sơ
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => navigate(ROUTES.SETTINGS)}>
-                                <Settings className="mr-2 h-4 w-4" />
-                                Cài đặt
-                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={handleLogout} className="text-red-600">
                                 <LogOut className="mr-2 h-4 w-4" />

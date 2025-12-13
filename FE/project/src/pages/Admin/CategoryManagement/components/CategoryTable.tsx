@@ -56,10 +56,10 @@ export const CategoryTable: React.FC<CategoryTableProps> = ({
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Chưa có category nào
+              Chưa có danh mục nào
             </h3>
             <p className="text-gray-600 text-center max-w-md">
-              Bắt đầu bằng cách tạo category đầu tiên cho hệ thống
+              Bắt đầu bằng cách tạo danh mục đầu tiên cho hệ thống
             </p>
           </div>
         ) : (

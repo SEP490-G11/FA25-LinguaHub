@@ -8,6 +8,7 @@ import { uploadFileToBackend, type FileUploadResponse } from "@/utils/fileUpload
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useChatSignal } from "@/hooks/useChatSignal";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { wsManager } from "@/hooks/webSocketManager";
 import { useToast } from "@/components/ui/use-toast";
 
 interface ChatRoomRaw {
@@ -81,6 +82,15 @@ const FloatingChat = () => {
   // Keep currentUserRef updated
   useEffect(() => {
     currentUserRef.current = currentUser;
+  }, [currentUser]);
+  
+  // Connect WebSocket early when user is logged in (before opening chat)
+  useEffect(() => {
+    const token = localStorage.getItem("access_token") || sessionStorage.getItem("access_token");
+    if (token && currentUser) {
+      // Trigger WebSocket connection early so it's ready when user opens chat
+      wsManager.connect();
+    }
   }, [currentUser]);
   
   // Check if any action is in progress (for disabling other buttons)
@@ -317,7 +327,30 @@ const FloatingChat = () => {
   // Subscribe to all rooms in conversations list for real-time updates
   // Track subscribed rooms to avoid re-subscribing
   const subscribedRoomsRef = useRef<Set<number>>(new Set());
+  const conversationsRef = useRef(conversations);
   
+  // Keep conversationsRef updated
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+  
+  // Subscribe when connected - this handles the case where conversations load before WebSocket connects
+  useEffect(() => {
+    if (!isConnected) return;
+    
+    // Subscribe to all current conversations when WebSocket connects
+    const currentConversations = conversationsRef.current;
+    if (currentConversations.length > 0) {
+      currentConversations.forEach((conv) => {
+        if (!subscribedRoomsRef.current.has(conv.chatRoomID)) {
+          subscribe(conv.chatRoomID);
+          subscribedRoomsRef.current.add(conv.chatRoomID);
+        }
+      });
+    }
+  }, [isConnected, subscribe]);
+  
+  // Subscribe to new rooms when conversations change
   useEffect(() => {
     // Subscribe even when chat is closed to receive notifications
     if (!isConnected || conversations.length === 0) return;
@@ -333,21 +366,24 @@ const FloatingChat = () => {
       }
     });
     
+    // Unsubscribe from rooms no longer in list
     previousRoomIds.forEach((roomId) => {
       if (!currentRoomIds.has(roomId)) {
         unsubscribe(roomId);
         previousRoomIds.delete(roomId);
       }
     });
-
-    // Cleanup on unmount only
+  }, [isConnected, conversations, subscribe, unsubscribe]);
+  
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
-      previousRoomIds.forEach((roomId) => {
+      subscribedRoomsRef.current.forEach((roomId) => {
         unsubscribe(roomId);
       });
-      previousRoomIds.clear();
+      subscribedRoomsRef.current.clear();
     };
-  }, [isConnected, conversations, subscribe, unsubscribe]);
+  }, [unsubscribe]);
 
   // Fetch conversations on mount (for notification badge) and when opening chat
   useEffect(() => {
@@ -800,8 +836,13 @@ const FloatingChat = () => {
                                       type: ""
                                     };
                                     
+                                    // Debug: log raw content to see what we're parsing
+                                    console.log("[FloatingChat] File message raw content:", msg.content);
+                                    console.log("[FloatingChat] displayContent:", displayContent);
+                                    
                                     try {
                                       const parsed = JSON.parse(displayContent);
+                                      console.log("[FloatingChat] Parsed file data:", parsed);
                                       
                                       // New format: has viewUrl and downloadUrl
                                       if (parsed.viewUrl || parsed.downloadUrl) {

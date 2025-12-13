@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
     Bell, Languages, User, LogOut,
-    Settings, Lock, LayoutDashboard
+    Lock, LayoutDashboard
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -213,12 +213,6 @@ const TutorHeader = () => {
                                 <DropdownMenuItem asChild>
                                     <Link to={ROUTES.CHANGE_PASSWORD}>
                                         <Lock className="mr-2 h-4 w-4" /> Đổi mật khẩu
-                                    </Link>
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem asChild>
-                                    <Link to="/tutor/settings">
-                                        <Settings className="mr-2 h-4 w-4" /> Cài đặt
                                     </Link>
                                 </DropdownMenuItem>
 

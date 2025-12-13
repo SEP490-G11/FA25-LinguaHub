@@ -90,7 +90,7 @@ const CourseDetail = () => {
       setLoading(true);
       try {
         const res = await api.get<{ code: number; result: CourseDetailResponse }>(
-            `/courses/detail/${id}`
+          `/courses/detail/${id}`
         );
 
         const data = res.data.result;
@@ -98,7 +98,7 @@ const CourseDetail = () => {
 
         /** --- AUTO REMOVE WISHLIST WHEN PURCHASED --- */
         if (data.isPurchased) {
-          await api.delete(`/wishlist/${data.id}`).catch(() => {});
+          await api.delete(`/wishlist/${data.id}`).catch(() => { });
           setWishlisted(false);
         } else {
           setWishlisted(Boolean(data.isWishListed));
@@ -116,7 +116,7 @@ const CourseDetail = () => {
   // ============ CHECK PAYMENT SUCCESS ============
   useEffect(() => {
     const paid = searchParams.get("paid");
-    
+
     if (paid === "true") {
       toast({
         title: "Thanh toán thành công! 🎉",
@@ -128,13 +128,13 @@ const CourseDetail = () => {
       const refetchCourse = async () => {
         try {
           const res = await api.get<{ code: number; result: CourseDetailResponse }>(
-              `/courses/detail/${id}`
+            `/courses/detail/${id}`
           );
           const data = res.data.result;
           setCourse(data);
-          
+
           if (data.isPurchased) {
-            await api.delete(`/wishlist/${data.id}`).catch(() => {});
+            await api.delete(`/wishlist/${data.id}`).catch(() => { });
             setWishlisted(false);
           }
         } catch (error) {
@@ -142,6 +142,7 @@ const CourseDetail = () => {
         }
       };
 
+      // Delay nhỏ để đảm bảo BE đã cập nhật
       setTimeout(refetchCourse, 1000);
     } else if (paid === "false") {
       toast({
@@ -149,7 +150,7 @@ const CourseDetail = () => {
         title: "Thanh toán thất bại",
         description: "Mua khóa học chưa được xác nhận. Vui lòng thử lại.",
       });
-      
+
       // Xóa query param
       navigate(`/courses/${id}`, { replace: true });
     }
@@ -162,49 +163,49 @@ const CourseDetail = () => {
     return <p className="text-center py-10 text-red-500">Course not found</p>;
 
   return (
-      <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
 
-        {/* ================= HERO =================== */}
-        <CourseHeroSection
-            course={{
-              ...course,
-              isPurchased: Boolean(course.isPurchased),
-            }}
-            wishlisted={wishlisted}
-            setWishlisted={setWishlisted}
-            turnstileToken={null}
-            setTurnstileToken={() => {}}
-        />
-        <section className="py-16">
-          <div className="max-w-7xl mx-auto px-8 lg:px-16">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+      {/* ================= HERO =================== */}
+      <CourseHeroSection
+        course={{
+          ...course,
+          isPurchased: Boolean(course.isPurchased),   // ép boolean
+        }}
+        wishlisted={wishlisted}
+        setWishlisted={setWishlisted}
+        turnstileToken={null}
+        setTurnstileToken={() => { }}
+      />
+      <section className="py-16">
+        <div className="max-w-7xl mx-auto px-8 lg:px-16">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
 
-              {/* LEFT CONTENT */}
-              <div className="lg:col-span-2 space-y-10">
-                <CourseContent course={course} isPurchased={course.isPurchased} />
+            {/* LEFT CONTENT */}
+            <div className="lg:col-span-2 space-y-10">
+              <CourseContent course={course} isPurchased={course.isPurchased} />
 
-                <CourseFeedback
-                    feedbacks={course.review || []}
-                    courseId={course.id}
-                    isPurchased={Boolean(course.isPurchased)}
-                />
-              </div>
-
-              {/* SIDEBAR */}
-              <CourseSidebar
-                  course={{
-                    ...course,
-                    isPurchased: Boolean(course.isPurchased),
-                  }}
-                  wishlisted={wishlisted}
-                  setWishlisted={setWishlisted}
-                  turnstileToken={null}
-                  setTurnstileToken={() => {}}
+              <CourseFeedback
+                feedbacks={course.review || []}
+                courseId={course.id}
+                isPurchased={Boolean(course.isPurchased)}
               />
             </div>
+
+            {/* SIDEBAR */}
+            <CourseSidebar
+              course={{
+                ...course,
+                isPurchased: Boolean(course.isPurchased),
+              }}
+              wishlisted={wishlisted}
+              setWishlisted={setWishlisted}
+              turnstileToken={null}
+              setTurnstileToken={() => { }}
+            />
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
+    </div>
   );
 };
 

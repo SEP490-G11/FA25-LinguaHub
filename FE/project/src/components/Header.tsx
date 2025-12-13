@@ -136,8 +136,8 @@ const Header = () => {
 
                     {/* ===== Right Section ===== */}
                     <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4">
-                        {/* Wishlist - chỉ hiện khi đã đăng nhập */}
-                        {isAuthenticated && (
+                        {/* Wishlist - chỉ hiện khi đã đăng nhập và không phải Admin */}
+                        {isAuthenticated && user?.role !== 'Admin' && (
                             <Button
                                 variant="ghost"
                                 size="icon"
@@ -148,8 +148,8 @@ const Header = () => {
                             </Button>
                         )}
 
-                        {/* Notifications - chỉ hiện khi đã đăng nhập */}
-                        {isAuthenticated && (
+                        {/* Notifications - chỉ hiện khi đã đăng nhập và không phải Admin */}
+                        {isAuthenticated && user?.role !== 'Admin' && (
                             <DropdownMenu
                                 open={notificationsOpen}
                                 onOpenChange={setNotificationsOpen}
@@ -288,51 +288,56 @@ const Header = () => {
 
                                     <DropdownMenuSeparator />
 
-                                    <DropdownMenuItem asChild>
-                                        <Link to={ROUTES.PROFILE}>
-                                            <User className="mr-2 h-4 w-4" /> Hồ sơ
-                                        </Link>
-                                    </DropdownMenuItem>
+                                    {/* Chỉ hiển thị các menu item cho user không phải Admin */}
+                                    {user?.role !== 'Admin' && (
+                                        <>
+                                            <DropdownMenuItem asChild>
+                                                <Link to={ROUTES.PROFILE}>
+                                                    <User className="mr-2 h-4 w-4" /> Hồ sơ
+                                                </Link>
+                                            </DropdownMenuItem>
 
-                                    <DropdownMenuItem asChild>
-                                        <Link to={ROUTES.MY_ENROLLMENTS}>
-                                            <GraduationCap className="mr-2 h-4 w-4" /> Tiến độ học tập
-                                        </Link>
-                                    </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <Link to={ROUTES.MY_ENROLLMENTS}>
+                                                    <GraduationCap className="mr-2 h-4 w-4" /> Tiến độ học tập
+                                                </Link>
+                                            </DropdownMenuItem>
 
-                                    <DropdownMenuItem asChild>
-                                        <Link to="/my-bookings" className="cursor-pointer">
-                                            <Calendar className="mr-2 h-4 w-4" />
-                                            <span>Lịch học của tôi</span>
-                                        </Link>
-                                    </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <Link to="/my-bookings" className="cursor-pointer">
+                                                    <Calendar className="mr-2 h-4 w-4" />
+                                                    <span>Lịch học của tôi</span>
+                                                </Link>
+                                            </DropdownMenuItem>
 
-                                    <DropdownMenuItem asChild>
-                                        <Link to="/messages">
-                                            <MessageCircle className="mr-2 h-4 w-4" />Hộp chat
-                                        </Link>
-                                    </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <Link to="/messages">
+                                                    <MessageCircle className="mr-2 h-4 w-4" />Hộp chat
+                                                </Link>
+                                            </DropdownMenuItem>
 
-                                    <DropdownMenuItem asChild>
-                                        <Link to={ROUTES.REFUND_REQUESTS} className="cursor-pointer">
-                                            <DollarSign className="mr-2 h-4 w-4" />
-                                            <span>Yêu cầu hoàn tiền</span>
-                                        </Link>
-                                    </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <Link to={ROUTES.REFUND_REQUESTS} className="cursor-pointer">
+                                                    <DollarSign className="mr-2 h-4 w-4" />
+                                                    <span>Yêu cầu hoàn tiền</span>
+                                                </Link>
+                                            </DropdownMenuItem>
 
-                                    <DropdownMenuItem asChild>
-                                        <Link to={ROUTES.PAYMENT_HISTORY}>
-                                            <CreditCard className="mr-2 h-4 w-4" /> Lịch sử thanh toán
-                                        </Link>
-                                    </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <Link to={ROUTES.PAYMENT_HISTORY}>
+                                                    <CreditCard className="mr-2 h-4 w-4" /> Lịch sử thanh toán
+                                                </Link>
+                                            </DropdownMenuItem>
 
-                                    <DropdownMenuItem asChild>
-                                        <Link to={ROUTES.CHANGE_PASSWORD}>
-                                            <Lock className="mr-2 h-4 w-4" /> Đổi mật khẩu
-                                        </Link>
-                                    </DropdownMenuItem>
+                                            <DropdownMenuItem asChild>
+                                                <Link to={ROUTES.CHANGE_PASSWORD}>
+                                                    <Lock className="mr-2 h-4 w-4" /> Đổi mật khẩu
+                                                </Link>
+                                            </DropdownMenuItem>
 
-                                    <DropdownMenuSeparator />
+                                            <DropdownMenuSeparator />
+                                        </>
+                                    )}
 
                                     <DropdownMenuItem
                                         className="text-red-600"

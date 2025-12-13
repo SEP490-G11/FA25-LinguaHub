@@ -28,6 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { tutorApprovalApi } from './api';
 import { Application } from './types';
 import { ROUTES } from '@/constants/routes';
+import { processHtmlContent, proseClasses, quillViewerStyles } from '@/utils/textUtils';
 
 export default function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -354,10 +355,12 @@ export default function ApplicationDetailPage() {
                     <FileText className="h-4 w-4 mr-2" />
                     Giới thiệu
                   </Label>
+                  <style>{quillViewerStyles}</style>
                   <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                    <p className="text-base text-gray-700 leading-relaxed whitespace-pre-wrap">
-                      {application.bio}
-                    </p>
+                    <div 
+                      className={proseClasses}
+                      dangerouslySetInnerHTML={{ __html: processHtmlContent(application.bio) }}
+                    />
                   </div>
                 </div>
               </CardContent>

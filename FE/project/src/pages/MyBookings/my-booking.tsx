@@ -33,24 +33,39 @@ const MyBookings = () => {
     });
   }, [userID]);
 
-  // Fetch bookings on mount
+  // Fetch bookings on mount and auto-refresh every 10 seconds
   useEffect(() => {
     fetchBookings();
+    
+    // Auto-refresh every 10 seconds
+    const intervalId = setInterval(() => {
+      fetchBookings();
+    }, 10000);
+    
+    return () => clearInterval(intervalId);
   }, [fetchBookings]);
 
   const calculateStats = (): BookingStats => {
     const now = new Date();
 
-    const upcomingSlots = bookings.filter((b) => {
-      const endTime = new Date(b.endTime);
-      return endTime >= now;
+    // Slot bị hủy bởi tutor: Rejected + không có learnerEvidence
+    const cancelledSlots = bookings.filter((b) => {
+      return b.status === 'Rejected' && !b.learnerEvidence;
     });
 
+    // Slot sắp tới: endTime >= now VÀ status !== 'Rejected'
+    const upcomingSlots = bookings.filter((b) => {
+      const endTime = new Date(b.endTime);
+      return endTime >= now && b.status !== 'Rejected';
+    });
+
+    // Slot đã qua: endTime < now (không quan tâm status)
     const expiredSlots = bookings.filter((b) => {
       const endTime = new Date(b.endTime);
       return endTime < now;
     });
 
+    // Tổng giờ tính tất cả các slot
     const totalHours = bookings.reduce((acc, b) => {
       const start = new Date(b.startTime);
       const end = new Date(b.endTime);
@@ -60,6 +75,7 @@ const MyBookings = () => {
     return {
       upcoming: upcomingSlots.length,
       expired: expiredSlots.length,
+      cancelled: cancelledSlots.length,
       totalSlots: bookings.length,
       totalHours: Math.round(totalHours),
     };
