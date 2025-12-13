@@ -1,9 +1,6 @@
 package edu.lms.service;
 
-import edu.lms.dto.response.AdminCourseDetailResponse;
-import edu.lms.dto.response.AdminCourseDraftChangesResponse;
-import edu.lms.dto.response.AdminCourseDraftResponse;
-import edu.lms.dto.response.AdminCourseResponse;
+import edu.lms.dto.response.*;
 import edu.lms.entity.*;
 import edu.lms.enums.CourseDraftStatus;
 import edu.lms.enums.CourseStatus;
@@ -13,22 +10,18 @@ import edu.lms.exception.AppException;
 import edu.lms.repository.*;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
-import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -480,10 +473,10 @@ class AdminCourseServiceTest {
             verify(notificationService, times(1))
                     .sendNotification(
                             eq(99L),
-                            contains("Khoá học đã được phê duyệt"),
+                            contains("Course approved"),
                             contains("Course 3"),
                             eq(NotificationType.COURSE_APPROVED),
-                            eq("/tutor/courses/3/details")
+                            eq("/tutor/courses/3")
                     );
         }
 
@@ -520,10 +513,10 @@ class AdminCourseServiceTest {
             verify(notificationService, times(1))
                     .sendNotification(
                             eq(99L),
-                            contains("Khoá học đã được phê duyệt"),
+                            contains("Course approved"),
                             contains("Course 11"),
                             eq(NotificationType.COURSE_APPROVED),
-                            eq("/tutor/courses/11/details")
+                            eq("/tutor/courses/11")
                     );
         }
     }
@@ -573,10 +566,10 @@ class AdminCourseServiceTest {
             verify(notificationService, times(1))
                     .sendNotification(
                             eq(99L),
-                            contains("Khoá học bị từ chối"),
+                            contains("Course rejected"),
                             contains("Course 3"),
                             eq(NotificationType.COURSE_REJECTED),
-                            eq("/tutor/courses/3/details")
+                            eq("/tutor/courses/3")
                     );
         }
 
@@ -595,10 +588,10 @@ class AdminCourseServiceTest {
             verify(notificationService, times(1))
                     .sendNotification(
                             eq(99L),
-                            contains("Khoá học bị từ chối"),
+                            contains("Course rejected"),
                             contains("Course 12"),
                             eq(NotificationType.COURSE_REJECTED),
-                            eq("/tutor/courses/12/details")
+                            eq("/tutor/courses/12")
                     );
         }
     }
@@ -732,8 +725,8 @@ class AdminCourseServiceTest {
             verify(notificationService, atLeastOnce())
                     .sendNotification(
                             anyLong(),
-                            contains("Khoá học đã được cập nhật"),
-                            contains("vừa được cập nhật"),
+                            contains("Course updated"),
+                            contains("has just been updated"),
                             eq(NotificationType.COURSE_UPDATED),
                             eq("/courses/" + course.getCourseID())
                     );
@@ -746,10 +739,10 @@ class AdminCourseServiceTest {
             verify(notificationService, times(1))
                     .sendNotification(
                             eq(99L),
-                            contains("Bản nháp đã được phê duyệt"),
-                            contains("đã được Admin phê duyệt"),
+                            contains("Course draft approved"),
+                            contains("have been approved"),
                             eq(NotificationType.COURSE_DRAFT_APPROVED),
-                            eq("/tutor/courses/" + course.getCourseID() + "/details")
+                            eq("/tutor/courses/" + course.getCourseID())
                     );
         }
     }
@@ -819,10 +812,10 @@ class AdminCourseServiceTest {
             verify(notificationService, times(1))
                     .sendNotification(
                             eq(99L),
-                            contains("Bản nháp bị từ chối"),
-                            contains("đã bị Admin từ chối"),
+                            contains("Course draft rejected"),
+                            contains("was rejected"),
                             eq(NotificationType.COURSE_DRAFT_REJECTED),
-                            eq("/tutor/courses/" + c.getCourseID() + "/details")
+                            eq("/tutor/courses/" + c.getCourseID())
                     );
         }
 
@@ -872,10 +865,10 @@ class AdminCourseServiceTest {
             verify(notificationService, times(1))
                     .sendNotification(
                             eq(99L),
-                            contains("Bản nháp bị từ chối"),
-                            contains("đã bị Admin từ chối"),
+                            contains("Course draft rejected"),
+                            contains("was rejected"),
                             eq(NotificationType.COURSE_DRAFT_REJECTED),
-                            eq("/tutor/courses/" + c.getCourseID() + "/details")
+                            eq("/tutor/courses/" + c.getCourseID())
                     );
         }
     }
@@ -900,10 +893,10 @@ class AdminCourseServiceTest {
             verify(notificationService, times(1))
                     .sendNotification(
                             eq(99L),
-                            contains("Bản nháp bị từ chối"),
-                            contains("đã bị Admin từ chối"),
+                            contains("Course draft rejected"),
+                            contains("was rejected"),
                             eq(NotificationType.COURSE_DRAFT_REJECTED),
-                            eq("/tutor/courses/" + c.getCourseID() + "/details")
+                            eq("/tutor/courses/" + c.getCourseID())
                     );
         }
     }
@@ -1030,8 +1023,8 @@ class AdminCourseServiceTest {
             verify(notificationService, times(1))
                     .sendNotification(
                             eq(500L),
-                            contains("Khoá học đã được cập nhật"),
-                            contains("vừa được cập nhật"),
+                            contains("Course updated"),
+                            contains("has just been updated"),
                             eq(NotificationType.COURSE_UPDATED),
                             eq("/courses/" + course.getCourseID())
                     );

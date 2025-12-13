@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  centralized-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: centralized-api
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+#    environment:
+#      SERVER_PORT: 1212
+
+#    network_mode: host

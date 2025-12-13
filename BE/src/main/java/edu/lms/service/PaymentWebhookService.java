@@ -1,6 +1,7 @@
 package edu.lms.service;
 
 import edu.lms.entity.BookingPlanSlot;
+import edu.lms.entity.Payment;
 import edu.lms.enums.PaymentStatus;
 import edu.lms.enums.PaymentType;
 import edu.lms.enums.SlotStatus;

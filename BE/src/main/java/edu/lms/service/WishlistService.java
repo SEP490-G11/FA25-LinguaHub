@@ -1,14 +1,23 @@
 package edu.lms.service;
 
 import edu.lms.dto.response.CourseResponse;
-import edu.lms.entity.*;
+import edu.lms.entity.Course;
+import edu.lms.entity.Enrollment;
+import edu.lms.entity.Tutor;
+import edu.lms.entity.User;
+import edu.lms.entity.Wishlist;
 import edu.lms.enums.EnrollmentStatus;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
-import edu.lms.repository.*;
+import edu.lms.repository.CourseRepository;
+import edu.lms.repository.CourseReviewRepository;
+import edu.lms.repository.EnrollmentRepository;
+import edu.lms.repository.UserRepository;
+import edu.lms.repository.WishlistRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.AccessLevel;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

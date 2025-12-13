@@ -5,10 +5,7 @@ import edu.lms.dto.request.TutorCertificateRequest;
 import edu.lms.dto.request.TutorUpdateRequest;
 import edu.lms.dto.response.TutorApplicationListResponse;
 import edu.lms.dto.response.TutorApplyResponse;
-import edu.lms.entity.Role;
-import edu.lms.entity.Tutor;
-import edu.lms.entity.TutorVerification;
-import edu.lms.entity.User;
+import edu.lms.entity.*;
 import edu.lms.enums.TutorStatus;
 import edu.lms.enums.TutorVerificationStatus;
 import edu.lms.exception.TutorApplicationException;
@@ -32,8 +29,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /**

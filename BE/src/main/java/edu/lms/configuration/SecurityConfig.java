@@ -94,18 +94,24 @@ public class SecurityConfig {
 
     /**
      * Security filter chain for WebSocket endpoints - NO JWT authentication
-     * This chain has higher priority (Order 1) and only matches /ws/** paths
+     * This chain has higher priority (Order 1) and matches all /ws paths
      */
     @Bean
     @Order(1)
     public SecurityFilterChain webSocketSecurityFilterChain(HttpSecurity http) throws Exception {
         http
-                .securityMatcher("/ws/**")
+                .securityMatcher(request -> {
+                    String path = request.getRequestURI();
+                    return path.startsWith("/ws");
+                })
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
+                .headers(headers -> headers.frameOptions(frame -> frame.disable()))
                 .authorizeHttpRequests(auth -> auth
                         .anyRequest().permitAll()
-                );
+                )
+                .oauth2ResourceServer(AbstractHttpConfigurer::disable)
+                .anonymous(anonymous -> {});
         return http.build();
     }
 
@@ -182,11 +188,24 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(
-                List.of("http://localhost:*", "http://127.0.0.1:*", "https://*.ngrok-free.dev")
+                List.of("http://localhost:*", "http://127.0.0.1:*", "https://*.ngrok-free.dev", 
+                        "https://centralized-language-tutor.vercel.app", "https://*.henrytech.cloud")
         );
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type",
+                "X-Requested-With",
+                "Accept",
+                "Origin",
+                "Cache-Control",
+                "Pragma",
+                "Access-Control-Request-Headers",
+                "Access-Control-Request-Method"
+        ));
+        configuration.setExposedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With"));
         configuration.setAllowCredentials(true);
+        configuration.setMaxAge(3600L); // Cache preflight for 1 hour
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

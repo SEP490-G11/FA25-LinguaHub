@@ -13,13 +13,9 @@ import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
 import edu.lms.repository.*;
 import jakarta.servlet.http.HttpSession;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -244,7 +240,7 @@ class AuthenticationServiceTest {
         void register_sendOtpFail_shouldThrowRuntimeException() {
             UserCreationRequest req = validRequest();
 
-            Role role = new Role();
+            edu.lms.entity.Role role = new edu.lms.entity.Role();
             role.setName("Learner");
 
             when(userRepository.findByEmail(req.getEmail())).thenReturn(Optional.empty());
@@ -279,7 +275,7 @@ class AuthenticationServiceTest {
         void register_success_shouldSaveVerificationAndSetSession() {
             UserCreationRequest req = validRequest();
 
-            Role role = new Role();
+            edu.lms.entity.Role role = new edu.lms.entity.Role();
             role.setName("Learner");
 
             when(userRepository.findByEmail(req.getEmail())).thenReturn(Optional.empty());
@@ -453,7 +449,7 @@ class AuthenticationServiceTest {
             ver.setOtp("123456");
             ver.setExpiresAt(LocalDateTime.now().plusMinutes(5));
 
-            Role role = new Role();
+            edu.lms.entity.Role role = new edu.lms.entity.Role();
             role.setName("Learner");
 
             when(verificationRepository.findByEmailAndOtp(email, "123456"))
@@ -489,7 +485,7 @@ class AuthenticationServiceTest {
             u.setUsername(usernameOrEmail);
             u.setIsActive(true);
 
-            Role role = new Role();
+            edu.lms.entity.Role role = new edu.lms.entity.Role();
             role.setName("Learner");
             role.setPermissions(new HashSet<>()); // không null để tránh NPE
             u.setRole(role);
@@ -691,7 +687,7 @@ class AuthenticationServiceTest {
             Permission p2 = new Permission();
             p2.setName("MANAGE_PROFILE");
 
-            Role role = new Role();
+            edu.lms.entity.Role role = new edu.lms.entity.Role();
             role.setName("Learner");
             role.setPermissions(new HashSet<>(Arrays.asList(p1, p2)));
 
@@ -730,7 +726,7 @@ class AuthenticationServiceTest {
             user.setUserID(20L);
             user.setEmail("tutor@linguahub.com");
 
-            Role role = new Role();
+            edu.lms.entity.Role role = new edu.lms.entity.Role();
             role.setName("Tutor");
             role.setPermissions(Collections.emptySet());
             user.setRole(role);
@@ -803,7 +799,7 @@ class AuthenticationServiceTest {
             user.setUserID(1L);
             user.setEmail("user@linguahub.com");
 
-            Role role = new Role();
+            edu.lms.entity.Role role = new edu.lms.entity.Role();
             role.setName("Learner");
             role.setPermissions(Collections.emptySet());
             user.setRole(role);

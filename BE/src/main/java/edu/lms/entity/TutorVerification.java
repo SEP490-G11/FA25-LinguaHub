@@ -31,10 +31,10 @@ public class TutorVerification {
     @Column(name = "experience", nullable = false)
     Short experience = 0;
 
-    @Column(name = "specialization", columnDefinition = "TEXT")
+    @Column(name = "specialization", length = 255)
     String specialization;
 
-    @Column(name = "teaching_language", columnDefinition = "TEXT")
+    @Column(name = "teaching_language", length = 100)
     String teachingLanguage;
 
     @Column(name = "bio", columnDefinition = "TEXT")

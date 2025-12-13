@@ -997,7 +997,7 @@ public class TutorBookingPlanService {
                             "Hệ thống đã tạo yêu cầu hoàn tiền cho bạn. " +
                             "Vui lòng nhập thông tin ngân hàng để nhận tiền hoặc chọn lịch khác.",
                     NotificationType.REFUND_AVAILABLE,
-                    "/learner/refunds"
+                    "/learner/refunds/" + refund.getRefundRequestId()
             );
 
             // Thông báo cho tutor

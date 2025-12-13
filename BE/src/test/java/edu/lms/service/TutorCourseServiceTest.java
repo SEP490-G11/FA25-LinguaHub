@@ -1,27 +1,18 @@
 package edu.lms.service;
 
 import edu.lms.dto.request.TutorCourseRequest;
-import edu.lms.dto.response.TutorCourseDetailResponse;
-import edu.lms.dto.response.TutorCourseResponse;
-import edu.lms.dto.response.TutorCourseStudentResponse;
+import edu.lms.dto.response.*;
 import edu.lms.entity.*;
-import edu.lms.enums.CourseDraftStatus;
-import edu.lms.enums.CourseLevel;
-import edu.lms.enums.CourseStatus;
-import edu.lms.enums.TutorStatus;
+import edu.lms.enums.*;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
 import edu.lms.mapper.TutorCourseMapper;
 import edu.lms.repository.*;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -29,8 +20,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 

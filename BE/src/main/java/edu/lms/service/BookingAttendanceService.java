@@ -2,14 +2,22 @@ package edu.lms.service;
 
 import edu.lms.dto.request.BookingComplaintRequest;
 import edu.lms.dto.request.EvidenceRequest;
-import edu.lms.entity.*;
+import edu.lms.entity.BookingPlan;
+import edu.lms.entity.BookingPlanSlot;
+import edu.lms.entity.Payment;
+import edu.lms.entity.RefundRequest;
+import edu.lms.entity.Tutor;
 import edu.lms.enums.NotificationType;
 import edu.lms.enums.RefundStatus;
 import edu.lms.enums.RefundType;
 import edu.lms.enums.SlotStatus;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
-import edu.lms.repository.*;
+import edu.lms.repository.BookingPlanRepository;
+import edu.lms.repository.BookingPlanSlotRepository;
+import edu.lms.repository.PaymentRepository;
+import edu.lms.repository.RefundRequestRepository;
+import edu.lms.repository.TutorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -151,7 +159,7 @@ public class BookingAttendanceService {
                         + formatDateTime(slot.getStartTime())
                         + ". Vui lòng theo dõi trạng thái hoàn tiền.",
                 NotificationType.REFUND_AVAILABLE,
-                "/learner/refunds"
+                "/learner/refunds/" + refund.getRefundRequestId()
         );
 
         // Gửi notif yêu cầu tutor phản hồi CHỈ khi tutor chưa join & chưa có evidence trước đó

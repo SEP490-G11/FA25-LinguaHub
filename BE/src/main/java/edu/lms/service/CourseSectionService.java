@@ -2,8 +2,7 @@ package edu.lms.service;
 
 import edu.lms.dto.request.CourseSectionRequest;
 import edu.lms.dto.response.CourseSectionResponse;
-import edu.lms.entity.Course;
-import edu.lms.entity.CourseSection;
+import edu.lms.entity.*;
 import edu.lms.exception.AppException;
 import edu.lms.exception.ErrorCode;
 import edu.lms.mapper.CourseSectionMapper;
@@ -16,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static java.util.stream.Collectors.toList;
 import static lombok.AccessLevel.PRIVATE;
 
 @Service

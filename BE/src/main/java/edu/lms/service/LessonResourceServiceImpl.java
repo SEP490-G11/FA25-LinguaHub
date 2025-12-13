@@ -2,23 +2,18 @@ package edu.lms.service;
 
 import edu.lms.dto.request.LessonResourceRequest;
 import edu.lms.dto.response.LessonResourceResponse;
-import edu.lms.entity.Lesson;
-import edu.lms.entity.LessonResource;
-import edu.lms.entity.Tutor;
-import edu.lms.entity.User;
+import edu.lms.entity.*;
 import edu.lms.enums.ResourceType;
-import edu.lms.exception.ResourceNotFoundException;
-import edu.lms.repository.LessonRepository;
-import edu.lms.repository.LessonResourceRepository;
-import edu.lms.repository.TutorRepository;
-import edu.lms.repository.UserRepository;
+import edu.lms.exception.*;
 import edu.lms.security.UserPrincipal;
+import edu.lms.repository.*;
 import jakarta.validation.ValidationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 
 import java.time.LocalDateTime;
 import java.util.List;

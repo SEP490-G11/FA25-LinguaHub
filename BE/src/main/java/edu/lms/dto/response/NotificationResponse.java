@@ -1,10 +1,7 @@
 package edu.lms.dto.response;
 
 import edu.lms.enums.NotificationType;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
