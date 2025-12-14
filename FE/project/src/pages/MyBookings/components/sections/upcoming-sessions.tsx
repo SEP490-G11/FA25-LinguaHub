@@ -83,10 +83,8 @@ const UpcomingSessions = ({
   }, []);
   
   // Hàm kiểm tra thời gian hiện tại có nằm trong khoảng slot không (1 tiếng)
-  // TODO: Bỏ comment khi test xong
   const isWithinSlotTime = (startTime: Date, endTime: Date): boolean => {
-    // return currentTime >= startTime && currentTime <= endTime;
-    return true; // Tạm thời luôn trả về true để test
+    return currentTime >= startTime && currentTime <= endTime;
   };
 
   // Fetch lý do khiếu nại từ API refund khi có booking có learnerEvidence
